@@ -847,7 +847,15 @@ class SendpulseConnect(models.Model):
             })
 
         try:
+            _logger.info(
+                'SendPulse Odo: відправляємо в %s contact=%s payload=%s',
+                endpoint, self.sendpulse_contact_id, payload,
+            )
             resp = requests.post(endpoint, headers=headers, json=payload, timeout=15)
+            _logger.info(
+                'SendPulse Odo: відповідь API status=%s body=%s',
+                resp.status_code, resp.text[:500],
+            )
             resp.raise_for_status()
             _logger.info('SendPulse Odo: повідомлення відправлено контакту %s', self.sendpulse_contact_id)
             return True
