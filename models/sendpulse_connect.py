@@ -223,18 +223,39 @@ class SendpulseConnect(models.Model):
             'description': self._get_channel_description(),
         })
 
-        # Додаємо всіх операторів групи SendPulse + призначених операторів
-        partner_ids = []
-        group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_officer', raise_if_not_found=False)
-        if group:
-            partner_ids = group.users.mapped('partner_id').ids
-        for user in self.user_ids:
-            if user.partner_id.id not in partner_ids:
-                partner_ids.append(user.partner_id.id)
-        if not partner_ids:
-            partner_ids = [self.env.user.partner_id.id]
+        # Збираємо партнерів для каналу
+        partner_ids = set()
 
-        channel.add_members(partner_ids=partner_ids)
+        # 1. Всі активні користувачі групи officer
+        officer_group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_officer', raise_if_not_found=False)
+        if officer_group:
+            partner_ids.update(officer_group.users.filtered('active').mapped('partner_id').ids)
+
+        # 2. Всі активні користувачі групи admin
+        admin_group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_admin', raise_if_not_found=False)
+        if admin_group:
+            partner_ids.update(admin_group.users.filtered('active').mapped('partner_id').ids)
+
+        # 3. Призначені оператори розмови
+        for user in self.user_ids:
+            if user.active:
+                partner_ids.add(user.partner_id.id)
+
+        # 4. Fallback: якщо жодного оператора не налаштовано — додаємо всіх
+        #    внутрішніх (не портальних) активних користувачів системи
+        if not partner_ids:
+            internal_users = self.env['res.users'].search([
+                ('share', '=', False),
+                ('active', '=', True),
+            ])
+            partner_ids.update(internal_users.mapped('partner_id').ids)
+
+        # Видаляємо системного бота (OdooBot), щоб не засмічував Discuss
+        bot = self.env.ref('base.partner_root', raise_if_not_found=False)
+        if bot:
+            partner_ids.discard(bot.id)
+
+        channel.add_members(partner_ids=list(partner_ids))
 
         # Якщо є збережені повідомлення — постимо їх в канал
         for msg in self.message_ids.sorted('date'):
@@ -277,6 +298,57 @@ class SendpulseConnect(models.Model):
         """Архівує discuss.channel при закритті розмови."""
         if self.channel_id:
             self.channel_id.write({'active': False})
+
+    def action_sync_discuss_channels(self):
+        """
+        Масова синхронізація Discuss-каналів:
+        - Для розмов без каналу → створює новий channel
+        - Для розмов з каналом → додає всіх поточних операторів як учасників
+
+        Викликається вручну з list-view (кнопка Action).
+        """
+        # Збираємо партнерів усіх операторів
+        partner_ids = set()
+        officer_group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_officer', raise_if_not_found=False)
+        if officer_group:
+            partner_ids.update(officer_group.users.filtered('active').mapped('partner_id').ids)
+        admin_group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_admin', raise_if_not_found=False)
+        if admin_group:
+            partner_ids.update(admin_group.users.filtered('active').mapped('partner_id').ids)
+        if not partner_ids:
+            internal_users = self.env['res.users'].search([
+                ('share', '=', False), ('active', '=', True),
+            ])
+            partner_ids.update(internal_users.mapped('partner_id').ids)
+        bot = self.env.ref('base.partner_root', raise_if_not_found=False)
+        if bot:
+            partner_ids.discard(bot.id)
+        partner_ids = list(partner_ids)
+
+        created = 0
+        synced = 0
+        for connect in self:
+            if connect.stage == 'close':
+                continue
+            if not connect.channel_id:
+                connect._create_discuss_channel()
+                created += 1
+            else:
+                # Переконуємось що всі оператори є учасниками
+                if partner_ids:
+                    connect.channel_id.add_members(partner_ids=partner_ids)
+                synced += 1
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'SendPulse: Sync завершено',
+                'message': f'Створено каналів: {created}. Оновлено: {synced}.',
+                'type': 'success',
+                'sticky': False,
+            },
+        }
 
     def _post_history_to_partner(self):
         """Зберігає всі повідомлення у вкладці Messaging картки партнера."""

@@ -146,6 +146,17 @@
         </field>
     </record>
 
+    <!-- Server Action: Sync Discuss channels -->
+    <record id="action_sync_discuss_channels" model="ir.actions.server">
+        <field name="name">Sync Discuss каналів</field>
+        <field name="model_id" ref="model_sendpulse_connect"/>
+        <field name="binding_model_id" ref="model_sendpulse_connect"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">records.action_sync_discuss_channels()</field>
+        <field name="groups_id" eval="[(4, ref('odoo_chatwoot_connector.group_sendpulse_admin'))]"/>
+    </record>
+
     <!-- Actions -->
     <record id="action_sendpulse_connect_all" model="ir.actions.act_window">
         <field name="name">Всі розмови</field>
