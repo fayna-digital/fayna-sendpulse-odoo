@@ -67,18 +67,20 @@ class SendpulseIdentifyWizard(models.TransientModel):
     # ════════════════════════════════════════════════════════════════════
 
     def action_search(self):
-        """Шукає партнерів за email або телефоном."""
+        """Шукає партнерів за email, телефоном або іменем (часткове співпадіння)."""
         self.ensure_one()
         domain = []
 
         if self.search_email and self.search_email.strip():
-            domain = [('email', '=ilike', self.search_email.strip())]
+            term = self.search_email.strip()
+            # Пошук по email (частковий) АБО по імені
+            domain = ['|', ('email', 'ilike', term), ('name', 'ilike', term)]
         elif self.search_phone and self.search_phone.strip():
             clean = self.search_phone.strip().replace(' ', '').replace('-', '')
-            domain = ['|', ('phone', '=', clean), ('mobile', '=', clean)]
+            domain = ['|', '|', ('phone', 'ilike', clean), ('mobile', 'ilike', clean), ('name', 'ilike', clean)]
 
         if domain:
-            partners = self.env['res.partner'].search(domain, limit=20)
+            partners = self.env['res.partner'].search(domain + [('active', '=', True)], limit=20)
         else:
             partners = self.env['res.partner']
 
