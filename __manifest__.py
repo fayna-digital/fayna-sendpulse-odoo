@@ -35,6 +35,7 @@
         'data/sendpulse_data.xml',
         'data/clean_data_cron.xml',
         'views/sendpulse_connect_views.xml',
+        'views/sendpulse_identify_wizard_views.xml',
         'views/res_partner_views.xml',
     ],
     'installable': True,

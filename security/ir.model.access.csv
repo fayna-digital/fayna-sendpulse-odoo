@@ -9,3 +9,5 @@ access_sendpulse_webhook_data_officer,sendpulse.webhook.data officer,model_sendp
 access_sendpulse_webhook_data_admin,sendpulse.webhook.data admin,model_sendpulse_webhook_data,group_sendpulse_admin,1,1,1,1
 access_partner_sendpulse_channel_officer,partner.sendpulse.channel officer,model_partner_sendpulse_channel,group_sendpulse_officer,1,1,1,1
 access_partner_sendpulse_channel_admin,partner.sendpulse.channel admin,model_partner_sendpulse_channel,group_sendpulse_admin,1,1,1,1
+access_sendpulse_identify_wizard_officer,sendpulse.identify.wizard officer,model_sendpulse_identify_wizard,group_sendpulse_officer,1,1,1,1
+access_sendpulse_identify_wizard_admin,sendpulse.identify.wizard admin,model_sendpulse_identify_wizard,group_sendpulse_admin,1,1,1,1
