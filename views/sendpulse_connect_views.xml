@@ -32,6 +32,11 @@
                     <button name="action_open_discuss" type="object"
                             string="Відкрити чат" class="btn-primary"
                             invisible="stage == 'close'"/>
+                    <button name="%(odoo_chatwoot_connector.action_sendpulse_identify_wizard)d"
+                            string="Ідентифікувати клієнта"
+                            type="action"
+                            class="btn-warning"
+                            invisible="partner_id != False or stage == 'close'"/>
                     <button name="action_close" type="object"
                             string="Закрити розмову"
                             invisible="stage == 'close'"
