@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- ══════════════════════════════════════════════════════════════════
-         SENDPULSE.CONNECT — List View
-         Показує всі розмови. Нові / нові повідомлення зверху.
-    ══════════════════════════════════════════════════════════════════════ -->
+    <!-- List View -->
     <record id="view_sendpulse_connect_list" model="ir.ui.view">
         <field name="name">sendpulse.connect.list</field>
         <field name="model">sendpulse.connect</field>
@@ -13,29 +10,19 @@
                   decoration-danger="stage == 'new'"
                   decoration-warning="stage == 'new_message'"
                   decoration-muted="stage == 'close'"
-                  default_order="write_date desc"
                   create="false">
-                <field name="service_icon" string="" width="30px"/>
                 <field name="name" string="Контакт"/>
                 <field name="service" string="Канал"/>
-                <field name="partner_id" string="Клієнт в Odoo"/>
+                <field name="partner_id" string="Клієнт"/>
                 <field name="social_username" string="Username"/>
                 <field name="last_message_preview" string="Останнє повідомлення"/>
                 <field name="last_message_date" string="Дата"/>
-                <field name="user_ids" string="Оператори" widget="many2many_avatar_user"/>
-                <field name="stage" string="Статус" widget="badge"
-                       decoration-danger="stage == 'new'"
-                       decoration-warning="stage == 'new_message'"
-                       decoration-success="stage == 'in_progress'"
-                       decoration-muted="stage == 'close'"/>
-                <field name="is_unidentified" column_invisible="True"/>
+                <field name="stage" string="Статус"/>
             </list>
         </field>
     </record>
 
-    <!-- ══════════════════════════════════════════════════════════════════
-         SENDPULSE.CONNECT — Form View
-    ══════════════════════════════════════════════════════════════════════ -->
+    <!-- Form View -->
     <record id="view_sendpulse_connect_form" model="ir.ui.view">
         <field name="name">sendpulse.connect.form</field>
         <field name="model">sendpulse.connect</field>
@@ -43,80 +30,52 @@
             <form string="Розмова SendPulse">
                 <header>
                     <button name="action_open_discuss" type="object"
-                            string="💬 Відкрити чат" class="btn-primary"
+                            string="Відкрити чат" class="btn-primary"
                             invisible="stage == 'close'"/>
-                    <button name="action_identify_partner" type="object"
-                            string="🔍 Ідентифікувати клієнта"
-                            invisible="partner_id != False or stage == 'close'"
-                            class="btn-warning"/>
                     <button name="action_close" type="object"
-                            string="✓ Закрити розмову"
+                            string="Закрити розмову"
                             invisible="stage == 'close'"
                             confirm="Закрити цю розмову?"/>
                     <button name="action_reopen" type="object"
-                            string="↩ Відновити"
+                            string="Відновити"
                             invisible="stage != 'close'"/>
                     <field name="stage" widget="statusbar"
                            statusbar_visible="new,in_progress,new_message,close"/>
                 </header>
                 <sheet>
-                    <div class="oe_button_box" name="button_box">
-                        <button name="action_open_discuss" type="object"
-                                class="oe_stat_button" icon="fa-comments"
-                                invisible="not channel_id">
-                            <span class="o_stat_text">Discuss</span>
-                        </button>
-                    </div>
-
-                    <div class="oe_title">
-                        <label for="name"/>
-                        <h1><field name="name" readonly="1"/></h1>
-                    </div>
-
                     <group>
                         <group string="Клієнт">
-                            <field name="partner_id"
-                                   placeholder="Не ідентифікований"/>
-                            <field name="unidentified_email"
-                                   invisible="partner_id != False"
-                                   string="Email (з SendPulse)"/>
-                            <field name="unidentified_phone"
-                                   invisible="partner_id != False"
-                                   string="Телефон (з SendPulse)"/>
+                            <field name="partner_id" placeholder="Не ідентифікований"/>
+                            <field name="unidentified_email" string="Email (з SendPulse)"
+                                   invisible="partner_id != False"/>
+                            <field name="unidentified_phone" string="Телефон"
+                                   invisible="partner_id != False"/>
                         </group>
                         <group string="Канал">
                             <field name="service"/>
-                            <field name="social_username" string="Username / Профіль"/>
-                            <field name="social_profile_url" string="URL профілю"
-                                   widget="url"/>
+                            <field name="social_username" string="Username"/>
+                            <field name="social_profile_url" string="URL профілю"/>
                             <field name="bot_name" string="Бот"/>
                         </group>
                     </group>
-
                     <group>
                         <group string="Оператори">
-                            <field name="user_ids" widget="many2many_tags"
-                                   placeholder="Призначити оператора..."/>
+                            <field name="user_ids" widget="many2many_tags"/>
                         </group>
-                        <group string="SendPulse дані">
+                        <group string="SendPulse">
                             <field name="sendpulse_contact_id" string="Contact ID"/>
                             <field name="last_message_date" string="Останнє повідомлення"/>
                             <field name="channel_id" string="Discuss Канал"/>
                         </group>
                     </group>
-
                     <notebook>
                         <page string="Повідомлення" name="messages">
-                            <field name="message_ids"
-                                   invisible="stage not in ['new', 'new_message']">
-                                <list string="Повідомлення" editable="False" create="False">
+                            <field name="message_ids" readonly="1">
+                                <list create="false">
                                     <field name="date" string="Дата"/>
-                                    <field name="direction" string="Напрямок" widget="badge"
-                                           decoration-info="direction == 'incoming'"
-                                           decoration-success="direction == 'outgoing'"/>
-                                    <field name="message_type" string="Тип"/>
+                                    <field name="direction" string="Напрямок"/>
                                     <field name="text_message" string="Текст"/>
-                                    <field name="attachment_url" string="Вкладення" widget="url"/>
+                                    <field name="attachment_url" string="Вкладення"/>
                                 </list>
                             </field>
                         </page>
@@ -126,9 +85,7 @@
         </field>
     </record>
 
-    <!-- ══════════════════════════════════════════════════════════════════
-         SENDPULSE.CONNECT — Search View
-    ══════════════════════════════════════════════════════════════════════ -->
+    <!-- Search View -->
     <record id="view_sendpulse_connect_search" model="ir.ui.view">
         <field name="name">sendpulse.connect.search</field>
         <field name="model">sendpulse.connect</field>
@@ -138,87 +95,87 @@
                 <field name="partner_id" string="Клієнт"/>
                 <field name="social_username" string="Username"/>
                 <separator/>
-                <filter name="filter_new" string="Нові" domain="[('stage', '=', 'new')]"/>
-                <filter name="filter_new_msg" string="Нові повідомлення"
-                        domain="[('stage', '=', 'new_message')]"/>
-                <filter name="filter_in_progress" string="В роботі"
-                        domain="[('stage', '=', 'in_progress')]"/>
-                <filter name="filter_unidentified" string="Не ідентифіковані"
-                        domain="[('partner_id', '=', False)]"/>
-                <filter name="filter_close" string="Закриті"
-                        domain="[('stage', '=', 'close')]"/>
+                <filter name="filter_new" string="Нові" domain="[('stage','=','new')]"/>
+                <filter name="filter_new_msg" string="Нові повідомлення" domain="[('stage','=','new_message')]"/>
+                <filter name="filter_in_progress" string="В роботі" domain="[('stage','=','in_progress')]"/>
+                <filter name="filter_unidentified" string="Не ідентифіковані" domain="[('partner_id','=',False)]"/>
+                <filter name="filter_close" string="Закриті" domain="[('stage','=','close')]"/>
                 <separator/>
-                <filter name="filter_telegram" string="Telegram"
-                        domain="[('service', '=', 'telegram')]"/>
-                <filter name="filter_instagram" string="Instagram"
-                        domain="[('service', '=', 'instagram')]"/>
-                <filter name="filter_facebook" string="Facebook"
-                        domain="[('service', '=', 'facebook')]"/>
-                <filter name="filter_messenger" string="Messenger"
-                        domain="[('service', '=', 'messenger')]"/>
-                <filter name="filter_viber" string="Viber"
-                        domain="[('service', '=', 'viber')]"/>
+                <filter name="filter_telegram" string="Telegram" domain="[('service','=','telegram')]"/>
+                <filter name="filter_instagram" string="Instagram" domain="[('service','=','instagram')]"/>
+                <filter name="filter_facebook" string="Facebook" domain="[('service','=','facebook')]"/>
                 <separator/>
                 <group string="Згрупувати за">
-                    <filter name="group_service" string="Канал"
-                            context="{'group_by': 'service'}"/>
-                    <filter name="group_stage" string="Статус"
-                            context="{'group_by': 'stage'}"/>
-                    <filter name="group_partner" string="Клієнт"
-                            context="{'group_by': 'partner_id'}"/>
-                    <filter name="group_date" string="Дата"
-                            context="{'group_by': 'last_message_date:day'}"/>
+                    <filter name="group_service" string="Канал" context="{'group_by':'service'}"/>
+                    <filter name="group_stage" string="Статус" context="{'group_by':'stage'}"/>
+                    <filter name="group_partner" string="Клієнт" context="{'group_by':'partner_id'}"/>
                 </group>
             </search>
         </field>
     </record>
 
-    <!-- ══════════════════════════════════════════════════════════════════
-         ACTIONS
-    ══════════════════════════════════════════════════════════════════════ -->
+    <!-- Settings Form -->
+    <record id="view_sendpulse_config_form" model="ir.ui.view">
+        <field name="name">sendpulse.config.form</field>
+        <field name="model">res.config.settings</field>
+        <field name="arch" type="xml">
+            <form string="Налаштування SendPulse Odo">
+                <header>
+                    <button string="Зберегти" type="object" name="execute" class="btn-primary"/>
+                    <button string="Скасувати" special="cancel"/>
+                </header>
+                <sheet>
+                    <h2>SendPulse API</h2>
+                    <group>
+                        <group string="OAuth Авторизація">
+                            <field name="sendpulse_client_id" placeholder="Client ID з SendPulse"/>
+                            <field name="sendpulse_client_secret" password="True" placeholder="Client Secret"/>
+                            <field name="sendpulse_webhook_token" placeholder="Секретний токен"/>
+                        </group>
+                        <group string="Webhook URL">
+                            <field name="sendpulse_webhook_url" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
 
-    <!-- Всі розмови -->
+    <!-- Actions -->
     <record id="action_sendpulse_connect_all" model="ir.actions.act_window">
         <field name="name">Всі розмови</field>
         <field name="res_model">sendpulse.connect</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_sendpulse_connect_search"/>
         <field name="context">{'search_default_filter_new': 1}</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                Ще немає розмов з SendPulse
-            </p>
-            <p>
-                Налаштуйте webhook URL у SendPulse і розмови з'являться тут автоматично.
-            </p>
-        </field>
     </record>
 
-    <!-- Черга нових / неідентифікованих -->
     <record id="action_sendpulse_connect_unidentified" model="ir.actions.act_window">
-        <field name="name">Нові чати (не ідентифіковані)</field>
+        <field name="name">Нові чати</field>
         <field name="res_model">sendpulse.connect</field>
         <field name="view_mode">list,form</field>
-        <field name="search_view_id" ref="view_sendpulse_connect_search"/>
-        <field name="domain">[('partner_id', '=', False), ('stage', '!=', 'close')]</field>
-        <field name="context">{'search_default_filter_unidentified': 1}</field>
+        <field name="domain">[('partner_id','=',False),('stage','!=','close')]</field>
     </record>
 
-    <!-- Webhook дані (тільки для адміна) -->
     <record id="action_sendpulse_webhook_data" model="ir.actions.act_window">
         <field name="name">Webhook Дані</field>
         <field name="res_model">sendpulse.webhook.data</field>
         <field name="view_mode">list</field>
     </record>
 
-    <!-- ══════════════════════════════════════════════════════════════════
-         MENU
-    ══════════════════════════════════════════════════════════════════════ -->
+    <record id="action_sendpulse_config" model="ir.actions.act_window">
+        <field name="name">Налаштування SendPulse</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_sendpulse_config_form"/>
+        <field name="target">inline</field>
+    </record>
+
+    <!-- Menu -->
     <menuitem id="menu_sendpulse_root"
               name="SendPulse"
               sequence="90"
-              groups="sendpulse_odo.group_sendpulse_officer"
-              web_icon="sendpulse_odo,static/description/icon.png"/>
+              groups="sendpulse_odo.group_sendpulse_officer"/>
 
     <menuitem id="menu_sendpulse_all"
               name="Всі розмови"
@@ -232,69 +189,18 @@
               action="action_sendpulse_connect_unidentified"
               sequence="20"/>
 
-    <menuitem id="menu_sendpulse_webhook_data"
-              name="Webhook Дані"
-              parent="menu_sendpulse_root"
-              action="action_sendpulse_webhook_data"
-              sequence="90"
-              groups="sendpulse_odo.group_sendpulse_admin"/>
-
-    <!-- ══════════════════════════════════════════════════════════════════
-         НАЛАШТУВАННЯ SendPulse Odo — окрема форма в меню
-    ══════════════════════════════════════════════════════════════════════ -->
-    <record id="view_sendpulse_config_form" model="ir.ui.view">
-        <field name="name">sendpulse.config.form</field>
-        <field name="model">res.config.settings</field>
-        <field name="arch" type="xml">
-            <form string="Налаштування SendPulse Odo" class="oe_form_configuration">
-                <header>
-                    <button string="Зберегти" type="object" name="execute"
-                            class="btn-primary"/>
-                    <button string="Скасувати" type="object" name="cancel"
-                            special="cancel"/>
-                </header>
-                <sheet>
-                    <h2>SendPulse API</h2>
-                    <p class="text-muted">
-                        Дані знаходяться в SendPulse: <strong>Settings → API → API keys</strong>
-                    </p>
-                    <group>
-                        <group string="OAuth Авторизація">
-                            <field name="sendpulse_client_id"
-                                   placeholder="Ваш Client ID з SendPulse"/>
-                            <field name="sendpulse_client_secret"
-                                   password="True"
-                                   placeholder="Ваш Client Secret з SendPulse"/>
-                            <field name="sendpulse_webhook_token"
-                                   placeholder="Секретний токен (довільний рядок)"/>
-                        </group>
-                        <group string="Webhook URL">
-                            <field name="sendpulse_webhook_url"
-                                   readonly="1"
-                                   widget="CopyClipboardChar"/>
-                            <p class="text-muted" style="font-size:12px;">
-                                Вставте цей URL у SendPulse: Bot Settings → Webhooks → Add Webhook
-                            </p>
-                        </group>
-                    </group>
-                </sheet>
-            </form>
-        </field>
-    </record>
-
-    <record id="action_sendpulse_config" model="ir.actions.act_window">
-        <field name="name">Налаштування SendPulse</field>
-        <field name="res_model">res.config.settings</field>
-        <field name="view_mode">form</field>
-        <field name="view_id" ref="view_sendpulse_config_form"/>
-        <field name="target">inline</field>
-    </record>
-
     <menuitem id="menu_sendpulse_config"
               name="Налаштування"
               parent="menu_sendpulse_root"
               action="action_sendpulse_config"
               sequence="80"
+              groups="sendpulse_odo.group_sendpulse_admin"/>
+
+    <menuitem id="menu_sendpulse_webhook_data"
+              name="Webhook Дані"
+              parent="menu_sendpulse_root"
+              action="action_sendpulse_webhook_data"
+              sequence="90"
               groups="sendpulse_odo.group_sendpulse_admin"/>
 
 </odoo>
