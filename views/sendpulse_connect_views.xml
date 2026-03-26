@@ -192,6 +192,7 @@
     <menuitem id="menu_sendpulse_root"
               name="SendPulse"
               sequence="90"
+              web_icon="odoo_chatwoot_connector,static/description/icon.png"
               groups="odoo_chatwoot_connector.group_sendpulse_officer"/>
 
     <menuitem id="menu_sendpulse_all"
