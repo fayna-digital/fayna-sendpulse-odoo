@@ -545,11 +545,25 @@ class SendpulseConnect(models.Model):
         partner = self._find_partner(contact_id, email, phone)
 
         # ── Крок 2: Знаходимо або створюємо розмову ─────────────────────
+        # Пріоритет 1: точний збіг по sendpulse_contact_id + service
         connect = self.search([
             ('sendpulse_contact_id', '=', contact_id),
             ('service', '=', service),
             ('stage', '!=', 'close'),
         ], limit=1)
+
+        # Пріоритет 2: якщо партнер відомий — шукаємо активний чат по partner_id + service.
+        # Це запобігає створенню дублікатів коли один реальний клієнт має кілька
+        # контактів у SendPulse (наприклад, тестовий + реальний).
+        if not connect and partner:
+            connect = self.search([
+                ('partner_id', '=', partner.id),
+                ('service', '=', service),
+                ('stage', '!=', 'close'),
+            ], order='write_date desc', limit=1)
+            if connect and connect.sendpulse_contact_id != contact_id:
+                # Оновлюємо contact_id на актуальний
+                connect.write({'sendpulse_contact_id': contact_id})
 
         now = fields.Datetime.now()
         if not connect:
