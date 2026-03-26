@@ -174,11 +174,11 @@ class SendpulseConnect(models.Model):
             self.channel_id.add_members(partner_ids=[self.env.user.partner_id.id])
 
         return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'discuss.channel',
-            'res_id': self.channel_id.id,
-            'view_mode': 'form',
-            'target': 'current',
+            'type': 'ir.actions.client',
+            'tag': 'mail.action_discuss',
+            'params': {
+                'active_id': f'discuss.channel,{self.channel_id.id}',
+            },
         }
 
     def action_identify_partner(self):
