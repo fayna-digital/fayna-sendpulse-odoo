@@ -6,7 +6,7 @@
         <field name="name">sendpulse.connect.list</field>
         <field name="model">sendpulse.connect</field>
         <field name="arch" type="xml">
-            <list string="Розмови SendPulse"
+            <tree string="Розмови SendPulse"
                   decoration-danger="stage == 'new'"
                   decoration-warning="stage == 'new_message'"
                   decoration-muted="stage == 'close'"
@@ -18,7 +18,7 @@
                 <field name="last_message_preview" string="Останнє повідомлення"/>
                 <field name="last_message_date" string="Дата"/>
                 <field name="stage" string="Статус"/>
-            </list>
+            </tree>
         </field>
     </record>
 
@@ -71,12 +71,12 @@
                     <notebook>
                         <page string="Повідомлення" name="messages">
                             <field name="message_ids" readonly="1">
-                                <list create="false">
+                                <tree create="false">
                                     <field name="date" string="Дата"/>
                                     <field name="direction" string="Напрямок"/>
                                     <field name="text_message" string="Текст"/>
                                     <field name="attachment_url" string="Вкладення"/>
-                                </list>
+                                </tree>
                             </field>
                         </page>
                     </notebook>
