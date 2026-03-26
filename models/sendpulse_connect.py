@@ -223,11 +223,16 @@ class SendpulseConnect(models.Model):
             'description': self._get_channel_description(),
         })
 
-        # Додаємо поточного юзера + призначених операторів
-        partner_ids = [self.env.user.partner_id.id]
+        # Додаємо всіх операторів групи SendPulse + призначених операторів
+        partner_ids = []
+        group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_officer', raise_if_not_found=False)
+        if group:
+            partner_ids = group.users.mapped('partner_id').ids
         for user in self.user_ids:
             if user.partner_id.id not in partner_ids:
                 partner_ids.append(user.partner_id.id)
+        if not partner_ids:
+            partner_ids = [self.env.user.partner_id.id]
 
         channel.add_members(partner_ids=partner_ids)
 
@@ -546,8 +551,8 @@ class SendpulseConnect(models.Model):
         if connect.partner_id:
             connect._update_partner_source()
 
-        # ── Крок 5: Якщо нова розмова — створюємо discuss.channel ───────
-        if not connect.channel_id and event_type in ('new_subscriber', 'opened_live_chat'):
+        # ── Крок 5: Якщо немає каналу — створюємо discuss.channel ──────
+        if not connect.channel_id:
             connect._create_discuss_channel()
 
         return connect

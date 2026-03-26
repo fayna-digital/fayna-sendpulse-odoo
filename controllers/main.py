@@ -11,6 +11,7 @@ _logger = logging.getLogger(__name__)
 EVENT_NEW_SUBSCRIBER = 'new_subscriber'
 EVENT_INCOMING_MSG = 'incoming_message'
 EVENT_OUTGOING_MSG = 'outbound_message'
+EVENT_OUTGOING_MSG2 = 'outgoing_message'
 EVENT_LIVE_CHAT = 'opened_live_chat'
 EVENT_UNSUBSCRIBE = 'bot_unsubscribe'
 EVENT_BLOCKED = 'bot_blocked'
