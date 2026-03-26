@@ -3,6 +3,8 @@ import logging
 import requests
 from datetime import datetime, timedelta
 
+from markupsafe import Markup, escape
+
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 from odoo.tools import plaintext2html
@@ -232,9 +234,9 @@ class SendpulseConnect(models.Model):
         # Якщо є збережені повідомлення — постимо їх в канал
         for msg in self.message_ids.sorted('date'):
             direction_label = '👤 Клієнт' if msg.direction == 'incoming' else '🧑‍💼 Оператор'
-            body = f"<b>{direction_label}</b> [{msg.name}]:<br/>{plaintext2html(msg.text_message or '')}"
+            body = Markup("<b>{}</b><br/>{}").format(direction_label, escape(msg.text_message or ''))
             if msg.attachment_url:
-                body += f'<br/><a href="{msg.attachment_url}" target="_blank">📎 Вкладення</a>'
+                body += Markup('<br/><a href="{}" target="_blank">📎 Вкладення</a>').format(msg.attachment_url)
             channel.message_post(
                 body=body,
                 author_id=self.partner_id.id if msg.direction == 'outgoing' and self.partner_id else None,
@@ -517,7 +519,7 @@ class SendpulseConnect(models.Model):
 
             # Якщо є активний channel — постимо туди для операторів
             if connect.channel_id:
-                body = f"<b>👤 {contact_name}</b>:<br/>{last_message}"
+                body = Markup("<b>👤 {}</b><br/>{}").format(escape(contact_name), escape(last_message))
                 connect.channel_id.with_context(
                     sendpulse_incoming=True
                 ).message_post(
@@ -641,7 +643,7 @@ class SendpulseConnect(models.Model):
             connect.channel_id.with_context(
                 sendpulse_incoming=True
             ).message_post(
-                body=f"<i>📱 SendPulse:</i> {last_message}",
+                body=Markup("<i>📱 SendPulse:</i> {}").format(escape(last_message)),
                 author_id=self.env.ref('base.partner_root').id,
                 message_type='comment',
                 subtype_xmlid='mail.mt_comment',
