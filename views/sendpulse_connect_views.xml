@@ -239,4 +239,62 @@
               sequence="90"
               groups="sendpulse_odo.group_sendpulse_admin"/>
 
+    <!-- ══════════════════════════════════════════════════════════════════
+         НАЛАШТУВАННЯ SendPulse Odo — окрема форма в меню
+    ══════════════════════════════════════════════════════════════════════ -->
+    <record id="view_sendpulse_config_form" model="ir.ui.view">
+        <field name="name">sendpulse.config.form</field>
+        <field name="model">res.config.settings</field>
+        <field name="arch" type="xml">
+            <form string="Налаштування SendPulse Odo" class="oe_form_configuration">
+                <header>
+                    <button string="Зберегти" type="object" name="execute"
+                            class="btn-primary"/>
+                    <button string="Скасувати" type="object" name="cancel"
+                            special="cancel"/>
+                </header>
+                <sheet>
+                    <h2>SendPulse API</h2>
+                    <p class="text-muted">
+                        Дані знаходяться в SendPulse: <strong>Settings → API → API keys</strong>
+                    </p>
+                    <group>
+                        <group string="OAuth Авторизація">
+                            <field name="sendpulse_client_id"
+                                   placeholder="Ваш Client ID з SendPulse"/>
+                            <field name="sendpulse_client_secret"
+                                   password="True"
+                                   placeholder="Ваш Client Secret з SendPulse"/>
+                            <field name="sendpulse_webhook_token"
+                                   placeholder="Секретний токен (довільний рядок)"/>
+                        </group>
+                        <group string="Webhook URL">
+                            <field name="sendpulse_webhook_url"
+                                   readonly="1"
+                                   widget="CopyClipboardChar"/>
+                            <p class="text-muted" style="font-size:12px;">
+                                Вставте цей URL у SendPulse: Bot Settings → Webhooks → Add Webhook
+                            </p>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_sendpulse_config" model="ir.actions.act_window">
+        <field name="name">Налаштування SendPulse</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_sendpulse_config_form"/>
+        <field name="target">inline</field>
+    </record>
+
+    <menuitem id="menu_sendpulse_config"
+              name="Налаштування"
+              parent="menu_sendpulse_root"
+              action="action_sendpulse_config"
+              sequence="80"
+              groups="sendpulse_odo.group_sendpulse_admin"/>
+
 </odoo>
