@@ -175,7 +175,7 @@
     <menuitem id="menu_sendpulse_root"
               name="SendPulse"
               sequence="90"
-              groups="sendpulse_odo.group_sendpulse_officer"/>
+              groups="odoo_chatwoot_connector.group_sendpulse_officer"/>
 
     <menuitem id="menu_sendpulse_all"
               name="Всі розмови"
@@ -194,13 +194,13 @@
               parent="menu_sendpulse_root"
               action="action_sendpulse_config"
               sequence="80"
-              groups="sendpulse_odo.group_sendpulse_admin"/>
+              groups="odoo_chatwoot_connector.group_sendpulse_admin"/>
 
     <menuitem id="menu_sendpulse_webhook_data"
               name="Webhook Дані"
               parent="menu_sendpulse_root"
               action="action_sendpulse_webhook_data"
               sequence="90"
-              groups="sendpulse_odo.group_sendpulse_admin"/>
+              groups="odoo_chatwoot_connector.group_sendpulse_admin"/>
 
 </odoo>

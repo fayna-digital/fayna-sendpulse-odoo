@@ -10,7 +10,7 @@
                 <div class="app_settings_block"
                      data-string="SendPulse Odo"
                      data-key="sendpulse_odo"
-                     groups="sendpulse_odo.group_sendpulse_admin">
+                     groups="odoo_chatwoot_connector.group_sendpulse_admin">
                     <h2>SendPulse Odo</h2>
                     <p class="text-muted">
                         Інтеграція чат-ботів SendPulse з Odoo.

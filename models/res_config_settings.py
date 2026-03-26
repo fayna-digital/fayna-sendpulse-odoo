@@ -8,17 +8,17 @@ class ResConfigSettings(models.TransientModel):
     # ── SendPulse OAuth ─────────────────────────────────────────────────
     sendpulse_client_id = fields.Char(
         string='SendPulse Client ID',
-        config_parameter='sendpulse_odo.client_id',
+        config_parameter='odoo_chatwoot_connector.client_id',
         help='Знайти в SendPulse: Settings → API → Client ID',
     )
     sendpulse_client_secret = fields.Char(
         string='SendPulse Client Secret',
-        config_parameter='sendpulse_odo.client_secret',
+        config_parameter='odoo_chatwoot_connector.client_secret',
         help='Знайти в SendPulse: Settings → API → Client Secret',
     )
     sendpulse_webhook_token = fields.Char(
         string='Webhook Secret Token',
-        config_parameter='sendpulse_odo.webhook_token',
+        config_parameter='odoo_chatwoot_connector.webhook_token',
         help='Довільний секретний рядок для перевірки запитів від SendPulse',
     )
 

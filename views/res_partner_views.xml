@@ -23,7 +23,7 @@
                         class="oe_stat_button"
                         icon="fa-comments"
                         invisible="sendpulse_connect_count == 0"
-                        groups="sendpulse_odo.group_sendpulse_officer">
+                        groups="odoo_chatwoot_connector.group_sendpulse_officer">
                     <field name="sendpulse_connect_count" widget="statinfo"
                            string="Розмов"/>
                 </button>
@@ -35,8 +35,8 @@
                 <field name="sendpulse_channel_ids"
                        nolabel="1"
                        invisible="sendpulse_channel_count == 0"
-                       groups="sendpulse_odo.group_sendpulse_officer">
-                    <list string="Канали SendPulse"
+                       groups="odoo_chatwoot_connector.group_sendpulse_officer">
+                    <tree string="Канали SendPulse"
                           editable="False"
                           create="False"
                           delete="False">
@@ -52,7 +52,7 @@
                         <field name="last_contact_date" string="Останній контакт"
                                optional="show"/>
                         <field name="message_count" string="Повідомлень" optional="show"/>
-                    </list>
+                    </tree>
                 </field>
                 <field name="sendpulse_channel_count" invisible="1"/>
             </field>
@@ -61,11 +61,11 @@
             <page name="internal" position="after">
                 <page name="sendpulse_messaging"
                       string="Messaging"
-                      groups="sendpulse_odo.group_sendpulse_officer">
+                      groups="odoo_chatwoot_connector.group_sendpulse_officer">
                     <field name="sendpulse_message_ids"
                            nolabel="1"
                            readonly="1">
-                        <list string="Переписка SendPulse"
+                        <tree string="Переписка SendPulse"
                               editable="False"
                               create="False"
                               delete="False"
@@ -79,7 +79,7 @@
                             <field name="text_message" string="Повідомлення"
                                    widget="html"/>
                             <field name="date" string="Дата"/>
-                        </list>
+                        </tree>
                     </field>
                 </page>
             </page>
@@ -94,7 +94,7 @@
         <field name="name">partner.sendpulse.channel.list</field>
         <field name="model">partner.sendpulse.channel</field>
         <field name="arch" type="xml">
-            <list string="Канали партнерів SendPulse">
+            <tree string="Канали партнерів SendPulse">
                 <field name="partner_id" string="Партнер"/>
                 <field name="service" string="Канал"/>
                 <field name="social_username" string="Username"/>
@@ -103,7 +103,7 @@
                 <field name="first_contact_date" string="Перший контакт"/>
                 <field name="last_contact_date" string="Останній контакт"/>
                 <field name="message_count" string="Повідомлень"/>
-            </list>
+            </tree>
         </field>
     </record>
 
