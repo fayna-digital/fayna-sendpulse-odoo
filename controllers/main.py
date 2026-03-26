@@ -56,7 +56,10 @@ class SendpulseWebhookController(http.Controller):
         }
         """
         try:
-            data = request.jsonrequest
+            raw = request.httprequest.data
+            if not raw:
+                return {'status': 'error', 'message': 'Empty payload'}
+            data = json.loads(raw)
             if not data:
                 return {'status': 'error', 'message': 'Empty payload'}
 
