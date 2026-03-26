@@ -13,6 +13,7 @@ EVENT_INCOMING_MSG = 'incoming_message'
 EVENT_OUTGOING_MSG = 'outbound_message'
 EVENT_OUTGOING_MSG2 = 'outgoing_message'
 EVENT_LIVE_CHAT = 'opened_live_chat'
+EVENT_OPEN_CHAT = 'open_chat'       # Messenger використовує 'open_chat' замість 'opened_live_chat'
 EVENT_UNSUBSCRIBE = 'bot_unsubscribe'
 EVENT_BLOCKED = 'bot_blocked'
 
@@ -95,7 +96,7 @@ class SendpulseWebhookController(http.Controller):
             })
 
             # Обробляємо події
-            if event_type in (EVENT_NEW_SUBSCRIBER, EVENT_INCOMING_MSG, EVENT_LIVE_CHAT):
+            if event_type in (EVENT_NEW_SUBSCRIBER, EVENT_INCOMING_MSG, EVENT_LIVE_CHAT, EVENT_OPEN_CHAT):
                 request.env['sendpulse.connect'].sudo()._process_incoming_event(
                     data=data,
                     contact=contact,
