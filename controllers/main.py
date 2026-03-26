@@ -65,6 +65,11 @@ class SendpulseWebhookController(http.Controller):
             data = json.loads(raw)
             if not data:
                 return _json({'status': 'error', 'message': 'Empty payload'})
+            # SendPulse може надсилати масив [{}] або об'єкт {}
+            if isinstance(data, list):
+                if not data:
+                    return _json({'status': 'error', 'message': 'Empty array'})
+                data = data[0]
 
             event_type = data.get('title', '')
             service = data.get('service', '')
