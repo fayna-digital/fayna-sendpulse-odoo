@@ -22,10 +22,9 @@
                         type="object"
                         class="oe_stat_button"
                         icon="fa-comments"
-                        invisible="sendpulse_connect_count == 0"
                         groups="odoo_chatwoot_connector.group_sendpulse_officer">
                     <field name="sendpulse_connect_count" widget="statinfo"
-                           string="Розмов"/>
+                           string="SendPulse"/>
                 </button>
             </div>
 
@@ -47,10 +46,10 @@
                 <field name="sendpulse_channel_count" invisible="1"/>
             </field>
 
-            <!-- 3. Вкладка "Messaging" — повна історія переписки (додається в кінець) -->
+            <!-- 3. Вкладка "SendPulse" — повна історія переписки (додається в кінець) -->
             <xpath expr="//notebook" position="inside">
                 <page name="sendpulse_messaging"
-                      string="Messaging"
+                      string="SendPulse"
                       groups="odoo_chatwoot_connector.group_sendpulse_officer">
                     <field name="sendpulse_message_ids"
                            nolabel="1"
