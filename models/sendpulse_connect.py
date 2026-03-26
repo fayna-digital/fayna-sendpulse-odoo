@@ -189,11 +189,10 @@ class SendpulseConnect(models.Model):
         return {
             'type': 'ir.actions.act_window',
             'name': _('Ідентифікувати клієнта'),
-            'res_model': 'sendpulse.connect',
-            'res_id': self.id,
+            'res_model': 'sendpulse.identify.wizard',
             'view_mode': 'form',
             'target': 'new',
-            'context': {'identify_mode': True},
+            'context': {'default_connect_id': self.id},
         }
 
     def action_close(self):
