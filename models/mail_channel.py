@@ -67,12 +67,6 @@ class DiscussChannel(models.Model):
         if self._is_system_message(body_plain):
             return msg
 
-        # Пропускаємо повідомлення що прийшли від клієнта (incoming)
-        # Вони постяться через webhook — щоб уникнути дублювання
-        author_id = kwargs.get('author_id')
-        if author_id and connect.partner_id and author_id == connect.partner_id.id:
-            return msg
-
         # Отримуємо вкладення
         attachment_url = None
         attachment_ids = kwargs.get('attachment_ids', [])
