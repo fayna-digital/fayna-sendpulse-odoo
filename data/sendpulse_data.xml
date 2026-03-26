@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- SendPulse OAuth Client ID -->
+        <record model="ir.config_parameter" id="ir_config_parameter_sendpulse_client_id">
+            <field name="key">sendpulse_odo.client_id</field>
+            <field name="value"></field>
+        </record>
+        <!-- SendPulse OAuth Client Secret -->
+        <record model="ir.config_parameter" id="ir_config_parameter_sendpulse_client_secret">
+            <field name="key">sendpulse_odo.client_secret</field>
+            <field name="value"></field>
+        </record>
+        <!-- Webhook Secret Token (for request validation) -->
+        <record model="ir.config_parameter" id="ir_config_parameter_sendpulse_webhook_token">
+            <field name="key">sendpulse_odo.webhook_token</field>
+            <field name="value"></field>
+        </record>
+    </data>
+</odoo>

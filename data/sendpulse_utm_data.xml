@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record model="utm.source" id="utm_source_telegram">
+            <field name="name">Telegram</field>
+        </record>
+        <record model="utm.source" id="utm_source_instagram">
+            <field name="name">Instagram</field>
+        </record>
+        <record model="utm.source" id="utm_source_facebook">
+            <field name="name">Facebook</field>
+        </record>
+        <record model="utm.source" id="utm_source_messenger">
+            <field name="name">Messenger</field>
+        </record>
+        <record model="utm.source" id="utm_source_viber">
+            <field name="name">Viber</field>
+        </record>
+        <record model="utm.source" id="utm_source_whatsapp">
+            <field name="name">WhatsApp</field>
+        </record>
+        <record model="utm.source" id="utm_source_livechat">
+            <field name="name">LiveChat</field>
+        </record>
+        <record model="utm.source" id="utm_source_tiktok">
+            <field name="name">TikTok</field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="ir_cron_sendpulse_clear_webhook_data" model="ir.cron">
+            <field name="name">SendPulse Odo: Очищення старих webhook даних</field>
+            <field name="model_id" ref="model_sendpulse_webhook_data"/>
+            <field name="state">code</field>
+            <field name="code">model.clear_old_webhooks()</field>
+            <field name="interval_number">7</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+            <field name="nextcall">2026-04-01 01:00:00</field>
+        </record>
+    </data>
+</odoo>

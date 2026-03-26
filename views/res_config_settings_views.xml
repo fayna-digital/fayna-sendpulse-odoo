@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_sendpulse" model="ir.ui.view">
+        <field name="name">res.config.settings.sendpulse</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.action_general_configuration"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('settings')]" position="inside">
+                <div class="app_settings_block"
+                     data-string="SendPulse Odo"
+                     data-key="sendpulse_odo"
+                     groups="sendpulse_odo.group_sendpulse_admin">
+                    <h2>SendPulse Odo</h2>
+                    <p class="text-muted">
+                        Інтеграція чат-ботів SendPulse з Odoo.
+                        Отримайте Client ID та Client Secret у SendPulse:
+                        <strong>Settings → API → API keys</strong>
+                    </p>
+
+                    <div class="row mt16">
+                        <label for="sendpulse_client_id" class="col-lg-3 o_light_label"/>
+                        <div class="col-lg-9">
+                            <field name="sendpulse_client_id"
+                                   placeholder="Ваш Client ID з SendPulse"
+                                   class="o_field_char"/>
+                        </div>
+                    </div>
+                    <div class="row mt8">
+                        <label for="sendpulse_client_secret" class="col-lg-3 o_light_label"/>
+                        <div class="col-lg-9">
+                            <field name="sendpulse_client_secret"
+                                   placeholder="Ваш Client Secret з SendPulse"
+                                   password="True"
+                                   class="o_field_char"/>
+                        </div>
+                    </div>
+                    <div class="row mt8">
+                        <label for="sendpulse_webhook_token" class="col-lg-3 o_light_label"/>
+                        <div class="col-lg-9">
+                            <field name="sendpulse_webhook_token"
+                                   placeholder="Секретний токен (довільний рядок)"
+                                   class="o_field_char"/>
+                        </div>
+                    </div>
+                    <div class="row mt8">
+                        <label for="sendpulse_webhook_url" class="col-lg-3 o_light_label"/>
+                        <div class="col-lg-9">
+                            <field name="sendpulse_webhook_url"
+                                   readonly="1"
+                                   class="o_field_char"/>
+                            <div class="text-muted" style="font-size:12px; margin-top:4px;">
+                                Скопіюйте цей URL і вставте у SendPulse:
+                                Bot Settings → Webhooks → Add Webhook
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

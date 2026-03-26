@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         RES.PARTNER — Розширення форми партнера
+         Додає:
+           1. Список каналів SendPulse (зліва під NIP/VAT)
+              — кожен канал окремим рядком з кліком на URL
+           2. Кнопку "Розмови" у button_box
+           3. Вкладку "Messaging" з повною історією переписки
+    ══════════════════════════════════════════════════════════════════════ -->
+
+    <record id="view_partner_form_sendpulse" model="ir.ui.view">
+        <field name="name">res.partner.form.sendpulse</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+
+            <!-- 1. Кнопка "Розмови" у button_box (поруч з іншими смарт-кнопками) -->
+            <div name="button_box" position="inside">
+                <button name="action_open_sendpulse_connects"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-comments"
+                        invisible="sendpulse_connect_count == 0"
+                        groups="sendpulse_odo.group_sendpulse_officer">
+                    <field name="sendpulse_connect_count" widget="statinfo"
+                           string="Розмов"/>
+                </button>
+            </div>
+
+            <!-- 2. Канали SendPulse — під полем VAT (як "Facebook", "Instagram" на скріні) -->
+            <field name="vat" position="after">
+                <!-- Список каналів: кожен рядок = окремий канал -->
+                <field name="sendpulse_channel_ids"
+                       nolabel="1"
+                       invisible="sendpulse_channel_count == 0"
+                       groups="sendpulse_odo.group_sendpulse_officer">
+                    <list string="Канали SendPulse"
+                          editable="False"
+                          create="False"
+                          delete="False">
+                        <!-- Назва каналу як клікабельне посилання -->
+                        <field name="service" string="Канал" widget="badge"
+                               decoration-info="service == 'telegram'"
+                               decoration-warning="service in ('instagram','facebook','messenger')"
+                               decoration-primary="service == 'viber'"
+                               decoration-success="service == 'whatsapp'"/>
+                        <field name="social_profile_url" string="Профіль" widget="url"
+                               optional="show"/>
+                        <field name="social_username" string="Username" optional="show"/>
+                        <field name="last_contact_date" string="Останній контакт"
+                               optional="show"/>
+                        <field name="message_count" string="Повідомлень" optional="show"/>
+                    </list>
+                </field>
+                <field name="sendpulse_channel_count" invisible="1"/>
+            </field>
+
+            <!-- 3. Вкладка "Messaging" — повна історія переписки -->
+            <page name="internal" position="after">
+                <page name="sendpulse_messaging"
+                      string="Messaging"
+                      groups="sendpulse_odo.group_sendpulse_officer">
+                    <field name="sendpulse_message_ids"
+                           nolabel="1"
+                           readonly="1">
+                        <list string="Переписка SendPulse"
+                              editable="False"
+                              create="False"
+                              delete="False"
+                              default_order="date desc">
+                            <field name="service_label" string="Канал"/>
+                            <field name="direction" string="Від" widget="badge"
+                                   decoration-info="direction == 'incoming'"
+                                   decoration-success="direction == 'outgoing'"/>
+                            <field name="author_id" string="Оператор"
+                                   optional="show"/>
+                            <field name="text_message" string="Повідомлення"
+                                   widget="html"/>
+                            <field name="date" string="Дата"/>
+                        </list>
+                    </field>
+                </page>
+            </page>
+
+        </field>
+    </record>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         PARTNER.SENDPULSE.CHANNEL — окремий list view (для адміна)
+    ══════════════════════════════════════════════════════════════════════ -->
+    <record id="view_partner_sendpulse_channel_list" model="ir.ui.view">
+        <field name="name">partner.sendpulse.channel.list</field>
+        <field name="model">partner.sendpulse.channel</field>
+        <field name="arch" type="xml">
+            <list string="Канали партнерів SendPulse">
+                <field name="partner_id" string="Партнер"/>
+                <field name="service" string="Канал"/>
+                <field name="social_username" string="Username"/>
+                <field name="social_profile_url" string="URL профілю" widget="url"/>
+                <field name="sendpulse_contact_id" string="SP Contact ID"/>
+                <field name="first_contact_date" string="Перший контакт"/>
+                <field name="last_contact_date" string="Останній контакт"/>
+                <field name="message_count" string="Повідомлень"/>
+            </list>
+        </field>
+    </record>
+
+</odoo>

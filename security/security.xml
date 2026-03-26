@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- ─── Security Categories ─────────────────────────────── -->
+        <record id="module_sendpulse_odo" model="ir.module.category">
+            <field name="name">SendPulse Odo</field>
+            <field name="sequence">100</field>
+        </record>
+
+        <!-- ─── Groups ───────────────────────────────────────────── -->
+
+        <!-- Officer: бачить лише свої чати (де призначений) -->
+        <record id="group_sendpulse_officer" model="res.groups">
+            <field name="name">Officer</field>
+            <field name="category_id" ref="module_sendpulse_odo"/>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+            <field name="comment">Оператор підтримки. Бачить лише призначені йому розмови.</field>
+        </record>
+
+        <!-- Administrator: бачить всі чати -->
+        <record id="group_sendpulse_admin" model="res.groups">
+            <field name="name">Administrator</field>
+            <field name="category_id" ref="module_sendpulse_odo"/>
+            <field name="implied_ids" eval="[(4, ref('group_sendpulse_officer'))]"/>
+            <field name="comment">Адміністратор SendPulse Odo. Повний доступ до всіх розмов та налаштувань.</field>
+        </record>
+
+        <!-- ─── Record Rules ──────────────────────────────────────── -->
+
+        <!-- Officer бачить тільки свої або непризначені розмови -->
+        <record id="rule_sendpulse_connect_officer" model="ir.rule">
+            <field name="name">SendPulse Connect: Officer sees own chats</field>
+            <field name="model_id" ref="model_sendpulse_connect"/>
+            <field name="domain_force">
+                ['|', ('user_ids', 'in', [user.id]), ('user_ids', '=', False)]
+            </field>
+            <field name="groups" eval="[(4, ref('group_sendpulse_officer'))]"/>
+        </record>
+
+        <!-- Admin бачить все -->
+        <record id="rule_sendpulse_connect_admin" model="ir.rule">
+            <field name="name">SendPulse Connect: Admin sees all</field>
+            <field name="model_id" ref="model_sendpulse_connect"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_sendpulse_admin'))]"/>
+        </record>
+
+    </data>
+</odoo>
