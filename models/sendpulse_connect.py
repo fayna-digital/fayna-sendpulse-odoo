@@ -722,12 +722,12 @@ class SendpulseConnect(models.Model):
 
         payload = {
             'contact_id': self.sendpulse_contact_id,
-            'messages': [{'type': 'text', 'text': {'text': text}}],
+            'messages': [{'type': 'text', 'message': {'text': text}}],
         }
         if attachment_url:
             payload['messages'].append({
                 'type': 'image',
-                'image': {'url': attachment_url},
+                'message': {'url': attachment_url},
             })
 
         try:
