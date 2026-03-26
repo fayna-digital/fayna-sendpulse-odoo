@@ -10,14 +10,14 @@ from odoo.tools import plaintext2html
 _logger = logging.getLogger(__name__)
 
 UTM_SOURCE_MAP = {
-    'telegram': 'sendpulse_odo.utm_source_telegram',
-    'instagram': 'sendpulse_odo.utm_source_instagram',
-    'facebook': 'sendpulse_odo.utm_source_facebook',
-    'messenger': 'sendpulse_odo.utm_source_messenger',
-    'viber': 'sendpulse_odo.utm_source_viber',
-    'whatsapp': 'sendpulse_odo.utm_source_whatsapp',
-    'tiktok': 'sendpulse_odo.utm_source_tiktok',
-    'livechat': 'sendpulse_odo.utm_source_livechat',
+    'telegram': 'odoo_chatwoot_connector.utm_source_telegram',
+    'instagram': 'odoo_chatwoot_connector.utm_source_instagram',
+    'facebook': 'odoo_chatwoot_connector.utm_source_facebook',
+    'messenger': 'odoo_chatwoot_connector.utm_source_messenger',
+    'viber': 'odoo_chatwoot_connector.utm_source_viber',
+    'whatsapp': 'odoo_chatwoot_connector.utm_source_whatsapp',
+    'tiktok': 'odoo_chatwoot_connector.utm_source_tiktok',
+    'livechat': 'odoo_chatwoot_connector.utm_source_livechat',
 }
 
 SERVICE_SELECTION = [
@@ -361,7 +361,7 @@ class SendpulseConnect(models.Model):
 
     def _notify_operators_new_conversation(self):
         """Сповіщає операторів про нову розмову через Odoo Discuss."""
-        group = self.env.ref('sendpulse_odo.group_sendpulse_officer', raise_if_not_found=False)
+        group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_officer', raise_if_not_found=False)
         if not group:
             return
         partner_ids = group.users.mapped('partner_id').ids
@@ -385,7 +385,7 @@ class SendpulseConnect(models.Model):
         if self.user_ids:
             target_partners = self.user_ids.mapped('partner_id').ids
         else:
-            group = self.env.ref('sendpulse_odo.group_sendpulse_officer', raise_if_not_found=False)
+            group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_officer', raise_if_not_found=False)
             if group:
                 target_partners = group.users.mapped('partner_id').ids
         if target_partners:
@@ -405,8 +405,8 @@ class SendpulseConnect(models.Model):
     def _get_access_token(self):
         """OAuth2: отримує Bearer token від SendPulse."""
         ICP = self.env['ir.config_parameter'].sudo()
-        client_id = ICP.get_param('sendpulse_odo.client_id', '')
-        client_secret = ICP.get_param('sendpulse_odo.client_secret', '')
+        client_id = ICP.get_param('odoo_chatwoot_connector.client_id', '')
+        client_secret = ICP.get_param('odoo_chatwoot_connector.client_secret', '')
         if not client_id or not client_secret:
             _logger.warning('SendPulse Odo: не налаштовані client_id / client_secret')
             return None
