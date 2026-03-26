@@ -36,53 +36,35 @@
                        nolabel="1"
                        invisible="sendpulse_channel_count == 0"
                        groups="odoo_chatwoot_connector.group_sendpulse_officer">
-                    <tree string="Канали SendPulse"
-                          editable="False"
-                          create="False"
-                          delete="False">
-                        <!-- Назва каналу як клікабельне посилання -->
-                        <field name="service" string="Канал" widget="badge"
-                               decoration-info="service == 'telegram'"
-                               decoration-warning="service in ('instagram','facebook','messenger')"
-                               decoration-primary="service == 'viber'"
-                               decoration-success="service == 'whatsapp'"/>
-                        <field name="social_profile_url" string="Профіль" widget="url"
-                               optional="show"/>
-                        <field name="social_username" string="Username" optional="show"/>
-                        <field name="last_contact_date" string="Останній контакт"
-                               optional="show"/>
-                        <field name="message_count" string="Повідомлень" optional="show"/>
+                    <tree string="Канали SendPulse" create="False" delete="False">
+                        <field name="service" string="Канал"/>
+                        <field name="social_profile_url" string="Профіль" widget="url"/>
+                        <field name="social_username" string="Username"/>
+                        <field name="last_contact_date" string="Останній контакт"/>
+                        <field name="message_count" string="Повідомлень"/>
                     </tree>
                 </field>
                 <field name="sendpulse_channel_count" invisible="1"/>
             </field>
 
-            <!-- 3. Вкладка "Messaging" — повна історія переписки -->
-            <page name="internal" position="after">
+            <!-- 3. Вкладка "Messaging" — повна історія переписки (додається в кінець) -->
+            <xpath expr="//notebook" position="inside">
                 <page name="sendpulse_messaging"
                       string="Messaging"
                       groups="odoo_chatwoot_connector.group_sendpulse_officer">
                     <field name="sendpulse_message_ids"
                            nolabel="1"
                            readonly="1">
-                        <tree string="Переписка SendPulse"
-                              editable="False"
-                              create="False"
-                              delete="False"
-                              default_order="date desc">
-                            <field name="service_label" string="Канал"/>
-                            <field name="direction" string="Від" widget="badge"
-                                   decoration-info="direction == 'incoming'"
-                                   decoration-success="direction == 'outgoing'"/>
-                            <field name="author_id" string="Оператор"
-                                   optional="show"/>
-                            <field name="text_message" string="Повідомлення"
-                                   widget="html"/>
+                        <tree string="Переписка SendPulse" create="False" delete="False">
                             <field name="date" string="Дата"/>
+                            <field name="service_label" string="Канал"/>
+                            <field name="direction" string="Напрямок"/>
+                            <field name="author_id" string="Оператор"/>
+                            <field name="text_message" string="Повідомлення" widget="html"/>
                         </tree>
                     </field>
                 </page>
-            </page>
+            </xpath>
 
         </field>
     </record>
