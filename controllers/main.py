@@ -3,7 +3,7 @@ import logging
 import json
 
 from odoo import http
-from odoo.http import request
+from odoo.http import request, Response
 
 _logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class SendpulseWebhookController(http.Controller):
 
     @http.route(
         '/sendpulse/webhook',
-        type='json',
+        type='http',
         auth='public',
         methods=['POST'],
         csrf=False,
@@ -55,13 +55,16 @@ class SendpulseWebhookController(http.Controller):
           "date": 1617401679000
         }
         """
+        def _json(data):
+            return Response(json.dumps(data), content_type='application/json', status=200)
+
         try:
             raw = request.httprequest.data
             if not raw:
-                return {'status': 'error', 'message': 'Empty payload'}
+                return _json({'status': 'error', 'message': 'Empty payload'})
             data = json.loads(raw)
             if not data:
-                return {'status': 'error', 'message': 'Empty payload'}
+                return _json({'status': 'error', 'message': 'Empty payload'})
 
             event_type = data.get('title', '')
             service = data.get('service', '')
@@ -111,8 +114,8 @@ class SendpulseWebhookController(http.Controller):
                     service=service,
                 )
 
-            return {'status': 'ok'}
+            return _json({'status': 'ok'})
 
         except Exception as e:
             _logger.error('SendPulse Odo webhook error: %s', e, exc_info=True)
-            return {'status': 'error', 'message': str(e)}
+            return _json({'status': 'error', 'message': str(e)})
