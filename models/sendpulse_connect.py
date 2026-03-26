@@ -829,7 +829,7 @@ class SendpulseConnect(models.Model):
             'telegram': 'https://api.sendpulse.com/telegram/contacts/send',
             'instagram': 'https://api.sendpulse.com/instagram/contacts/send',
             'facebook': 'https://api.sendpulse.com/facebook/contacts/send',
-            'messenger': 'https://api.sendpulse.com/facebook/contacts/send',
+            'messenger': 'https://api.sendpulse.com/messenger/contacts/send',
             'viber': 'https://api.sendpulse.com/viber/contacts/send',
             'whatsapp': 'https://api.sendpulse.com/whatsapp/contacts/send',
             'livechat': 'https://api.sendpulse.com/livechat/contacts/send',
