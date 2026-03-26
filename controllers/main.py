@@ -82,10 +82,6 @@ class SendpulseWebhookController(http.Controller):
                 'bot_name': bot.get('name', ''),
             })
 
-            # Ігноруємо вихідні повідомлення (їх ми самі відправляємо)
-            if event_type == EVENT_OUTGOING_MSG:
-                return {'status': 'ok', 'skipped': 'outbound'}
-
             # Обробляємо події
             if event_type in (EVENT_NEW_SUBSCRIBER, EVENT_INCOMING_MSG, EVENT_LIVE_CHAT):
                 request.env['sendpulse.connect'].sudo()._process_incoming_event(
@@ -94,6 +90,15 @@ class SendpulseWebhookController(http.Controller):
                     bot=bot,
                     service=service,
                     event_type=event_type,
+                    timestamp_ms=timestamp_ms,
+                )
+
+            elif event_type == EVENT_OUTGOING_MSG:
+                # Вихідне повідомлення з SendPulse (може бути з мобільного додатку менеджера)
+                # Зберігаємо з дедуплікацією — якщо вже є в Odoo (надіслано з Discuss) — пропускаємо
+                request.env['sendpulse.connect'].sudo()._process_outgoing_event(
+                    contact=contact,
+                    service=service,
                     timestamp_ms=timestamp_ms,
                 )
 

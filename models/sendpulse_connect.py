@@ -585,6 +585,85 @@ class SendpulseConnect(models.Model):
         return None
 
     @api.model
+    def _process_outgoing_event(self, contact, service, timestamp_ms):
+        """
+        Обробляє outbound_message — повідомлення надіслані з SendPulse
+        (зокрема з мобільного додатку менеджера).
+
+        Дедуплікація: якщо цей текст вже є в Odoo як outgoing за останні 60 секунд
+        (тобто надіслано з Odoo Discuss) — пропускаємо щоб не дублювати.
+        """
+        contact_id = contact.get('id', '')
+        last_message = contact.get('last_message', '') or ''
+
+        if not last_message or not contact_id:
+            return
+
+        # ── Дедуплікація: перевіряємо чи не ми самі щойно надіслали цей текст ──
+        cutoff = fields.Datetime.now() - timedelta(seconds=60)
+        already_saved = self.env['sendpulse.message'].search([
+            ('sendpulse_contact_id', '=', contact_id),
+            ('direction', '=', 'outgoing'),
+            ('text_message', '=', last_message),
+            ('date', '>=', cutoff),
+        ], limit=1)
+
+        if already_saved:
+            # Повідомлення вже є — надіслано з Odoo Discuss, пропускаємо
+            return
+
+        # ── Знаходимо активну розмову ────────────────────────────────────────
+        connect = self.search([
+            ('sendpulse_contact_id', '=', contact_id),
+            ('service', '=', service),
+            ('stage', '!=', 'close'),
+        ], limit=1)
+
+        if not connect:
+            return
+
+        now = fields.Datetime.now()
+
+        # ── Зберігаємо повідомлення в sendpulse.message ──────────────────────
+        self.env['sendpulse.message'].create({
+            'name': now.strftime('%Y-%m-%d %H:%M'),
+            'date': now,
+            'connect_id': connect.id,
+            'sendpulse_contact_id': contact_id,
+            'direction': 'outgoing',
+            'message_type': 'text',
+            'text_message': last_message,
+            'raw_json': str({'text': last_message, 'source': 'sendpulse_mobile'}),
+        })
+
+        # ── Постимо у discuss.channel щоб оператори в Odoo бачили ────────────
+        if connect.channel_id:
+            connect.channel_id.with_context(
+                sendpulse_incoming=True
+            ).message_post(
+                body=f"<i>📱 SendPulse:</i> {last_message}",
+                author_id=self.env.ref('base.partner_root').id,
+                message_type='comment',
+                subtype_xmlid='mail.mt_comment',
+            )
+
+        # ── Зберігаємо у вкладці Messaging картки партнера ───────────────────
+        if connect.partner_id:
+            self.env['partner.sendpulse.message'].create({
+                'partner_id': connect.partner_id.id,
+                'date': now,
+                'text_message': f"<p>📱 {last_message}</p>",
+                'service': service,
+                'direction': 'outgoing',
+            })
+
+        # ── Оновлюємо preview розмови ─────────────────────────────────────────
+        connect.write({
+            'last_message_preview': last_message[:100],
+            'last_message_date': now,
+        })
+
+    @api.model
     def _process_unsubscribe(self, contact_id, service):
         """Відмічає розмову як закриту при відписці клієнта."""
         connects = self.search([
