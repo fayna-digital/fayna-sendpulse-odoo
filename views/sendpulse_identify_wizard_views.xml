@@ -21,8 +21,7 @@
                 <!-- Поля пошуку -->
                 <group string="Пошук за даними клієнта">
                     <field name="search_email"
-                           placeholder="email@example.com"
-                           attrs="{'required': [('search_phone', '=', False)]}"/>
+                           placeholder="email@example.com"/>
                     <field name="search_phone"
                            placeholder="+380XXXXXXXXX"/>
                 </group>
