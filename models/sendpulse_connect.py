@@ -48,7 +48,7 @@ class SendpulseConnect(models.Model):
     """
     _name = 'sendpulse.connect'
     _description = 'SendPulse Розмова'
-    _order = 'write_date desc'
+    _order = 'stage_sort asc, last_message_date desc'
 
     # ── Основні поля ────────────────────────────────────────────────────
     name = fields.Char(string='Ім\'я контакту', required=True, index=True)
@@ -113,6 +113,12 @@ class SendpulseConnect(models.Model):
     service_icon = fields.Char(
         string='Іконка каналу', compute='_compute_service_icon',
     )
+    stage_sort = fields.Integer(
+        string='Порядок сортування',
+        compute='_compute_stage_sort',
+        store=True,
+        help='0=нові, 1=нові повідомлення, 2=в роботі, 3=закриті',
+    )
 
     @api.depends('partner_id')
     def _compute_is_unidentified(self):
@@ -132,6 +138,12 @@ class SendpulseConnect(models.Model):
     def _compute_message_count(self):
         for rec in self:
             rec.message_count = len(rec.message_ids)
+
+    @api.depends('stage')
+    def _compute_stage_sort(self):
+        order = {'new': 0, 'new_message': 1, 'in_progress': 2, 'close': 3}
+        for rec in self:
+            rec.stage_sort = order.get(rec.stage, 2)
 
     # ════════════════════════════════════════════════════════════════════
     # ORM Overrides
@@ -256,13 +268,15 @@ class SendpulseConnect(models.Model):
 
         channel.add_members(partner_ids=list(partner_ids))
 
-        # Якщо є збережені повідомлення — постимо їх в канал
+        # Якщо є збережені повідомлення — постимо їх в канал як історію
+        # ВАЖЛИВО: sendpulse_incoming=True щоб mail_channel.py НЕ відправляв
+        # ці повідомлення назад у SendPulse і НЕ створював дублікати sendpulse.message
         for msg in self.message_ids.sorted('date'):
             direction_label = '👤 Клієнт' if msg.direction == 'incoming' else '🧑‍💼 Оператор'
             body = Markup("<b>{}</b><br/>{}").format(direction_label, escape(msg.text_message or ''))
             if msg.attachment_url:
                 body += Markup('<br/><a href="{}" target="_blank">📎 Вкладення</a>').format(msg.attachment_url)
-            channel.message_post(
+            channel.with_context(sendpulse_incoming=True).message_post(
                 body=body,
                 author_id=self.partner_id.id if msg.direction == 'outgoing' and self.partner_id else None,
                 message_type='comment',
@@ -348,6 +362,23 @@ class SendpulseConnect(models.Model):
                 'sticky': False,
             },
         }
+
+    @api.model
+    def cron_sync_discuss_channels(self):
+        """
+        Автоматична синхронізація Discuss-каналів (планувальник задач).
+        Знаходить активні розмови без каналу та створює їх.
+        """
+        connects_without_channel = self.search([
+            ('stage', '!=', 'close'),
+            ('channel_id', '=', False),
+        ])
+        if connects_without_channel:
+            _logger.info(
+                'SendPulse Odo cron: знайдено %d розмов без каналу, синхронізуємо...',
+                len(connects_without_channel),
+            )
+            connects_without_channel.action_sync_discuss_channels()
 
     def _post_history_to_partner(self):
         """Зберігає всі повідомлення у вкладці Messaging картки партнера."""
