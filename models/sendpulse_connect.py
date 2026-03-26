@@ -461,6 +461,9 @@ class SendpulseConnect(models.Model):
             variables.get('facebook_url') or
             variables.get('instagram_url') or ''
         )
+        # Для Telegram будуємо URL профілю з username якщо немає
+        if not social_profile_url and social_username and service == 'telegram':
+            social_profile_url = f"https://t.me/{social_username}"
 
         # ── Крок 1: Ідентифікація партнера ──────────────────────────────
         partner = self._find_partner(contact_id, email, phone)
