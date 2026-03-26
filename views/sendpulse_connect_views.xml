@@ -163,7 +163,8 @@
         <field name="res_model">sendpulse.connect</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_sendpulse_connect_search"/>
-        <field name="context">{'search_default_filter_new': 1}</field>
+        <field name="domain">[('stage', '!=', 'close')]</field>
+        <field name="context">{}</field>
     </record>
 
     <record id="action_sendpulse_connect_unidentified" model="ir.actions.act_window">
