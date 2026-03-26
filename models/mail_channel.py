@@ -55,6 +55,11 @@ class DiscussChannel(models.Model):
         if not self.sendpulse_connect_id:
             return msg
 
+        # Пропускаємо повідомлення що прийшли через webhook від клієнта
+        # (context sendpulse_incoming виставляється в sendpulse_connect.py)
+        if self.env.context.get('sendpulse_incoming'):
+            return msg
+
         connect = self.sendpulse_connect_id
 
         # Пропускаємо системні повідомлення Odoo
