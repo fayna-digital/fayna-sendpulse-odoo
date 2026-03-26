@@ -1,6 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
+    <!-- Form View для sendpulse.message (без raw_json) -->
+    <record id="view_sendpulse_message_form" model="ir.ui.view">
+        <field name="name">sendpulse.message.form</field>
+        <field name="model">sendpulse.message</field>
+        <field name="arch" type="xml">
+            <form string="Повідомлення" create="false" edit="false">
+                <sheet>
+                    <group>
+                        <group string="Основна інформація">
+                            <field name="date" string="Дата"/>
+                            <field name="direction" string="Напрямок"/>
+                            <field name="message_type" string="Тип"/>
+                            <field name="connect_id" string="Розмова"/>
+                        </group>
+                        <group string="Контакт">
+                            <field name="sendpulse_contact_id" string="SendPulse Contact ID"/>
+                        </group>
+                    </group>
+                    <group string="Повідомлення">
+                        <field name="text_message" string="" nolabel="1"/>
+                    </group>
+                    <group string="Вкладення" invisible="not attachment_url">
+                        <field name="attachment_url" string="" nolabel="1" widget="url"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
     <!-- List View -->
     <record id="view_sendpulse_connect_list" model="ir.ui.view">
         <field name="name">sendpulse.connect.list</field>
