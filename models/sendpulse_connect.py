@@ -836,18 +836,24 @@ class SendpulseConnect(models.Model):
         }
         endpoint = endpoint_map.get(service, endpoint_map['telegram'])
 
-        payload = {
-            'contact_id': self.sendpulse_contact_id,
-            'messages': [{'type': 'text', 'message': {'text': text}}],
-        }
-        # Для Telegram (і інших) може бути потрібний bot_id якщо підключено кілька ботів
-        if self.bot_id:
-            payload['bot_id'] = self.bot_id
-        if attachment_url:
-            payload['messages'].append({
-                'type': 'image',
-                'message': {'url': attachment_url},
-            })
+        # Telegram використовує іншу структуру payload ніж Instagram/Facebook
+        if service == 'telegram':
+            payload = {
+                'contact_id': self.sendpulse_contact_id,
+                'message': {'type': 'text', 'text': text},
+            }
+            if attachment_url:
+                payload['message'] = {'type': 'image', 'url': attachment_url}
+        else:
+            payload = {
+                'contact_id': self.sendpulse_contact_id,
+                'messages': [{'type': 'text', 'message': {'text': text}}],
+            }
+            if attachment_url:
+                payload['messages'].append({
+                    'type': 'image',
+                    'message': {'url': attachment_url},
+                })
 
         try:
             _logger.info(
