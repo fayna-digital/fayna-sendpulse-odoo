@@ -15,8 +15,8 @@
         - Відповідь клієнту прямо з Odoo Discuss
         - Прикріплення файлів/фото
     """,
-    'author': 'Volodymyr Shevchenko',
-    'website': 'https://github.com/VladSh77/odoo-chatwoot-connector',
+    'author': 'Fayna',
+    'website': 'https://fayna.company',
     'license': 'LGPL-3',
     'category': 'Discuss',
     'depends': [
