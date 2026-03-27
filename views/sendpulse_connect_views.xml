@@ -94,7 +94,7 @@
                     </group>
                     <group>
                         <group string="Оператори">
-                            <field name="user_ids" widget="many2many_tags"/>
+                            <field name="user_ids" widget="many2many_tags" domain="[('share', '=', False), ('active', '=', True)]"/>
                         </group>
                         <group string="SendPulse">
                             <field name="sendpulse_contact_id" string="Contact ID"/>
