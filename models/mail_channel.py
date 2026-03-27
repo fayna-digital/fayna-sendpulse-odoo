@@ -50,10 +50,15 @@ class DiscussChannel(models.Model):
         Override: якщо оператор відповідає у SendPulse каналі —
         відправляємо повідомлення назад у SendPulse через API.
         """
-        msg = super().message_post(**kwargs)
-
         if not self.sendpulse_connect_id:
-            return msg
+            return super().message_post(**kwargs)
+
+        # Обробляємо slash-команду /lead
+        body_plain = html2plaintext(kwargs.get('body', '') or '').strip()
+        if body_plain.lower().startswith('/lead'):
+            return self._handle_lead_command()
+
+        msg = super().message_post(**kwargs)
 
         # Пропускаємо повідомлення що прийшли через webhook від клієнта
         # (context sendpulse_incoming виставляється в sendpulse_connect.py)
@@ -103,6 +108,36 @@ class DiscussChannel(models.Model):
 
         return msg
 
+    def _handle_lead_command(self):
+        """Створює CRM-лід з поточної SendPulse-розмови за командою /lead."""
+        connect = self.sendpulse_connect_id
+        partner = connect.partner_id
+
+        lead_vals = {
+            'name': connect.name or _('Lead from chat'),
+            'description': _('Лід створено з %s чату') % connect._get_service_label(),
+        }
+        if partner:
+            lead_vals['partner_id'] = partner.id
+            if partner.email:
+                lead_vals['email_from'] = partner.email
+            if partner.mobile or partner.phone:
+                lead_vals['phone'] = partner.mobile or partner.phone
+
+        lead = self.env['crm.lead'].create(lead_vals)
+
+        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+        lead_url = f'{base_url}/odoo/crm/{lead.id}'
+        body = _(
+            '✅ Лід створено: <a href="%s">%s</a>'
+        ) % (lead_url, lead.name)
+
+        return super().message_post(
+            body=body,
+            message_type='notification',
+            subtype_xmlid='mail.mt_note',
+        )
+
     def _is_system_message(self, text):
         """Перевіряє чи є повідомлення системним (join/leave тощо)."""
         text_lower = (text or '').lower()
@@ -124,6 +159,26 @@ class DiscussChannel(models.Model):
         except Exception as e:
             _logger.warning('SendPulse Odo: не вдалося отримати URL вкладення: %s', e)
             return None
+
+    def _get_current_member(self):
+        """
+        Override: якщо внутрішній користувач звертається до SendPulse-каналу
+        але не є його учасником (наприклад, зайшов через Discuss напряму як адмін) —
+        автоматично додаємо його як учасника, щоб уникнути NotFound у typing-нотифікаціях.
+        """
+        member = super()._get_current_member()
+        if member:
+            return member
+        if not self.sendpulse_connect_id:
+            return member
+        user = self.env.user
+        if user._is_public() or user.share:
+            return member
+        # Внутрішній користувач без membership — додаємо тихо
+        self.with_context(mail_create_nosubscribe=True).add_members(
+            partner_ids=[user.partner_id.id]
+        )
+        return super()._get_current_member()
 
     def action_unfollow(self):
         """Override: забороняємо покидати SendPulse канал без закриття розмови."""
