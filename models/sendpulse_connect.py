@@ -91,6 +91,7 @@ class SendpulseConnect(models.Model):
     )
     user_ids = fields.Many2many(
         'res.users', string='Оператори',
+        domain=[('share', '=', False), ('active', '=', True)],
         help='Оператори, призначені на цю розмову',
     )
 
@@ -187,12 +188,16 @@ class SendpulseConnect(models.Model):
         if not member:
             self.channel_id.add_members(partner_ids=[self.env.user.partner_id.id])
 
+        # Знімаємо позначку "Нове повідомлення" при відкритті чату
+        if self.stage == 'new_message':
+            self.write({'stage': 'in_progress'})
+
+        ctx = self.env.context.copy()
+        ctx['active_id'] = self.channel_id.id
         return {
             'type': 'ir.actions.client',
             'tag': 'mail.action_discuss',
-            'params': {
-                'active_id': f'discuss.channel,{self.channel_id.id}',
-            },
+            'context': ctx,
         }
 
     def action_identify_partner(self):
@@ -252,19 +257,22 @@ class SendpulseConnect(models.Model):
             if user.active:
                 partner_ids.add(user.partner_id.id)
 
-        # 4. Fallback: якщо жодного оператора не налаштовано — додаємо всіх
-        #    внутрішніх (не портальних) активних користувачів системи
-        if not partner_ids:
+        # 4. Fallback: якщо жодного реального оператора не налаштовано — додаємо всіх
+        #    внутрішніх (не портальних) активних користувачів системи.
+        #    OdooBot (partner_root) не рахується як реальний оператор — виключаємо
+        #    його ДО перевірки, щоб fallback спрацював коли в групі лише бот.
+        bot = self.env.ref('base.partner_root', raise_if_not_found=False)
+        bot_id = bot.id if bot else None
+        real_partner_ids = {pid for pid in partner_ids if pid != bot_id}
+        if not real_partner_ids:
             internal_users = self.env['res.users'].search([
                 ('share', '=', False),
                 ('active', '=', True),
             ])
             partner_ids.update(internal_users.mapped('partner_id').ids)
-
-        # Видаляємо системного бота (OdooBot), щоб не засмічував Discuss
-        bot = self.env.ref('base.partner_root', raise_if_not_found=False)
-        if bot:
-            partner_ids.discard(bot.id)
+            # OdooBot може бути серед внутрішніх — прибираємо його з fallback набору
+            if bot_id:
+                partner_ids.discard(bot_id)
 
         channel.add_members(partner_ids=list(partner_ids))
 
@@ -328,14 +336,16 @@ class SendpulseConnect(models.Model):
         admin_group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_admin', raise_if_not_found=False)
         if admin_group:
             partner_ids.update(admin_group.users.filtered('active').mapped('partner_id').ids)
-        if not partner_ids:
+        bot = self.env.ref('base.partner_root', raise_if_not_found=False)
+        bot_id = bot.id if bot else None
+        real_partner_ids = {pid for pid in partner_ids if pid != bot_id}
+        if not real_partner_ids:
             internal_users = self.env['res.users'].search([
                 ('share', '=', False), ('active', '=', True),
             ])
             partner_ids.update(internal_users.mapped('partner_id').ids)
-        bot = self.env.ref('base.partner_root', raise_if_not_found=False)
-        if bot:
-            partner_ids.discard(bot.id)
+            if bot_id:
+                partner_ids.discard(bot_id)
         partner_ids = list(partner_ids)
 
         created = 0
