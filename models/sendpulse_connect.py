@@ -865,13 +865,13 @@ class SendpulseConnect(models.Model):
                     'type': 'RESPONSE', 'content_type': 'message', 'text': attachment_url,
                 }
         elif service == 'whatsapp':
-            # WhatsApp: singular message object, тип "text"
+            # WhatsApp Business API: singular message, text вкладений як {body: "..."}
             payload = {
                 'contact_id': self.sendpulse_contact_id,
-                'message': {'type': 'text', 'text': text},
+                'message': {'type': 'text', 'text': {'body': text}},
             }
             if attachment_url:
-                payload['message'] = {'type': 'image', 'url': attachment_url}
+                payload['message'] = {'type': 'image', 'image': {'link': attachment_url}}
         else:
             payload = {
                 'contact_id': self.sendpulse_contact_id,
