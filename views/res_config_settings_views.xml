@@ -33,6 +33,9 @@
                                    placeholder="Ваш Client Secret з SendPulse"
                                    password="True"
                                    class="o_field_char"/>
+                            <field name="sendpulse_secret_is_set" invisible="1"/>
+                            <small class="text-success" invisible="not sendpulse_secret_is_set">✓ Secret збережено</small>
+                            <small class="text-warning" invisible="sendpulse_secret_is_set">⚠ Secret не налаштовано</small>
                         </div>
                     </div>
                     <div class="row mt8">

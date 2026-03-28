@@ -164,6 +164,11 @@
                         <group string="OAuth Авторизація">
                             <field name="sendpulse_client_id" placeholder="Client ID з SendPulse"/>
                             <field name="sendpulse_client_secret" password="True" placeholder="Client Secret"/>
+                            <field name="sendpulse_secret_is_set" invisible="1"/>
+                            <div colspan="2">
+                                <small class="text-success" invisible="not sendpulse_secret_is_set">✓ Secret збережено</small>
+                                <small class="text-warning" invisible="sendpulse_secret_is_set">⚠ Secret не налаштовано</small>
+                            </div>
                             <field name="sendpulse_webhook_token" placeholder="Секретний токен"/>
                         </group>
                         <group string="Webhook URL">
@@ -214,7 +219,7 @@
         <field name="res_model">res.config.settings</field>
         <field name="view_mode">form</field>
         <field name="view_id" ref="view_sendpulse_config_form"/>
-        <field name="target">inline</field>
+        <field name="target">new</field>
     </record>
 
     <!-- Menu -->
