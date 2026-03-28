@@ -1781,171 +1781,24 @@ VALUES ({channel_id}, {partner_id}, NOW(), NOW(), NOW(), 1, 1) ON CONFLICT DO NO
 
 ## 24. Лог сесії 5 (2026-03-28)
 
-### Зроблено
+| Час | Що сталося | Як вирішено | Коміт |
+|-----|------------|-------------|-------|
+| ~16:30 | **Звернення:** оператори відповідали в Odoo Discuss — клієнти у всіх каналах (Telegram, Instagram, Messenger, WhatsApp) не отримували повідомлень. Скарги накопичились за кілька годин. | Перевірено логи через `docker logs campscout_web`. Виявлено `401 Unauthorized` при запиті OAuth токена. Credentials у `ir.config_parameter` стали невалідними. Користувач перегенерував ключі у SendPulse (Settings → API → Regenerate) і ввів нові в Odoo → SendPulse → Налаштування. Telegram і Instagram запрацювали одразу. | — |
+| ~16:35 | **Попутний баг:** у формі налаштувань постійно висіла іконка хмаринки (unsaved changes) навіть після збереження. Поле Client Secret щоразу зникало при повторному відкритті. | Root cause: `res.config.settings` — TransientModel, `default_get()` порівнював `False` (DB) з `''` (повернуте) — різниця давала dirty state. `password="True"` посилював проблему. Рішення: прибрано `config_parameter` з поля secret, `get_values()` не повертає secret (залишається `False`), `set_values()` зберігає тільки якщо непорожній. `action_sendpulse_config` змінено на `target="new"` (popup). | `f1e5d82` |
+| ~16:36 | **Побічний ефект попереднього ремонту:** Odoo не міг відкрити форму налаштувань — помилка `lxml.etree.XMLSyntaxError: Attribute password redefined`. | Декілька SQL UPDATE додали `password="True"` двічі в один XML-тег у `ir_ui_view` id=6008. Виправлено: `UPDATE ir_ui_view SET arch_db = REPLACE(arch_db, 'password="True" password="True"', 'password="True"') WHERE id = 6008;` | — |
+| ~16:52 | **Тест Messenger:** клієнт написав з Facebook Messenger, оператор відповів — повідомлення не пішло. Логи: `422 Unprocessable Content`, `{"errors":{"message.content_type":["required"],"message.type":["required"]}}`. | Messenger API (Facebook) вимагає singular `message` об'єкт з `type: "RESPONSE"` та `content_type: "message"` — не масив `messages[]` як Instagram. Підтверджено через curl тест: `{"success":true}`. Додано окрему гілку `elif service == 'messenger'` у `send_message_to_sendpulse()`. | `9820284` |
+| ~16:53 | **Тест WhatsApp:** клієнт написав з WhatsApp, оператор відповів — повідомлення не пішло. Логи: `422`, `{"errors":{"message":["Invalid data"]}}`. | WhatsApp Business API вимагає вкладений об'єкт: `message: {type: "text", text: {body: "..."}}`. Простий `text: "..."` не приймається. Підтверджено через curl: `{"success":true}`. Додано `elif service == 'whatsapp'` з правильною структурою. | `c226875` |
+| ~16:59 | **Фінальний тест:** всі 4 канали протестовано вживу. | Telegram `200 OK` ✅, Instagram `200 OK` ✅, Messenger `200 OK` ✅, WhatsApp `200 OK` ✅ — всі підтверджено логами сервера. | `fdd14e2` |
 
-| # | Файл | Опис |
-|---|------|------|
-| 1 | `models/sendpulse_connect.py` | **FIX**: Messenger payload — окрема гілка `elif service == 'messenger'` з правильним форматом Facebook Messaging API |
-| 2 | `models/res_config_settings.py` | **FIX**: Хмаринка у налаштуваннях — `sendpulse_client_secret` більше не має `config_parameter`, `get_values()` повертає тільки `super()`, `set_values()` зберігає secret якщо не порожній |
-| 3 | `views/res_config_settings_views.xml` | **FIX**: Додано індикатор "✓ Secret збережено" / "⚠ Secret не налаштовано" через `sendpulse_secret_is_set` computed field |
-| 4 | `views/sendpulse_connect_views.xml` | **FIX**: `action_sendpulse_config` → `target="new"` (dialog) замість inline, щоб уникнути breadcrumb cloud |
-| 5 | DB `campscout` | **SQL**: Виправлено дублікат атрибуту `password="True" password="True"` у view id=6008 (lxml parse error) |
+### API формати payload (фінальні, підтверджені тестами)
 
-### Критичні баги знайдені і виправлені
-
-#### 1. Повідомлення не доходили до клієнтів (401 Unauthorized)
-
-**Симптоми:** Оператори відповідали в Odoo Discuss, але клієнти в Telegram/Instagram/Messenger не отримували нічого. В логах: `401 Unauthorized` при виклику SendPulse API.
-
-**Причина:** OAuth2 credentials (`client_id` / `client_secret`) застаріли або були невалідними. Перевірка через curl підтвердила — токен не видавався.
-
-**Рішення:** Користувач згенерував нові credentials у SendPulse (Settings → API → API keys → Regenerate). Нові credentials введено через Odoo → SendPulse → Налаштування.
-
-**Перевірка:**
-```bash
-curl -s -X POST https://api.sendpulse.com/oauth/access_token \
-  -H "Content-Type: application/json" \
-  -d '{"grant_type":"client_credentials","client_id":"sp_id_...","client_secret":"sp_sk_..."}'
-# Очікуваний результат: {"access_token": "...", "token_type": "Bearer", ...}
-```
-
----
-
-#### 2. Хмаринка у налаштуваннях (dirty state після збереження)
-
-**Симптоми:** Після збереження налаштувань SendPulse (зокрема Client Secret) — при повторному відкритті форми у правому верхньому куті висить іконка хмаринки (unsaved changes), навіть якщо нічого не змінено. При цьому поле `sendpulse_client_secret` порожнє — секрет "зникає".
-
-**Root cause:** Odoo `res.config.settings` — `TransientModel`. При відкритті форми `default_get()` → `get_values()` → повертає значення полів. Поле `sendpulse_client_secret` не мало `config_parameter` і не поверталось — але `default_get` порівнював `False` (з БД) vs `''` (поверненe) — різниця = dirty state. `password="True"` у view також активує dirty state через маскування значення.
-
-**Рішення:**
-```python
-# models/res_config_settings.py
-sendpulse_client_secret = fields.Char(
-    string='SendPulse Client Secret',
-    help='Залиште порожнім щоб не змінювати поточне значення',
-    # БЕЗ config_parameter — зберігається вручну через set_values()
-)
-sendpulse_secret_is_set = fields.Boolean(compute='_compute_sendpulse_secret_is_set')
-
-def get_values(self):
-    # НЕ повертаємо client_secret — залишається False → no dirty state
-    return super().get_values()
-
-def set_values(self):
-    super().set_values()
-    if self.sendpulse_client_secret:
-        self.env['ir.config_parameter'].sudo().set_param(
-            'odoo_chatwoot_connector.client_secret',
-            self.sendpulse_client_secret,
-        )
-```
-
-**Додатково:** `action_sendpulse_config` змінено з `target="inline"` на `target="new"` — діалог відкривається у popup вікні і не показує breadcrumb з хмаринкою для TransientModel нового запису.
-
----
-
-#### 3. Дублікат атрибута `password="True"` у DB view (lxml parse error)
-
-**Симптоми:** Після спроби виправити хмаринку через SQL UPDATE — отримали помилку `lxml.etree.XMLSyntaxError: Attribute password redefined`. Odoo не міг рендерити форму налаштувань.
-
-**Причина:** Кілька SQL UPDATE операцій застосовувались послідовно і додали атрибут `password="True"` двічі в один XML-тег.
-
-**Виправлення через SQL:**
-```sql
-UPDATE ir_ui_view
-SET arch_db = REPLACE(arch_db, 'password="True" password="True"', 'password="True"')
-WHERE id = 6008;
-```
-
----
-
-#### 4. Messenger 422 Unprocessable Content
-
-**Симптоми:** Повідомлення від оператора в Odoo не доходили до клієнта у Facebook Messenger. Логи: `422 Unprocessable Content`, тіло відповіді: `{"errors": {"message.content_type": ["required"], "message.type": ["required"]}}`.
-
-**Причина:** Messenger API (Facebook) використовує **інший формат payload** ніж Instagram/Telegram. Сендпульс реалізує Facebook Messaging API семантику.
-
-**Стара (неправильна) структура:**
-```json
-{"contact_id": "...", "messages": [{"type": "text", "message": {"text": "..."}}]}
-```
-
-**Правильна структура для Messenger:**
-```json
-{"contact_id": "...", "message": {"type": "RESPONSE", "content_type": "message", "text": "..."}}
-```
-
-Ключові відмінності:
-- Singular `message` (не масив `messages`)
-- `type` — Facebook `messaging_type`: `RESPONSE`, `UPDATE`, або `MESSAGE_TAG` (великими літерами)
-- Обов'язкове поле `content_type: "message"`
-
-**Виправлення в коді** (`models/sendpulse_connect.py`, метод `send_message_to_sendpulse`):
-```python
-elif service == 'messenger':
-    payload = {
-        'contact_id': self.sendpulse_contact_id,
-        'message': {'type': 'RESPONSE', 'content_type': 'message', 'text': text},
-    }
-```
-
-**Тестування API (підтверджено робочий формат):**
-```bash
-curl -X POST https://api.sendpulse.com/messenger/contacts/send \
-  -H "Authorization: Bearer TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"contact_id":"CONTACT_UUID","message":{"type":"RESPONSE","content_type":"message","text":"Тест"}}'
-# Результат: {"success":true,"data":true}
-```
-
----
-
-### Статус після сесії 5
-
-| Функція | Статус |
-|---------|--------|
-| SendPulse OAuth (нові credentials) | ✅ Оновлено |
-| Telegram ↔ Odoo Discuss | ✅ Працює |
-| Instagram ↔ Odoo Discuss | ✅ Підтверджено (200 OK в логах) |
-| Messenger ↔ Odoo Discuss | ✅ Payload виправлено — тест API пройшов |
-| WhatsApp ↔ Odoo Discuss | ⚠️ Ще не тестувалось |
-| Хмаринка у налаштуваннях | ✅ Виправлено (no dirty state) |
-| Індикатор "Secret збережено" | ✅ Додано |
-
-### Залишилось зробити (пріоритети оновлені 2026-03-28)
-
-| # | Задача | Пріоритет |
-|---|--------|-----------|
-| 1 | Протестувати Messenger end-to-end з реальним клієнтом | КРИТИЧНО |
-| 2 | Протестувати WhatsApp (перевірити формат payload) | КРИТИЧНО |
-| 3 | Попередження 24h вікна (Meta канали) | Важливе |
-| 4 | Кешування OAuth токена (TTL 3600 сек) | Важливе |
-| 5 | Вхідні вкладення як `<img>` у Discuss | Покращення |
-| 6 | Автор вхідних повідомлень (ім'я клієнта замість OdooBot) | Покращення |
-| 7 | Валідація webhook token | Покращення |
-
-**API формати payload (актуально після сесії 5):**
-```python
-# Telegram:
-{"contact_id": "...", "message": {"type": "text", "text": "..."}}
-
-# Instagram / Facebook / Viber / LiveChat:
-{"contact_id": "...", "messages": [{"type": "text", "message": {"text": "..."}}]}
-
-# Messenger (Facebook Messenger — окремий формат!):
-{"contact_id": "...", "message": {"type": "RESPONSE", "content_type": "message", "text": "..."}}
-
-# WhatsApp Business API — text вкладений як об'єкт:
-{"contact_id": "...", "message": {"type": "text", "text": {"body": "..."}}}
-```
-
-### Фінальний статус після сесії 5
-
-| Канал | API endpoint | Payload format | Статус |
-|-------|-------------|----------------|--------|
-| Telegram | `/telegram/contacts/send` | `message: {type, text}` | ✅ |
-| Instagram | `/instagram/contacts/send` | `messages: [{type, message:{text}}]` | ✅ |
-| Messenger | `/messenger/contacts/send` | `message: {type:RESPONSE, content_type:message, text}` | ✅ |
-| WhatsApp | `/whatsapp/contacts/send` | `message: {type:text, text:{body}}` | ✅ |
+| Канал | Endpoint | Payload |
+|-------|----------|---------|
+| Telegram | `/telegram/contacts/send` | `{"message": {"type": "text", "text": "..."}}` |
+| Instagram | `/instagram/contacts/send` | `{"messages": [{"type": "text", "message": {"text": "..."}}]}` |
+| Facebook | `/facebook/contacts/send` | `{"messages": [{"type": "text", "message": {"text": "..."}}]}` |
+| Messenger | `/messenger/contacts/send` | `{"message": {"type": "RESPONSE", "content_type": "message", "text": "..."}}` |
+| WhatsApp | `/whatsapp/contacts/send` | `{"message": {"type": "text", "text": {"body": "..."}}}` |
+| Viber | `/viber/contacts/send` | `{"messages": [{"type": "text", "message": {"text": "..."}}]}` *(не тестувалось)* |
 
 *Документацію оновлено: 2026-03-28 (сесія 5)*
