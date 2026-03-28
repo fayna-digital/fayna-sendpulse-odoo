@@ -846,8 +846,26 @@ class SendpulseConnect(models.Model):
         }
         endpoint = endpoint_map.get(service, endpoint_map['telegram'])
 
-        # Telegram використовує іншу структуру payload ніж Instagram/Facebook
+        # Кожен канал має свій формат payload
         if service == 'telegram':
+            payload = {
+                'contact_id': self.sendpulse_contact_id,
+                'message': {'type': 'text', 'text': text},
+            }
+            if attachment_url:
+                payload['message'] = {'type': 'image', 'url': attachment_url}
+        elif service == 'messenger':
+            # Facebook Messenger: singular message, messaging_type RESPONSE/UPDATE/MESSAGE_TAG
+            payload = {
+                'contact_id': self.sendpulse_contact_id,
+                'message': {'type': 'RESPONSE', 'content_type': 'message', 'text': text},
+            }
+            if attachment_url:
+                payload['message'] = {
+                    'type': 'RESPONSE', 'content_type': 'message', 'text': attachment_url,
+                }
+        elif service == 'whatsapp':
+            # WhatsApp: singular message object, тип "text"
             payload = {
                 'contact_id': self.sendpulse_contact_id,
                 'message': {'type': 'text', 'text': text},
