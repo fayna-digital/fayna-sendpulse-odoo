@@ -1021,28 +1021,39 @@ env.cr.commit()
 
 **Сервер:** `91.98.122.195`
 **Контейнер Odoo:** `campscout_web`
-**Шлях до модуля:** `/home/deploy/odoo-prod/custom-addons/odoo_chatwoot_connector`
 **Git репозиторій:** https://github.com/VladSh77/odoo-chatwoot-connector
 **База даних:** `campscout`
+
+#### ⚠️ Важливо: два шляхи — правильний і хибний
+
+На сервері існують **два** каталоги з модулем. Використовувати треба **тільки перший**:
+
+| Шлях | Статус | Пояснення |
+|------|--------|-----------|
+| `/opt/campscout/custom-addons/odoo_chatwoot_connector` | ✅ **ПРАВИЛЬНИЙ** | Docker монтує саме цей каталог у контейнер (`/mnt/custom-addons`) |
+| `/home/deploy/odoo-prod/custom-addons/odoo_chatwoot_connector` | ❌ **ХИБНИЙ** | Git-репо є, але Docker його не бачить — зміни не потрапляють в Odoo |
+
+**Docker volume mapping:**
+```
+/opt/campscout/custom-addons  →  /mnt/custom-addons  (всередині контейнера)
+/opt/campscout/addons         →  /mnt/extra-addons
+```
 
 #### Workflow: локально → git → сервер
 
 ```
 1. Внести зміни локально (/Users/admin/Developer/Fayna-Projects/odoo-chatwoot-connector)
 2. git add + git commit + git push origin main
-3. На сервері: git pull + оновити модуль в Odoo
+3. На сервері: git pull у /opt/campscout/custom-addons/odoo_chatwoot_connector + docker restart
 ```
 
 #### Деплой на сервер (команди)
 
 ```bash
-# SSH на сервер
-ssh deploy@91.98.122.195
+# 1. Оновити код з git (правильний шлях!)
+sudo git -C /opt/campscout/custom-addons/odoo_chatwoot_connector pull origin main
 
-# 1. Оновити код з git
-sudo git -C /home/deploy/odoo-prod/custom-addons/odoo_chatwoot_connector pull origin main
-
-# 2. Оновити модуль в Odoo (з перезавантаженням views/models)
+# 2. Оновити модуль в Odoo (якщо змінились views/XML/security)
 sudo docker exec campscout_web odoo \
   -u odoo_chatwoot_connector \
   -d campscout \
@@ -1057,13 +1068,13 @@ sudo docker restart campscout_web
 ```
 
 **Якщо змінились views, security або XML-файли** — виконувати кроки 2 і 3.
-**Якщо змінився тільки Python-код** — достатньо кроку 3 (docker restart).
+**Якщо змінився тільки Python-код** — достатньо кроків 1 і 3.
 
 #### Кроки встановлення з нуля (новий сервер)
 
 ```bash
-# 1. Клонувати репозиторій у папку custom-addons
-cd /home/deploy/odoo-prod/custom-addons
+# 1. Клонувати репозиторій у правильну папку (яку монтує Docker)
+cd /opt/campscout/custom-addons
 sudo git clone https://github.com/VladSh77/odoo-chatwoot-connector odoo_chatwoot_connector
 
 # 2. Встановити модуль
