@@ -1,9 +1,34 @@
 # -*- coding: utf-8 -*-
 import logging
 import re
+from html import unescape
 
 from odoo import models, fields, api, _
 from odoo.tools import plaintext2html, html2plaintext
+
+
+def _html_to_text(html_body):
+    """
+    Convert HTML to plain text for sending to SendPulse messengers.
+    Odoo's html2plaintext produces Markdown reference-style links:
+        https://example.com [1]\n\n[1] https://example.com
+    This function extracts the href directly, keeping URLs clean and readable.
+    """
+    if not html_body:
+        return ''
+    text = re.sub(r'<br\s*/?>', '\n', html_body, flags=re.IGNORECASE)
+    text = re.sub(r'</p>', '\n', text, flags=re.IGNORECASE)
+    # Replace <a href="URL">...</a> with just the URL
+    text = re.sub(
+        r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>.*?</a>',
+        r'\1', text,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    text = re.sub(r'<[^>]+>', '', text)
+    text = unescape(text)
+    text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
 
 _logger = logging.getLogger(__name__)
 
@@ -54,7 +79,7 @@ class DiscussChannel(models.Model):
             return super().message_post(**kwargs)
 
         # Обробляємо slash-команду /lead
-        body_plain = html2plaintext(kwargs.get('body', '') or '').strip()
+        body_plain = _html_to_text(kwargs.get('body', '') or '')
         if body_plain.lower().startswith('/lead'):
             return self._handle_lead_command()
 
@@ -68,7 +93,7 @@ class DiscussChannel(models.Model):
         connect = self.sendpulse_connect_id
 
         # Пропускаємо системні повідомлення Odoo
-        body_plain = html2plaintext(kwargs.get('body', '') or '')
+        body_plain = _html_to_text(kwargs.get('body', '') or '')
         if self._is_system_message(body_plain):
             return msg
 
