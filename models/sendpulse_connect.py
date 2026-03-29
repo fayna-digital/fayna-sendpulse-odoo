@@ -218,11 +218,13 @@ class SendpulseConnect(models.Model):
         self.write({'stage': 'close'})
         if self.partner_id:
             self._post_history_to_partner()
+        return {'type': 'ir.actions.client', 'tag': 'reload'}
 
     def action_reopen(self):
         """Повторно відкриває закриту розмову."""
         self.ensure_one()
         self.write({'stage': 'in_progress'})
+        return {'type': 'ir.actions.client', 'tag': 'reload'}
 
     def _create_discuss_channel(self):
         """

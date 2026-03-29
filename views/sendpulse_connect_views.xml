@@ -68,8 +68,7 @@
                             invisible="partner_id != False or stage == 'close'"/>
                     <button name="action_close" type="object"
                             string="Закрити розмову"
-                            invisible="stage == 'close'"
-                            confirm="Закрити цю розмову?"/>
+                            invisible="stage == 'close'"/>
                     <button name="action_reopen" type="object"
                             string="Відновити"
                             invisible="stage != 'close'"/>
