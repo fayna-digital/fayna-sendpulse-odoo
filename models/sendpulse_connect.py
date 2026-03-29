@@ -569,6 +569,19 @@ class SendpulseConnect(models.Model):
         last_message = contact.get('last_message', '') or ''
         variables = contact.get('variables', {}) or {}
 
+        # Визначаємо тип медіа з last_message_data (якщо є)
+        last_message_data = contact.get('last_message_data', {}) or {}
+        msg_data = (last_message_data.get('message', {}) or {})
+        msg_type = msg_data.get('type', 'text') or 'text'  # text, image, sticker, audio, video, document
+
+        # Fallback: якщо last_message виглядає як media URL — вважаємо image
+        _MEDIA_URL_PATTERNS = ('lookaside.fbsbx.com', '/messages/media', 'chatbots-service')
+        _MEDIA_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.mp3', '.ogg')
+        if msg_type == 'text' and last_message.startswith('http'):
+            if any(p in last_message for p in _MEDIA_URL_PATTERNS) or \
+               any(last_message.lower().endswith(e) for e in _MEDIA_EXTENSIONS):
+                msg_type = 'image'
+
         # Соціальні ідентифікатори
         social_username = (
             variables.get('username') or
@@ -642,20 +655,37 @@ class SendpulseConnect(models.Model):
 
         # ── Крок 3: Зберігаємо повідомлення ─────────────────────────────
         if last_message:
+            is_image = msg_type in ('image', 'sticker')
+            is_media = is_image or msg_type in ('audio', 'video', 'document')
+            media_icons = {'audio': '🎵', 'video': '🎥', 'document': '📄'}
+
             self.env['sendpulse.message'].create({
                 'name': now.strftime('%Y-%m-%d %H:%M'),
                 'date': now,
                 'connect_id': connect.id,
                 'sendpulse_contact_id': contact_id,
                 'direction': 'incoming',
-                'message_type': 'text',
-                'text_message': last_message,
+                'message_type': 'image' if is_image else ('file' if is_media else 'text'),
+                'text_message': '' if is_media else last_message,
+                'attachment_url': last_message if is_media else False,
                 'raw_json': str({'text': last_message, 'contact': contact}),
             })
 
             # Якщо є активний channel — постимо туди для операторів
             if connect.channel_id:
-                body = Markup("<b>👤 {}</b><br/>{}").format(escape(contact_name), escape(last_message))
+                if is_image:
+                    body = Markup(
+                        "<b>👤 {}</b><br/>"
+                        "<img src='{}' style='max-width:400px;border-radius:8px;'/>"
+                    ).format(escape(contact_name), last_message)
+                elif is_media:
+                    icon = media_icons.get(msg_type, '📎')
+                    body = Markup(
+                        "<b>👤 {}</b><br/>{} <a href='{}' target='_blank'>Вкладення</a>"
+                    ).format(escape(contact_name), icon, last_message)
+                else:
+                    body = Markup("<b>👤 {}</b><br/>{}").format(escape(contact_name), escape(last_message))
+
                 connect.channel_id.with_context(
                     sendpulse_incoming=True
                 ).message_post(
@@ -667,10 +697,17 @@ class SendpulseConnect(models.Model):
 
             # Зберігаємо у вкладці Messaging картки партнера
             if connect.partner_id:
+                if is_image:
+                    partner_body = f"<img src='{last_message}' style='max-width:300px;'/>"
+                elif is_media:
+                    icon = media_icons.get(msg_type, '📎')
+                    partner_body = f"<p>{icon} <a href='{last_message}'>Вкладення</a></p>"
+                else:
+                    partner_body = f"<p>{last_message}</p>"
                 self.env['partner.sendpulse.message'].create({
                     'partner_id': connect.partner_id.id,
                     'date': now,
-                    'text_message': f"<p>{last_message}</p>",
+                    'text_message': partner_body,
                     'service': service,
                     'direction': 'incoming',
                 })
