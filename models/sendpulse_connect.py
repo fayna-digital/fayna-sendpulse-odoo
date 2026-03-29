@@ -949,7 +949,7 @@ class SendpulseConnect(models.Model):
                 'message': {'type': 'text', 'text': text},
             }
             if attachment_url:
-                payload['message'] = {'type': 'image', 'url': attachment_url}
+                payload['message'] = {'type': 'photo', 'url': attachment_url}
         elif service == 'messenger':
             # Facebook Messenger: singular message, messaging_type RESPONSE/UPDATE/MESSAGE_TAG
             payload = {
