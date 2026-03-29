@@ -214,17 +214,21 @@ class SendpulseConnect(models.Model):
         }
 
     def action_close(self):
-        """Закриває розмову."""
+        """Закриває розмову і архівує discuss.channel щоб не захаращував Discuss."""
         self.ensure_one()
         self.write({'stage': 'close'})
         if self.partner_id:
             self._post_history_to_partner()
+        if self.channel_id:
+            self.channel_id.write({'active': False})
         return {'type': 'ir.actions.client', 'tag': 'reload'}
 
     def action_reopen(self):
-        """Повторно відкриває закриту розмову."""
+        """Повторно відкриває закриту розмову і розархівує discuss.channel."""
         self.ensure_one()
         self.write({'stage': 'in_progress'})
+        if self.channel_id:
+            self.channel_id.write({'active': True})
         return {'type': 'ir.actions.client', 'tag': 'reload'}
 
     def _create_discuss_channel(self):
@@ -602,7 +606,7 @@ class SendpulseConnect(models.Model):
         partner = self._find_partner(contact_id, email, phone)
 
         # ── Крок 2: Знаходимо або створюємо розмову ─────────────────────
-        # Пріоритет 1: точний збіг по sendpulse_contact_id + service
+        # Пріоритет 1: активна розмова по sendpulse_contact_id + service
         connect = self.search([
             ('sendpulse_contact_id', '=', contact_id),
             ('service', '=', service),
@@ -621,6 +625,19 @@ class SendpulseConnect(models.Model):
             if connect and connect.sendpulse_contact_id != contact_id:
                 # Оновлюємо contact_id на актуальний
                 connect.write({'sendpulse_contact_id': contact_id})
+
+        # Пріоритет 3: закрита розмова того ж контакту — перевідкриваємо замість створення нової
+        if not connect:
+            connect = self.search([
+                ('sendpulse_contact_id', '=', contact_id),
+                ('service', '=', service),
+                ('stage', '=', 'close'),
+            ], order='write_date desc', limit=1)
+            if connect:
+                connect.write({'stage': 'new'})
+                # Розархівовуємо discuss.channel якщо він був архівований при закритті
+                if connect.channel_id:
+                    connect.channel_id.write({'active': True})
 
         now = fields.Datetime.now()
         if not connect:
