@@ -903,8 +903,6 @@ class SendpulseConnect(models.Model):
                 'name': filename,
                 'datas': base64.b64encode(resp.content).decode(),
                 'mimetype': content_type,
-                'res_model': 'sendpulse.connect',
-                'res_id': self.id,
             })
             att.generate_access_token()
             return att
