@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import base64
 import logging
 import requests
 from datetime import datetime, timedelta
@@ -673,27 +674,48 @@ class SendpulseConnect(models.Model):
 
             # Якщо є активний channel — постимо туди для операторів
             if connect.channel_id:
-                if is_image:
-                    body = Markup(
-                        "<b>👤 {}</b><br/>"
-                        "<img src='{}' style='max-width:400px;border-radius:8px;'/>"
-                    ).format(escape(contact_name), last_message)
-                elif is_media:
-                    icon = media_icons.get(msg_type, '📎')
-                    body = Markup(
-                        "<b>👤 {}</b><br/>{} <a href='{}' target='_blank'>Вкладення</a>"
-                    ).format(escape(contact_name), icon, last_message)
-                else:
-                    body = Markup("<b>👤 {}</b><br/>{}").format(escape(contact_name), escape(last_message))
+                att = None
+                if is_media:
+                    att = connect._download_media_as_attachment(last_message)
 
-                connect.channel_id.with_context(
-                    sendpulse_incoming=True
-                ).message_post(
-                    body=body,
-                    author_id=partner.id if partner else self.env.ref('base.partner_root').id,
-                    message_type='comment',
-                    subtype_xmlid='mail.mt_comment',
-                )
+                if is_image and att:
+                    # Фото/стікер — скачали і показуємо як attachment
+                    body = Markup("<b>👤 {}</b>").format(escape(contact_name))
+                    connect.channel_id.with_context(sendpulse_incoming=True).message_post(
+                        body=body,
+                        attachment_ids=[att.id],
+                        author_id=partner.id if partner else self.env.ref('base.partner_root').id,
+                        message_type='comment',
+                        subtype_xmlid='mail.mt_comment',
+                    )
+                elif is_media and att:
+                    icon = media_icons.get(msg_type, '📎')
+                    base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+                    file_url = f"{base_url}/web/content/{att.id}?access_token={att.access_token}"
+                    body = Markup("<b>👤 {}</b><br/>{} <a href='{}' target='_blank'>Вкладення</a>").format(
+                        escape(contact_name), icon, file_url,
+                    )
+                    connect.channel_id.with_context(sendpulse_incoming=True).message_post(
+                        body=body,
+                        author_id=partner.id if partner else self.env.ref('base.partner_root').id,
+                        message_type='comment',
+                        subtype_xmlid='mail.mt_comment',
+                    )
+                else:
+                    # Текст або fallback якщо медіа не вдалося завантажити
+                    if is_media:
+                        icon = media_icons.get(msg_type, '📎')
+                        body = Markup("<b>👤 {}</b><br/>{} <a href='{}' target='_blank'>Вкладення</a>").format(
+                            escape(contact_name), icon, last_message,
+                        )
+                    else:
+                        body = Markup("<b>👤 {}</b><br/>{}").format(escape(contact_name), escape(last_message))
+                    connect.channel_id.with_context(sendpulse_incoming=True).message_post(
+                        body=body,
+                        author_id=partner.id if partner else self.env.ref('base.partner_root').id,
+                        message_type='comment',
+                        subtype_xmlid='mail.mt_comment',
+                    )
 
             # Зберігаємо у вкладці Messaging картки партнера
             if connect.partner_id:
@@ -852,6 +874,43 @@ class SendpulseConnect(models.Model):
                 'SendPulse Odo: контакт %s відписався (%s), розмова закрита',
                 contact_id, service,
             )
+
+    def _download_media_as_attachment(self, media_url):
+        """
+        Download media file from SendPulse API (requires Bearer token) and
+        save as ir.attachment so Odoo can display it inline in Discuss.
+        Returns ir.attachment record or None on failure.
+        """
+        try:
+            token = self._get_access_token()
+            if not token:
+                return None
+            resp = requests.get(
+                media_url,
+                headers={'Authorization': f'Bearer {token}'},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            content_type = resp.headers.get('Content-Type', 'image/jpeg').split(';')[0].strip()
+            ext_map = {
+                'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif',
+                'image/webp': 'webp', 'video/mp4': 'mp4',
+                'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'application/pdf': 'pdf',
+            }
+            ext = ext_map.get(content_type, 'bin')
+            filename = f'sendpulse_{fields.Datetime.now().strftime("%Y%m%d_%H%M%S")}.{ext}'
+            att = self.env['ir.attachment'].create({
+                'name': filename,
+                'datas': base64.b64encode(resp.content).decode(),
+                'mimetype': content_type,
+                'res_model': 'sendpulse.connect',
+                'res_id': self.id,
+            })
+            att.generate_access_token()
+            return att
+        except Exception as e:
+            _logger.warning('SendPulse Odo: не вдалося завантажити медіа %s: %s', media_url, e)
+            return None
 
     def send_message_to_sendpulse(self, text, attachment_url=None):
         """
