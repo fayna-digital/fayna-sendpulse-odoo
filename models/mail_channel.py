@@ -18,12 +18,15 @@ def _html_to_text(html_body):
         return ''
     text = re.sub(r'<br\s*/?>', '\n', html_body, flags=re.IGNORECASE)
     text = re.sub(r'</p>', '\n', text, flags=re.IGNORECASE)
-    # Replace <a href="URL">...</a> with just the URL
-    text = re.sub(
-        r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>.*?</a>',
-        r'\1', text,
-        flags=re.DOTALL | re.IGNORECASE,
-    )
+
+    # Replace <a ...>...</a> with just the URL from href.
+    # Using a callback because href may be any attribute (not always first).
+    def _extract_href(m):
+        href = re.search(r'href=["\']([^"\']+)["\']', m.group(0), re.IGNORECASE)
+        return href.group(1) if href else ''
+
+    text = re.sub(r'<a\b[^>]*>.*?</a>', _extract_href, text, flags=re.DOTALL | re.IGNORECASE)
+
     text = re.sub(r'<[^>]+>', '', text)
     text = unescape(text)
     text = re.sub(r'[ \t]+', ' ', text)
