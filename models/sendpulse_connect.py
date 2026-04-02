@@ -872,10 +872,14 @@ class SendpulseConnect(models.Model):
             })
 
         # ── Оновлюємо preview розмови ─────────────────────────────────────────
-        connect.write({
+        update_vals = {
             'last_message_preview': last_message[:100],
             'last_message_date': now,
-        })
+        }
+        # Якщо оператор відповів — знімаємо "Нове повідомлення"
+        if connect.stage == 'new_message':
+            update_vals['stage'] = 'in_progress'
+        connect.write(update_vals)
 
     @api.model
     def _process_unsubscribe(self, contact_id, service):
