@@ -1812,4 +1812,55 @@ VALUES ({channel_id}, {partner_id}, NOW(), NOW(), NOW(), 1, 1) ON CONFLICT DO NO
 | WhatsApp | `/whatsapp/contacts/send` | `{"message": {"type": "text", "text": {"body": "..."}}}` |
 | Viber | `/viber/contacts/send` | `{"messages": [{"type": "text", "message": {"text": "..."}}]}` *(не тестувалось)* |
 
+---
+
+## 25. Лог сесії 6 (2026-04-02)
+
+### Перевірка стану на production (campscout.eu)
+
+| Перевірка | Результат |
+|-----------|-----------|
+| Модуль встановлений | ✅ `odoo_chatwoot_connector` — installed |
+| Вхідні повідомлення | ✅ Telegram, Instagram, WhatsApp, Messenger — всі приймаються |
+| Вихідні повідомлення | ✅ API відповідь `{"success":true}` по всіх каналах |
+| Cron авто-синхронізація | ✅ виконується штатно |
+| Помилки SendPulse в логах | ✅ нуль |
+
+### Активність каналів (станом на 02.04.2026)
+
+| Канал | Розмов | Остання активність |
+|-------|--------|--------------------|
+| Instagram | 45 | 14:52 |
+| Telegram | 36 | 15:07 |
+| WhatsApp | 10 | 08:32 |
+| Messenger | 6 | 10:37 |
+
+### Баг: розмови застрявали в статусі "Нове повідомлення"
+
+**Симптом:** розмови, в яких оператор вже відповів, продовжували висіти зі статусом `new_message` у списку.
+
+**Root cause:** функція `_process_outgoing_event()` оновлювала preview розмови після відповіді оператора, але **не скидала статус** `new_message` → `in_progress`. Статус скидався лише при відкритті запису через `action_open_channel()` — тобто тільки якщо оператор клікав у запис SendPulse, а не відповідав напряму з Odoo Discuss.
+
+**Фікс** (`models/sendpulse_connect.py`, коміт `f59cec7`):
+```python
+# Якщо оператор відповів — знімаємо "Нове повідомлення"
+if connect.stage == 'new_message':
+    update_vals['stage'] = 'in_progress'
+```
+
+**Міграція даних:** 23 старі розмови виправлено SQL:
+```sql
+UPDATE sendpulse_connect
+SET stage = 'in_progress'
+WHERE stage = 'new_message'
+AND id IN (
+    SELECT DISTINCT connect_id FROM sendpulse_message
+    WHERE direction = 'outgoing'
+);
+```
+
+### Очистка orphan attachments
+
+Виявлено 4277 записів в `ir_attachment` що посилались на файли відсутні у filestore (база перенесена без filestore). Видалено скриптом — Odoo більше не логує `FileNotFoundError`.
+
 *Документацію оновлено: 2026-03-28 (сесія 5)*
