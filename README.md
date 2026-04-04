@@ -1,13 +1,12 @@
-# SendPulse Chatbot Connector for Odoo 17
+# 💬 SendPulse Omnichannel Connector for Odoo 17
 
 ![Odoo Version](https://img.shields.io/badge/Odoo-17.0%20Community-purple)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
-![License](https://img.shields.io/badge/License-LGPL%203.0-blue.svg)
+![SendPulse](https://img.shields.io/badge/SendPulse-Webhook%20API-red)
+![License](https://img.shields.io/badge/License-LGPL--3.0-green.svg)
 ![Status](https://img.shields.io/badge/Status-Production-brightgreen)
-![Channels](https://img.shields.io/badge/Channels-Telegram%20%7C%20Instagram%20%7C%20WhatsApp%20%7C%20Viber-informational)
 
-**Developed by [Fayna Digital](https://fayna.agency) for [CampScout](https://campscout.eu)**  
-**Author: Volodymyr Shevchenko**
+**Developed by [Fayna Digital](https://fayna.agency) — Author: Volodymyr Shevchenko**
 
 ---
 
