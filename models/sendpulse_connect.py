@@ -1052,20 +1052,40 @@ class SendpulseConnect(models.Model):
                 'params': {'title': 'SendPulse', 'message': 'Профіль оновлено', 'type': 'success'}}
 
     def _extract_contact_vals(self, data):
-        """Витягує поля з відповіді SendPulse API для запису в модель."""
+        """
+        Витягує поля з відповіді SendPulse API для запису в модель.
+
+        SendPulse може повертати:
+          - пласку структуру: {"photo": "...", "language": "uk", ...}
+          - або вкладену:     {"data": {"photo": "...", ...}}
+        Поле фото: "photo" (webhook і GET API) або "avatar" (оператор).
+        """
+        # Розгортаємо вкладену відповідь якщо є
+        contact = data.get('data') if isinstance(data.get('data'), dict) else data
+        _logger.info('SendPulse Odo: _extract_contact_vals keys=%s', list(contact.keys()))
+
         vals = {}
-        if data.get('avatar'):
-            vals['avatar_url'] = data['avatar']
-        if data.get('language'):
-            vals['language_code'] = data['language']
-        raw_status = (data.get('status') or '').lower()
+
+        # Фото — SendPulse використовує "photo" в webhook і GET API
+        # Фото — завжди перезаписуємо (могло оновитись у профілі)
+        photo_url = contact.get('photo') or contact.get('avatar') or contact.get('picture')
+        if photo_url and isinstance(photo_url, str) and photo_url.startswith('http'):
+            vals['avatar_url'] = photo_url
+
+        # Мова
+        lang = contact.get('language') or contact.get('lang')
+        if lang:
+            vals['language_code'] = str(lang)
+
+        # Статус підписки
+        raw_status = (contact.get('status') or '').lower()
         mapped_status = self._SP_STATUS_MAP.get(raw_status)
         if mapped_status:
             vals['subscription_status'] = mapped_status
 
-        variables = data.get('variables') or {}
+        # Bot-змінні
+        variables = contact.get('variables') or {}
         if isinstance(variables, list):
-            # SendPulse іноді повертає variables як [{name, value}]
             variables = {v['name']: v.get('value', '') for v in variables if v.get('name')}
 
         child_name = (variables.get('child_name') or '').strip()
