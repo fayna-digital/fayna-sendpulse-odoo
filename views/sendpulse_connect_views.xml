@@ -66,6 +66,9 @@
                             type="object"
                             class="btn-warning"
                             invisible="partner_id != False or stage == 'close'"/>
+                    <button name="action_fetch_contact_info" type="object"
+                            string="Оновити профіль"
+                            invisible="not sendpulse_contact_id"/>
                     <button name="action_close" type="object"
                             string="Закрити розмову"
                             invisible="stage == 'close'"/>
@@ -87,8 +90,20 @@
                         <group string="Канал">
                             <field name="service"/>
                             <field name="social_username" string="Username"/>
-                            <field name="social_profile_url" string="URL профілю"/>
+                            <field name="social_profile_url" string="URL профілю" widget="url"/>
                             <field name="bot_name" string="Бот"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Дані бота">
+                            <field name="sp_child_name" string="Ім'я дитини"/>
+                            <field name="sp_booking_email" string="Email бронювання"/>
+                        </group>
+                        <group string="Профіль SendPulse">
+                            <field name="avatar_url" string="Аватар (URL)" widget="url"
+                                   invisible="not avatar_url"/>
+                            <field name="language_code" string="Мова"/>
+                            <field name="subscription_status" string="Статус підписки"/>
                         </group>
                     </group>
                     <group>

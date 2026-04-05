@@ -55,6 +55,15 @@ class DiscussChannel(models.Model):
         ondelete='set null', index=True,
     )
 
+    def _to_store(self, store, **kwargs):
+        """Include sendpulse_connect_id in channel data sent to the frontend Store."""
+        super()._to_store(store, **kwargs)
+        for channel in self:
+            if channel.sendpulse_connect_id:
+                store.add(channel, {
+                    'sendpulse_connect_id': channel.sendpulse_connect_id.id,
+                })
+
     @classmethod
     def sendpulse_channel_get(cls, env, partner_ids, connect_id, operator_partner_id):
         """

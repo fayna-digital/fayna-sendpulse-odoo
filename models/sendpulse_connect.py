@@ -85,6 +85,32 @@ class SendpulseConnect(models.Model):
     )
     unidentified_phone = fields.Char(string='Телефон (з SendPulse)')
 
+    # ── Змінні бота SendPulse ────────────────────────────────────────────
+    sp_child_name = fields.Char(
+        string="Ім'я дитини",
+        help="Змінна child_name зібрана ботом SendPulse",
+    )
+    sp_booking_email = fields.Char(
+        string='Email бронювання',
+        help='Змінна booking_email зібрана ботом SendPulse',
+    )
+
+    # ── Профіль з SendPulse API ──────────────────────────────────────────
+    avatar_url = fields.Char(
+        string='Аватар (URL)',
+        help='URL аватара контакту з SendPulse API',
+    )
+    language_code = fields.Char(
+        string='Мова',
+        help='Код мови контакту (наприклад: uk, en, ru)',
+    )
+    subscription_status = fields.Selection([
+        ('active', 'Активний'),
+        ('unsubscribed', 'Відписаний'),
+        ('deleted', 'Видалений'),
+        ('unconfirmed', 'Непідтверджений'),
+    ], string='Статус підписки')
+
     # ── Odoo Discuss ────────────────────────────────────────────────────
     channel_id = fields.Many2one(
         'discuss.channel', string='Discuss Канал',
@@ -602,8 +628,14 @@ class SendpulseConnect(models.Model):
         if not social_profile_url and social_username and service == 'telegram':
             social_profile_url = f"https://t.me/{social_username}"
 
+        # ── Bot-змінні ────────────────────────────────────────────────────
+        sp_child_name = (variables.get('child_name') or '').strip() or False
+        sp_booking_email = (variables.get('booking_email') or '').strip() or False
+        # Якщо email порожній у контакті — беремо з user_email бота
+        effective_email = email or (variables.get('user_email') or '').strip()
+
         # ── Крок 1: Ідентифікація партнера ──────────────────────────────
-        partner = self._find_partner(contact_id, email, phone)
+        partner = self._find_partner(contact_id, effective_email, phone, variables=variables)
 
         # ── Крок 2: Знаходимо або створюємо розмову ─────────────────────
         # Пріоритет 1: активна розмова по sendpulse_contact_id + service
@@ -647,8 +679,10 @@ class SendpulseConnect(models.Model):
                 'service': service,
                 'bot_id': bot.get('id', ''),
                 'bot_name': bot.get('name', ''),
+                'sp_child_name': sp_child_name or False,
+                'sp_booking_email': sp_booking_email or False,
                 'partner_id': partner.id if partner else False,
-                'unidentified_email': email if not partner else False,
+                'unidentified_email': effective_email if not partner else False,
                 'unidentified_phone': phone if not partner else False,
                 'social_username': social_username or False,
                 'social_profile_url': social_profile_url or False,
@@ -669,6 +703,11 @@ class SendpulseConnect(models.Model):
                 update_vals['social_username'] = social_username
             if social_profile_url and not connect.social_profile_url:
                 update_vals['social_profile_url'] = social_profile_url
+            # Оновлюємо bot-змінні якщо вони з'явились (бот міг зібрати їх пізніше)
+            if sp_child_name and not connect.sp_child_name:
+                update_vals['sp_child_name'] = sp_child_name
+            if sp_booking_email and not connect.sp_booking_email:
+                update_vals['sp_booking_email'] = sp_booking_email
             connect.write(update_vals)
 
         # ── Крок 3: Зберігаємо повідомлення ─────────────────────────────
@@ -762,13 +801,17 @@ class SendpulseConnect(models.Model):
         return connect
 
     @api.model
-    def _find_partner(self, contact_id, email, phone):
+    def _find_partner(self, contact_id, email, phone, variables=None):
         """
         Шукає партнера в такому порядку пріоритетів:
         1. sendpulse_contact_id (якщо вже бачили цей контакт)
-        2. email (основний ключ ідентифікації)
-        3. phone
+        2. email (з даних контакту SendPulse)
+        3. user_email з bot-змінних (те, що клієнт ввів у боті)
+        4. booking_email з bot-змінних
+        5. phone
         """
+        variables = variables or {}
+
         if contact_id:
             partner = self.env['res.partner'].search(
                 [('sendpulse_contact_id', '=', contact_id)], limit=1
@@ -776,15 +819,29 @@ class SendpulseConnect(models.Model):
             if partner:
                 return partner
 
-        if email:
-            partner = self.env['res.partner'].search(
-                [('email', '=ilike', email.strip())], limit=1
+        def _search_by_email(addr):
+            if not addr:
+                return None
+            p = self.env['res.partner'].search(
+                [('email', '=ilike', addr.strip())], limit=1
             )
-            if partner:
-                # Зберігаємо sendpulse_contact_id для майбутніх пошуків
-                if not partner.sendpulse_contact_id:
-                    partner.write({'sendpulse_contact_id': contact_id})
-                return partner
+            if p and not p.sendpulse_contact_id:
+                p.write({'sendpulse_contact_id': contact_id})
+            return p or None
+
+        partner = _search_by_email(email)
+        if partner:
+            return partner
+
+        # Fallback: email зібраний ботом (user_email)
+        partner = _search_by_email(variables.get('user_email', ''))
+        if partner:
+            return partner
+
+        # Fallback: email для бронювання (booking_email)
+        partner = _search_by_email(variables.get('booking_email', ''))
+        if partner:
+            return partner
 
         if phone:
             clean_phone = phone.strip().replace(' ', '')
@@ -930,6 +987,148 @@ class SendpulseConnect(models.Model):
         except Exception as e:
             _logger.warning('SendPulse Odo: не вдалося завантажити медіа %s: %s', media_url, e)
             return None
+
+    # ════════════════════════════════════════════════════════════════════
+    # SendPulse API — синхронізація профілю контакту (Priority 3)
+    # ════════════════════════════════════════════════════════════════════
+
+    # Ендпоінти GET-контакту по сервісу
+    _CONTACT_GET_ENDPOINTS = {
+        'telegram':  'https://api.sendpulse.com/telegram/contacts/get',
+        'instagram': 'https://api.sendpulse.com/instagram/contacts/get',
+        'facebook':  'https://api.sendpulse.com/facebook/contacts/get',
+        'messenger': 'https://api.sendpulse.com/messenger/contacts/get',
+        'viber':     'https://api.sendpulse.com/viber/contacts/get',
+        'whatsapp':  'https://api.sendpulse.com/whatsapp/contacts/get',
+        'tiktok':    'https://api.sendpulse.com/tiktok/contacts/get',
+    }
+
+    _SP_STATUS_MAP = {
+        'active': 'active',
+        'unsubscribed': 'unsubscribed',
+        'deleted': 'deleted',
+        'unconfirmed': 'unconfirmed',
+    }
+
+    def action_fetch_contact_info(self):
+        """
+        Отримує актуальні дані контакту з SendPulse API:
+        avatar, мова, статус підписки, bot-змінні.
+        Викликається вручну з форми розмови (кнопка "Оновити профіль").
+        """
+        self.ensure_one()
+        if not self.sendpulse_contact_id:
+            return {'type': 'ir.actions.client', 'tag': 'display_notification',
+                    'params': {'title': 'SendPulse', 'message': 'Немає contact_id', 'type': 'warning'}}
+
+        token = self._get_access_token()
+        if not token:
+            return {'type': 'ir.actions.client', 'tag': 'display_notification',
+                    'params': {'title': 'SendPulse', 'message': 'Не вдалося отримати токен API', 'type': 'danger'}}
+
+        endpoint = self._CONTACT_GET_ENDPOINTS.get(self.service or 'telegram',
+                                                    self._CONTACT_GET_ENDPOINTS['telegram'])
+        try:
+            resp = requests.get(
+                endpoint,
+                params={'id': self.sendpulse_contact_id},
+                headers={'Authorization': f'Bearer {token}'},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            _logger.warning('SendPulse Odo: не вдалося отримати профіль %s: %s', self.sendpulse_contact_id, e)
+            return {'type': 'ir.actions.client', 'tag': 'display_notification',
+                    'params': {'title': 'SendPulse', 'message': f'Помилка API: {e}', 'type': 'danger'}}
+
+        vals = self._extract_contact_vals(data)
+        if vals:
+            self.write(vals)
+            _logger.info('SendPulse Odo: профіль %s оновлено, поля: %s',
+                         self.sendpulse_contact_id, list(vals.keys()))
+
+        return {'type': 'ir.actions.client', 'tag': 'display_notification',
+                'params': {'title': 'SendPulse', 'message': 'Профіль оновлено', 'type': 'success'}}
+
+    def _extract_contact_vals(self, data):
+        """Витягує поля з відповіді SendPulse API для запису в модель."""
+        vals = {}
+        if data.get('avatar'):
+            vals['avatar_url'] = data['avatar']
+        if data.get('language'):
+            vals['language_code'] = data['language']
+        raw_status = (data.get('status') or '').lower()
+        mapped_status = self._SP_STATUS_MAP.get(raw_status)
+        if mapped_status:
+            vals['subscription_status'] = mapped_status
+
+        variables = data.get('variables') or {}
+        if isinstance(variables, list):
+            # SendPulse іноді повертає variables як [{name, value}]
+            variables = {v['name']: v.get('value', '') for v in variables if v.get('name')}
+
+        child_name = (variables.get('child_name') or '').strip()
+        if child_name and not self.sp_child_name:
+            vals['sp_child_name'] = child_name
+
+        booking_email = (variables.get('booking_email') or '').strip()
+        if booking_email and not self.sp_booking_email:
+            vals['sp_booking_email'] = booking_email
+
+        return vals
+
+    # ════════════════════════════════════════════════════════════════════
+    # RPC для OWL-панелі (Priority 2)
+    # ════════════════════════════════════════════════════════════════════
+
+    @api.model
+    def get_connect_for_channel(self, channel_id):
+        """
+        Повертає дані sendpulse.connect для вказаного discuss.channel ID.
+        Викликається OWL-компонентом SendpulseInfoPanel.
+        """
+        connect = self.search([('channel_id', '=', channel_id)], limit=1)
+        if not connect:
+            return False
+
+        service_labels = {
+            'telegram': 'Telegram', 'instagram': 'Instagram', 'facebook': 'Facebook',
+            'messenger': 'Messenger', 'viber': 'Viber', 'whatsapp': 'WhatsApp',
+            'tiktok': 'TikTok', 'livechat': 'LiveChat',
+        }
+        status_labels = {
+            'active': 'Активний', 'unsubscribed': 'Відписаний',
+            'deleted': 'Видалений', 'unconfirmed': 'Непідтверджений',
+        }
+
+        result = {
+            'id': connect.id,
+            'name': connect.name,
+            'service': connect.service or '',
+            'service_label': service_labels.get(connect.service, connect.service or ''),
+            'stage': connect.stage,
+            'social_username': connect.social_username or '',
+            'social_profile_url': connect.social_profile_url or '',
+            'unidentified_email': connect.unidentified_email or '',
+            'unidentified_phone': connect.unidentified_phone or '',
+            'sp_child_name': connect.sp_child_name or '',
+            'sp_booking_email': connect.sp_booking_email or '',
+            'avatar_url': connect.avatar_url or '',
+            'language_code': connect.language_code or '',
+            'subscription_status': connect.subscription_status or '',
+            'subscription_status_label': status_labels.get(connect.subscription_status, ''),
+            'partner': False,
+        }
+        if connect.partner_id:
+            p = connect.partner_id
+            result['partner'] = {
+                'id': p.id,
+                'name': p.name,
+                'email': p.email or '',
+                'phone': p.phone or p.mobile or '',
+            }
+        return result
 
     def send_message_to_sendpulse(self, text, attachment_url=None):
         """
