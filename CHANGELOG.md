@@ -4,6 +4,59 @@
 
 ---
 
+## [2026-04-05] — v17.0.2.0.0
+
+### Нові можливості
+
+**Синхронізація аватара в картку партнера Odoo**
+- Нова кнопка 🔄 "Оновити профіль" у формі розмови — підтягує актуальні дані з SendPulse API
+  (аватар, мова, статус підписки) і одразу копіює фото у `partner.image_1920`
+- При ідентифікації клієнта через wizard — фото копіюється автоматично (без кнопки)
+- Відображення аватара в боковій панелі Discuss (SendPulse Info Panel)
+
+**Sidebar панель у Discuss**
+- Панель з даними контакту прямо в чаті: аватар, username, мова, статус, бот-змінні, картка партнера
+- Активується кнопкою "Клієнт SendPulse" у правій панелі інструментів
+
+**Автозаповнення картки партнера**
+- При ідентифікації — ім'я, email, телефон з бот-змінних (`user_email`, `booking_email`)
+- Поля `sp_child_name`, `sp_booking_email` — дані зібрані ботом під час розмови
+
+### Виправлення
+
+**API SendPulse — структура відповіді по каналах**
+- Instagram: фото в `channel_data.profile_pic` (не `photo` як у Telegram)
+- Messenger/Facebook: фото в `data.avatar.path`
+- Telegram: `channel_data.photo`
+- WhatsApp і Messenger від Meta API — завжди `null` (обмеження Meta API)
+
+**Статус підписки**
+- SendPulse повертає статус як `int` (1=active, 0=unsubscribed, 2=deleted, 3=unconfirmed)
+  а не рядок — виправлено `AttributeError: 'int' object has no attribute 'lower'`
+
+**OWL компонент (Odoo 17)**
+- Виправлено синтаксис шаблону: `not x` → `!x`, `and` → `&&` (JS, не Python)
+- Виправлено API реєстрації дії: `component:` замість `Panel:` (Odoo 16→17 breaking change)
+
+### Технічні труднощі сесії
+
+1. **Кеш JS assets** — після правок OWL шаблону браузер і сервер роздавали старий бандл.
+   Вирішення: `DELETE FROM ir_attachment WHERE name LIKE '%assets%'` в PostgreSQL
+
+2. **Python .pyc кеш** — після деплою сервер виконував старий байткод.
+   Вирішення: `docker exec ... find -name '*.pyc' -delete` перед рестартом
+
+3. **Git permissions на сервері** — `insufficient permission for adding an object`.
+   Вирішення: `sudo chown -R deploy:deploy .git/`
+
+4. **SendPulse API структура відповіді** — документація не відповідала реальності.
+   Вирішення: зробили прямий API виклик з контейнера і порівняли з `raw_json` в БД
+
+5. **threadActionsRegistry Odoo 17** — API змінився між 16 і 17 версією.
+   Вирішення: прочитали реальний Odoo 17 source `/mail/static/src/core/common/thread_actions.js`
+
+---
+
 ## [2026-04-03]
 
 - Docs: professional badges, author attribution, Fayna Digital branding
