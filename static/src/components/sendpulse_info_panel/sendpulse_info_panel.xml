@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="odoo_chatwoot_connector.SendpulseInfoPanel">
+        <div class="o-sendpulse-InfoPanel d-flex flex-column h-100 border-start bg-view"
+             style="width: 280px; min-width: 240px; overflow-y: auto;">
+
+            <!-- Header -->
+            <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-100">
+                <span class="fw-semibold text-muted small text-uppercase">SendPulse</span>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-link p-0 text-muted"
+                            title="Оновити профіль з API"
+                            t-on-click="onRefreshClick">
+                        <i class="fa fa-refresh"/>
+                    </button>
+                    <button class="btn btn-sm btn-link p-0 text-muted"
+                            title="Відкрити картку розмови"
+                            t-on-click="onOpenFormClick">
+                        <i class="fa fa-external-link"/>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading -->
+            <t t-if="state.loading">
+                <div class="d-flex justify-content-center align-items-center p-4">
+                    <i class="fa fa-spinner fa-spin text-muted"/>
+                </div>
+            </t>
+
+            <!-- Error -->
+            <t t-elif="state.error">
+                <div class="p-3 text-danger small">
+                    <i class="fa fa-exclamation-circle"/> Помилка завантаження
+                </div>
+            </t>
+
+            <!-- No connect found -->
+            <t t-elif="not state.connect">
+                <div class="p-3 text-muted small">
+                    Дані контакту не знайдені
+                </div>
+            </t>
+
+            <!-- Connect data -->
+            <t t-else="">
+                <!-- Avatar + Name -->
+                <div class="d-flex flex-column align-items-center py-3 px-3 border-bottom">
+                    <div class="mb-2" style="width: 64px; height: 64px;">
+                        <t t-if="state.connect.avatar_url">
+                            <img t-att-src="state.connect.avatar_url"
+                                 class="rounded-circle w-100 h-100 object-fit-cover"
+                                 t-att-alt="state.connect.name"/>
+                        </t>
+                        <t t-else="">
+                            <div class="rounded-circle w-100 h-100 d-flex align-items-center justify-content-center bg-primary text-white fs-3">
+                                <i class="fa fa-user"/>
+                            </div>
+                        </t>
+                    </div>
+                    <div class="fw-semibold text-center" t-esc="state.connect.name"/>
+                    <div class="text-muted small">
+                        <t t-esc="serviceIcon"/>
+                        <t t-esc="' ' + state.connect.service_label"/>
+                    </div>
+                    <t t-if="state.connect.subscription_status">
+                        <span t-att-class="statusBadgeClass" class="mt-1 small">
+                            <t t-esc="state.connect.subscription_status_label"/>
+                        </span>
+                    </t>
+                </div>
+
+                <!-- Contact details -->
+                <div class="px-3 py-2 border-bottom">
+                    <div class="text-muted small text-uppercase fw-semibold mb-2">Контакт</div>
+
+                    <t t-if="state.connect.social_username">
+                        <div class="d-flex gap-2 mb-1 small">
+                            <i class="fa fa-at text-muted mt-1" style="width:14px;"/>
+                            <a t-if="state.connect.social_profile_url"
+                               t-att-href="state.connect.social_profile_url"
+                               target="_blank"
+                               t-esc="state.connect.social_username"/>
+                            <span t-else="" t-esc="state.connect.social_username"/>
+                        </div>
+                    </t>
+
+                    <t t-if="state.connect.language_code">
+                        <div class="d-flex gap-2 mb-1 small">
+                            <i class="fa fa-language text-muted mt-1" style="width:14px;"/>
+                            <span t-esc="state.connect.language_code"/>
+                        </div>
+                    </t>
+
+                    <t t-if="state.connect.unidentified_email">
+                        <div class="d-flex gap-2 mb-1 small">
+                            <i class="fa fa-envelope text-muted mt-1" style="width:14px;"/>
+                            <span t-esc="state.connect.unidentified_email"/>
+                        </div>
+                    </t>
+
+                    <t t-if="state.connect.unidentified_phone">
+                        <div class="d-flex gap-2 mb-1 small">
+                            <i class="fa fa-phone text-muted mt-1" style="width:14px;"/>
+                            <span t-esc="state.connect.unidentified_phone"/>
+                        </div>
+                    </t>
+                </div>
+
+                <!-- Bot variables -->
+                <t t-if="state.connect.sp_child_name or state.connect.sp_booking_email">
+                    <div class="px-3 py-2 border-bottom">
+                        <div class="text-muted small text-uppercase fw-semibold mb-2">Дані бота</div>
+
+                        <t t-if="state.connect.sp_child_name">
+                            <div class="d-flex gap-2 mb-1 small">
+                                <i class="fa fa-child text-muted mt-1" style="width:14px;"/>
+                                <div>
+                                    <div class="text-muted" style="font-size:10px;">Ім'я дитини</div>
+                                    <span t-esc="state.connect.sp_child_name"/>
+                                </div>
+                            </div>
+                        </t>
+
+                        <t t-if="state.connect.sp_booking_email">
+                            <div class="d-flex gap-2 mb-1 small">
+                                <i class="fa fa-calendar text-muted mt-1" style="width:14px;"/>
+                                <div>
+                                    <div class="text-muted" style="font-size:10px;">Email бронювання</div>
+                                    <span t-esc="state.connect.sp_booking_email"/>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+                </t>
+
+                <!-- Identified partner -->
+                <t t-if="state.connect.partner">
+                    <div class="px-3 py-2">
+                        <div class="text-muted small text-uppercase fw-semibold mb-2">Клієнт Odoo</div>
+                        <div class="d-flex gap-2 mb-1 small">
+                            <i class="fa fa-user-circle text-success mt-1" style="width:14px;"/>
+                            <span class="text-success fw-semibold" t-esc="state.connect.partner.name"/>
+                        </div>
+                        <t t-if="state.connect.partner.email">
+                            <div class="d-flex gap-2 mb-1 small">
+                                <i class="fa fa-envelope text-muted mt-1" style="width:14px;"/>
+                                <span t-esc="state.connect.partner.email"/>
+                            </div>
+                        </t>
+                        <t t-if="state.connect.partner.phone">
+                            <div class="d-flex gap-2 mb-1 small">
+                                <i class="fa fa-phone text-muted mt-1" style="width:14px;"/>
+                                <span t-esc="state.connect.partner.phone"/>
+                            </div>
+                        </t>
+                    </div>
+                </t>
+
+                <!-- Not identified -->
+                <t t-if="not state.connect.partner">
+                    <div class="px-3 py-2">
+                        <div class="text-warning small">
+                            <i class="fa fa-exclamation-triangle"/> Клієнт не ідентифікований
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </div>
+    </t>
+
+</templates>

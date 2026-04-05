@@ -38,6 +38,17 @@
         'views/sendpulse_identify_wizard_views.xml',
         'views/res_partner_views.xml',
     ],
+    'assets': {
+        'web.assets_backend': [
+            # Патч Thread моделі — додає sendpulseConnectId
+            'odoo_chatwoot_connector/static/src/thread_patch.js',
+            # OWL компонент панелі
+            'odoo_chatwoot_connector/static/src/components/sendpulse_info_panel/sendpulse_info_panel.xml',
+            'odoo_chatwoot_connector/static/src/components/sendpulse_info_panel/sendpulse_info_panel.js',
+            # Реєстрація дії в threadActionsRegistry
+            'odoo_chatwoot_connector/static/src/sendpulse_thread_actions.js',
+        ],
+    },
     'installable': True,
     'application': True,
     'auto_install': False,
