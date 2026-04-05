@@ -1,35 +1,48 @@
 /** @odoo-module **/
 /**
- * Реєструє SendPulse Info Panel як дію (кнопка + панель) у ThreadView.
+ * Реєструє SendPulse Info Panel як дію в threadActionsRegistry.
  *
- * Відображається тільки для SendPulse каналів — визначаємо по префіксу назви
- * ([TG], [IG], [FB], [MSG], [VB], [WA], [TT], [LC]) або по sendpulseConnectId.
+ * Правильний API Odoo 17 (mail.thread/actions):
+ *  - `component` (не `Panel`)
+ *  - `toggle: true` для перемикача
+ *  - `componentProps(action, component)` для передачі пропсів
+ *  - import через registry.category("mail.thread/actions")
  */
-import { threadActionsRegistry } from "@mail/core/common/thread_actions";
+import { registry } from "@web/core/registry";
 import { SendpulseInfoPanel } from "./components/sendpulse_info_panel/sendpulse_info_panel";
+import { _t } from "@web/core/l10n/translation";
 
-/** Префікси назв каналів що генеруються нашим модулем у _get_service_label() */
+const threadActionsRegistry = registry.category("mail.thread/actions");
+
+/** Префікси SendPulse-каналів що генеруються _get_service_label() */
 const SP_CHANNEL_PREFIXES = ["[TG] ", "[IG] ", "[FB] ", "[MSG] ", "[VB] ", "[WA] ", "[TT] ", "[LC] "];
 
-function isSendpulseThread(thread) {
+function isSendpulseChannel(thread) {
     if (!thread) return false;
-    // Перевіряємо по полю sendpulseConnectId (якщо _to_store/Thread.update спрацювали)
+    // По полю з Thread model (patch у thread_patch.js + _to_store на Python)
     if (thread.sendpulseConnectId) return true;
-    // Fallback: перевіряємо по назві каналу
-    if (thread.type === "channel" || thread.channel_type === "group") {
-        const name = thread.name || "";
-        return SP_CHANNEL_PREFIXES.some((prefix) => name.startsWith(prefix));
-    }
-    return false;
+    // Fallback: по префіксу назви каналу
+    const name = thread.name || "";
+    return SP_CHANNEL_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 
 threadActionsRegistry.add("sendpulse-client-info", {
-    condition: (component) => isSendpulseThread(component.thread),
-    icon: "fa fa-user-circle-o",
+    component: SendpulseInfoPanel,
+
+    condition(component) {
+        const thread = component.thread;
+        return thread?.model === "discuss.channel" && isSendpulseChannel(thread);
+    },
+
+    componentProps(_action, component) {
+        return { thread: component.thread };
+    },
+
+    panelOuterClass: "o-sendpulse-InfoPanel",
+    icon: "fa fa-fw fa-user-circle-o",
     iconLarge: "fa-lg fa-user-circle-o",
-    id: "sendpulse-client-info",
-    label: "Клієнт SendPulse",
-    name: "Клієнт",
-    Panel: SendpulseInfoPanel,
+    name: _t("Клієнт SendPulse"),
+    nameActive: _t("Закрити"),
     sequence: 30,
+    toggle: true,
 });
