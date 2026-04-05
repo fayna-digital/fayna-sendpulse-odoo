@@ -1087,7 +1087,8 @@ class SendpulseConnect(models.Model):
           {"success": true, "data": {
               "status": 1,
               "channel_data": {
-                  "photo": "https://...",   (може бути null)
+                  "photo": "https://...",        (Telegram — може бути null)
+                  "profile_pic": "https://...",  (Instagram)
                   "language_code": "uk",
                   "username": "...",
                   "name": "...",
@@ -1100,8 +1101,9 @@ class SendpulseConnect(models.Model):
 
         vals = {}
 
-        # Фото — в channel_data для Telegram/Instagram
+        # Фото: Telegram → channel_data.photo, Instagram → channel_data.profile_pic
         photo_url = (channel_data.get('photo') or
+                     channel_data.get('profile_pic') or
                      contact.get('photo') or
                      contact.get('avatar'))
         if photo_url and isinstance(photo_url, str) and photo_url.startswith('http'):
