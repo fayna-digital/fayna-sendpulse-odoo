@@ -1051,35 +1051,51 @@ class SendpulseConnect(models.Model):
         return {'type': 'ir.actions.client', 'tag': 'display_notification',
                 'params': {'title': 'SendPulse', 'message': 'Профіль оновлено', 'type': 'success'}}
 
+    # GET /contacts/get: status — ціле число: 1=active, 0=unsubscribed, 2=deleted, 3=unconfirmed
+    _SP_STATUS_INT_MAP = {1: 'active', 0: 'unsubscribed', 2: 'deleted', 3: 'unconfirmed'}
+
     def _extract_contact_vals(self, data):
         """
-        Витягує поля з відповіді SendPulse API для запису в модель.
+        Витягує поля з відповіді SendPulse GET /contacts/get.
 
-        SendPulse може повертати:
-          - пласку структуру: {"photo": "...", "language": "uk", ...}
-          - або вкладену:     {"data": {"photo": "...", ...}}
-        Поле фото: "photo" (webhook і GET API) або "avatar" (оператор).
+        Реальна структура відповіді:
+          {"success": true, "data": {
+              "status": 1,
+              "channel_data": {
+                  "photo": "https://...",   (може бути null)
+                  "language_code": "uk",
+                  "username": "...",
+                  "name": "...",
+              },
+              "variables": {"user_email": "...", ...},
+          }}
         """
-        # Розгортаємо вкладену відповідь якщо є
         contact = data.get('data') if isinstance(data.get('data'), dict) else data
-        _logger.info('SendPulse Odo: _extract_contact_vals keys=%s', list(contact.keys()))
+        channel_data = contact.get('channel_data') or {}
 
         vals = {}
 
-        # Фото — SendPulse використовує "photo" в webhook і GET API
-        # Фото — завжди перезаписуємо (могло оновитись у профілі)
-        photo_url = contact.get('photo') or contact.get('avatar') or contact.get('picture')
+        # Фото — в channel_data для Telegram/Instagram
+        photo_url = (channel_data.get('photo') or
+                     contact.get('photo') or
+                     contact.get('avatar'))
         if photo_url and isinstance(photo_url, str) and photo_url.startswith('http'):
             vals['avatar_url'] = photo_url
 
-        # Мова
-        lang = contact.get('language') or contact.get('lang')
+        # Мова — в channel_data
+        lang = (channel_data.get('language_code') or
+                channel_data.get('language') or
+                contact.get('language_code') or
+                contact.get('language'))
         if lang:
             vals['language_code'] = str(lang)
 
-        # Статус підписки
-        raw_status = (contact.get('status') or '').lower()
-        mapped_status = self._SP_STATUS_MAP.get(raw_status)
+        # Статус — число або рядок
+        raw_status = contact.get('status')
+        if isinstance(raw_status, int):
+            mapped_status = self._SP_STATUS_INT_MAP.get(raw_status)
+        else:
+            mapped_status = self._SP_STATUS_MAP.get((raw_status or '').lower())
         if mapped_status:
             vals['subscription_status'] = mapped_status
 
@@ -1096,6 +1112,7 @@ class SendpulseConnect(models.Model):
         if booking_email and not self.sp_booking_email:
             vals['sp_booking_email'] = booking_email
 
+        _logger.info('SendPulse Odo: extracted vals keys=%s', list(vals.keys()))
         return vals
 
     # ════════════════════════════════════════════════════════════════════
