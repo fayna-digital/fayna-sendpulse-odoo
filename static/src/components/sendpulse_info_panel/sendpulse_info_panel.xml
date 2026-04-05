@@ -37,7 +37,7 @@
             </t>
 
             <!-- No connect found -->
-            <t t-elif="not state.connect">
+            <t t-elif="!state.connect">
                 <div class="p-3 text-muted small">
                     Дані контакту не знайдені
                 </div>
@@ -159,7 +159,7 @@
                 </t>
 
                 <!-- Not identified -->
-                <t t-if="not state.connect.partner">
+                <t t-if="!state.connect.partner">
                     <div class="px-3 py-2">
                         <div class="text-warning small">
                             <i class="fa fa-exclamation-triangle"/> Клієнт не ідентифікований
