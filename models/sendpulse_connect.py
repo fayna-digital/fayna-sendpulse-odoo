@@ -1101,11 +1101,14 @@ class SendpulseConnect(models.Model):
 
         vals = {}
 
-        # Фото: Telegram → channel_data.photo, Instagram → channel_data.profile_pic
+        # Фото: Telegram/WA → channel_data.photo, Instagram → channel_data.profile_pic,
+        # Messenger/FB → data.avatar.path
+        avatar_obj = contact.get('avatar')
+        avatar_path = avatar_obj.get('path') if isinstance(avatar_obj, dict) else None
         photo_url = (channel_data.get('photo') or
                      channel_data.get('profile_pic') or
-                     contact.get('photo') or
-                     contact.get('avatar'))
+                     avatar_path or
+                     contact.get('photo'))
         if photo_url and isinstance(photo_url, str) and photo_url.startswith('http'):
             vals['avatar_url'] = photo_url
 
