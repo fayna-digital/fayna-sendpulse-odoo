@@ -453,6 +453,9 @@ class SendpulseConnect(models.Model):
             self.channel_id.write({
                 'name': f"[{self._get_service_label()}] {partner.name}",
             })
+        # Синхронізуємо аватар у картку партнера якщо він є
+        if self.avatar_url:
+            self._sync_avatar_to_partner()
 
     def _update_partner_source(self):
         """
@@ -1048,8 +1051,30 @@ class SendpulseConnect(models.Model):
             _logger.info('SendPulse Odo: профіль %s оновлено, поля: %s',
                          self.sendpulse_contact_id, list(vals.keys()))
 
+        # Синхронізуємо аватар у картку партнера якщо він ідентифікований
+        if self.partner_id and self.avatar_url:
+            self._sync_avatar_to_partner()
+
         return {'type': 'ir.actions.client', 'tag': 'display_notification',
                 'params': {'title': 'SendPulse', 'message': 'Профіль оновлено', 'type': 'success'}}
+
+    def _sync_avatar_to_partner(self):
+        """
+        Завантажує фото з avatar_url і зберігає в картці Odoo-партнера (image_1920).
+        Викликається після action_fetch_contact_info якщо партнер ідентифікований.
+        Не перезаписує фото якщо URL не змінився (порівнюємо розмір).
+        """
+        self.ensure_one()
+        if not self.partner_id or not self.avatar_url:
+            return
+        try:
+            resp = requests.get(self.avatar_url, timeout=15)
+            resp.raise_for_status()
+            image_b64 = base64.b64encode(resp.content).decode()
+            self.partner_id.write({'image_1920': image_b64})
+            _logger.info('SendPulse Odo: аватар партнера %s оновлено', self.partner_id.name)
+        except Exception as e:
+            _logger.warning('SendPulse Odo: не вдалося завантажити аватар %s: %s', self.avatar_url, e)
 
     # GET /contacts/get: status — ціле число: 1=active, 0=unsubscribed, 2=deleted, 3=unconfirmed
     _SP_STATUS_INT_MAP = {1: 'active', 0: 'unsubscribed', 2: 'deleted', 3: 'unconfirmed'}
