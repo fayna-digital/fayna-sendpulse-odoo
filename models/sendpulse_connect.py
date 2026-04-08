@@ -1282,3 +1282,126 @@ class SendpulseConnect(models.Model):
         except Exception as e:
             _logger.error('SendPulse Odo: помилка відправки: %s', e)
             return False
+
+    # ════════════════════════════════════════════════════════════════════
+    # Cron: Pull Missing Contacts from SendPulse API
+    # ════════════════════════════════════════════════════════════════════
+
+    _CONTACT_LIST_ENDPOINTS = {
+        'telegram':  'https://api.sendpulse.com/telegram/contacts',
+        'instagram': 'https://api.sendpulse.com/instagram/contacts',
+        'facebook':  'https://api.sendpulse.com/facebook/contacts',
+        'viber':     'https://api.sendpulse.com/viber/contacts',
+        'whatsapp':  'https://api.sendpulse.com/whatsapp/contacts',
+    }
+
+    @api.model
+    def cron_pull_missing_contacts(self):
+        """
+        Щогодинний крон: тягне активні контакти з SendPulse API та
+        створює в Odoo ті що відсутні. Якщо всі є — нічого не робить.
+        """
+        ICP = self.env['ir.config_parameter'].sudo()
+        client_id = ICP.get_param('odoo_chatwoot_connector.client_id', '')
+        client_secret = ICP.get_param('odoo_chatwoot_connector.client_secret', '')
+        if not client_id or not client_secret:
+            _logger.warning('SendPulse cron_pull: client_id/secret не налаштовані')
+            return
+
+        # Отримуємо токен через singleton-запис (будь-який активний)
+        sample = self.search([], limit=1)
+        if not sample:
+            _logger.info('SendPulse cron_pull: нема жодного connect-запису, пропускаємо')
+            return
+        token = sample._get_access_token()
+        if not token:
+            _logger.warning('SendPulse cron_pull: не вдалося отримати токен')
+            return
+
+        # Збираємо унікальні (service, bot_id) з існуючих записів
+        self.env.cr.execute("""
+            SELECT DISTINCT service, bot_id
+            FROM sendpulse_connect
+            WHERE service IS NOT NULL AND bot_id IS NOT NULL
+        """)
+        bots = self.env.cr.fetchall()
+        if not bots:
+            _logger.info('SendPulse cron_pull: нема ботів для перевірки')
+            return
+
+        total_created = 0
+        total_updated = 0
+
+        for service, bot_id in bots:
+            endpoint = self._CONTACT_LIST_ENDPOINTS.get(service)
+            if not endpoint:
+                continue
+
+            # Тягнемо контакти з SendPulse по 100 за раз
+            offset = 0
+            page_size = 100
+            while True:
+                try:
+                    resp = requests.get(
+                        endpoint,
+                        params={'bot_id': bot_id, 'from': offset, 'count': page_size},
+                        headers={'Authorization': f'Bearer {token}'},
+                        timeout=15,
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                except Exception as e:
+                    _logger.warning('SendPulse cron_pull: помилка API %s bot=%s: %s', service, bot_id, e)
+                    break
+
+                contacts = data if isinstance(data, list) else data.get('data', [])
+                if not contacts:
+                    break
+
+                # ID контактів що вже є в Odoo
+                sp_ids = [c.get('id') for c in contacts if c.get('id')]
+                existing = self.search([('sendpulse_contact_id', 'in', sp_ids)])
+                existing_ids = set(existing.mapped('sendpulse_contact_id'))
+
+                for contact in contacts:
+                    cid = contact.get('id')
+                    if not cid:
+                        continue
+
+                    if cid not in existing_ids:
+                        # Контакту нема — створюємо
+                        name = contact.get('name') or contact.get('username') or 'Невідомий'
+                        new_rec = self.create({
+                            'sendpulse_contact_id': cid,
+                            'name': name,
+                            'service': service,
+                            'bot_id': bot_id,
+                        })
+                        # Підтягуємо повний профіль з API
+                        try:
+                            new_rec.action_fetch_contact_info()
+                        except Exception as e:
+                            _logger.warning('SendPulse cron_pull: fetch_info failed %s: %s', cid, e)
+                        total_created += 1
+                        _logger.info('SendPulse cron_pull: створено контакт %s (%s)', name, cid)
+                    else:
+                        # Контакт є — перевіряємо чи потрібне оновлення
+                        rec = existing.filtered(lambda r: r.sendpulse_contact_id == cid)
+                        if rec and not rec.avatar_url:
+                            try:
+                                rec.action_fetch_contact_info()
+                                total_updated += 1
+                            except Exception as e:
+                                _logger.warning('SendPulse cron_pull: update failed %s: %s', cid, e)
+
+                if len(contacts) < page_size:
+                    break
+                offset += page_size
+
+        if total_created or total_updated:
+            _logger.info(
+                'SendPulse cron_pull: завершено — створено: %d, оновлено: %d',
+                total_created, total_updated,
+            )
+        else:
+            _logger.debug('SendPulse cron_pull: всі контакти в Odoo, нічого не змінено')
