@@ -1276,6 +1276,28 @@ class SendpulseConnect(models.Model):
                 'SendPulse Odo: відповідь API status=%s body=%s',
                 resp.status_code, resp.text.replace('\n', ' ').replace('\r', '')[:500],
             )
+
+            # 422 = Telegram 24h window закрито
+            if resp.status_code == 422:
+                _logger.warning(
+                    'SendPulse Odo: 422 — 24h вікно закрито для контакту %s (%s)',
+                    self.sendpulse_contact_id, self.name,
+                )
+                # Повідомляємо менеджера в Discuss чаті
+                warning_text = (
+                    '⚠️ Повідомлення не доставлено!\n'
+                    'Telegram заблокував відправку: клієнт не відповідав більше 24 годин.\n'
+                    'Щоб написати першим — використайте розсилку або зачекайте поки клієнт напише сам.'
+                )
+                if self.channel_id:
+                    self.channel_id.sudo().message_post(
+                        body=warning_text,
+                        message_type='comment',
+                        subtype_xmlid='mail.mt_note',
+                        author_id=self.env.ref('base.partner_root').id,
+                    )
+                return False
+
             resp.raise_for_status()
             _logger.info('SendPulse Odo: повідомлення відправлено контакту %s', self.sendpulse_contact_id)
             return True
