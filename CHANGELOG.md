@@ -4,6 +4,22 @@
 
 ---
 
+## [2026-04-09] — КРИТИЧНИЙ ІНЦИДЕНТ (scope violation) — **відкат коду**
+
+<div style="color:#b00020; border-left:4px solid #b00020; padding-left:12px;">
+
+**Клас:** критична процесна помилка + **невиконання мети** (ігнорування заборони змінювати SendPulse).
+
+**Що сталося:** зміни під Odoo Discuss / `action.views.map` були помилково внесені в цей репозиторій замість ізоляції в `omnichannel_bridge`.
+
+**Ремедіація:** `main` повернуто до **`6905fa7`** (`git reset --hard` + `push --force-with-lease`). Коміти `9317e1c`, `2775941` знято з історії гілки.
+
+**Документація:** `docs/TZ.md` (червоний блок), `TECHNICAL_DOCS.md`, логи в `omnichannel-bridge` та `DevJournal/sessions/2026-04-09-sendpulse-critical-scope-violation.md`.
+
+</div>
+
+---
+
 ## [2026-04-08] — v17.0.2.0.0 (patch)
 
 ### Нові можливості
