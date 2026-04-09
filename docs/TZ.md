@@ -6,7 +6,9 @@
 
 Це **критична помилка виконання** та **невиконання мети завдання**: було **явно заборонено** змінювати робочий модуль SendPulse (`sendpulse-odoo` / `odoo_chatwoot_connector`); натомість зміни під помилку Discuss `action.views.map` були внесені саме сюди замість обмеження правок модулем `omnichannel_bridge`. Наслідок — **ризик для стабільного продакшн-контуру**, змушений **повний відкат** гілки `main` до коміту **`6905fa7`** (force-push). Подальші зміни SendPulse — **лише** за окремим погодженим ТЗ.
 
-Запис дубльовано: `CHANGELOG.md`, `TECHNICAL_DOCS.md`, `omnichannel-bridge/docs/IMPLEMENTATION_LOG.md`, `omnichannel-bridge/docs/TZ_CHECKLIST.md`, `DevJournal/sessions/2026-04-09-sendpulse-critical-scope-violation.md`.
+**Детальний окремий лог (файли, коміти, мотивація, ремедіація):** [`docs/CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md`](CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md).
+
+Короткі дублі: `CHANGELOG.md`, `TECHNICAL_DOCS.md`, `omnichannel-bridge/docs/IMPLEMENTATION_LOG.md`, `omnichannel-bridge/docs/TZ_CHECKLIST.md`, `DevJournal/sessions/2026-04-09-sendpulse-critical-scope-violation.md`.
 
 </div>
 

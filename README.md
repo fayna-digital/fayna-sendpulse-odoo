@@ -12,6 +12,8 @@
 
 Модуль інтеграції **SendPulse** чат-ботів з **Odoo 17**.
 
+**Критичний інцидент (2026-04-09), детальний журнал AI-втручання:** [docs/CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md](docs/CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md).
+
 Всі розмови з месенджерів (Telegram, Instagram, Facebook, Viber, WhatsApp та ін.) автоматично потрапляють в Odoo Discuss. Оператори відповідають клієнтам прямо з Odoo — повідомлення летять назад через SendPulse API.
 
 ---

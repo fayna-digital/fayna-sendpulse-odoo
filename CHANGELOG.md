@@ -14,7 +14,7 @@
 
 **Ремедіація:** `main` повернуто до **`6905fa7`** (`git reset --hard` + `push --force-with-lease`). Коміти `9317e1c`, `2775941` знято з історії гілки.
 
-**Документація:** `docs/TZ.md` (червоний блок), `TECHNICAL_DOCS.md`, логи в `omnichannel-bridge` та `DevJournal/sessions/2026-04-09-sendpulse-critical-scope-violation.md`.
+**Документація:** `docs/TZ.md` (червоний блок), `TECHNICAL_DOCS.md`, **`docs/CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md` (повний окремий лог)**, логи в `omnichannel-bridge` та `DevJournal/sessions/2026-04-09-sendpulse-critical-scope-violation.md`.
 
 </div>
 
