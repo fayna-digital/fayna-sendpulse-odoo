@@ -1,5 +1,15 @@
 # ТЗ — odoo-chatwoot-connector (SendPulse Connector for Odoo 17)
 
+<div style="color:#b00020; border:2px solid #b00020; padding:12px 16px; margin:12px 0; background:#fff8f8; font-weight:600;">
+
+**КРИТИЧНИЙ ІНЦИДЕНТ — 2026-04-09 (червоний рівень)**
+
+Це **критична помилка виконання** та **невиконання мети завдання**: було **явно заборонено** змінювати робочий модуль SendPulse (`sendpulse-odoo` / `odoo_chatwoot_connector`); натомість зміни під помилку Discuss `action.views.map` були внесені саме сюди замість обмеження правок модулем `omnichannel_bridge`. Наслідок — **ризик для стабільного продакшн-контуру**, змушений **повний відкат** гілки `main` до коміту **`6905fa7`** (force-push). Подальші зміни SendPulse — **лише** за окремим погодженим ТЗ.
+
+Запис дубльовано: `CHANGELOG.md`, `TECHNICAL_DOCS.md`, `omnichannel-bridge/docs/IMPLEMENTATION_LOG.md`, `omnichannel-bridge/docs/TZ_CHECKLIST.md`, `DevJournal/sessions/2026-04-09-sendpulse-critical-scope-violation.md`.
+
+</div>
+
 > Повний чеклист реалізованих та запланованих функцій.
 > ✅ — готово | 🔲 — заплановано | ❌ — скасовано
 
@@ -98,7 +108,7 @@
 
 ---
 
-## Технічний стан (2026-04-03)
+## Технічний стан (2026-04-03; інцидент 2026-04-09 — див. червоний блок на початку документа)
 
 - **Production:** CampScout (`campscout.eu`)
 - **Канали протестовані:** Telegram ✅, Instagram ✅, Facebook ✅, WhatsApp ✅
