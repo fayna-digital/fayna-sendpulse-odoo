@@ -713,6 +713,32 @@ class SendpulseConnect(models.Model):
                 update_vals['sp_booking_email'] = sp_booking_email
             connect.write(update_vals)
 
+        # Ensure incoming Discuss messages always have a customer author,
+        # never fallback to OdooBot (it breaks identity/avatar in chat UI).
+        author_partner = connect.partner_id
+        if not author_partner and partner:
+            author_partner = partner
+        if not author_partner:
+            author_partner = self.env['res.partner'].search(
+                [('sendpulse_contact_id', '=', contact_id)],
+                order='id desc',
+                limit=1,
+            )
+        if not author_partner:
+            create_vals = {
+                'name': contact_name or f'{service}:{contact_id}',
+                'sendpulse_contact_id': contact_id,
+            }
+            if effective_email:
+                create_vals['email'] = effective_email
+            if phone:
+                clean_phone = phone.strip().replace(' ', '')
+                if clean_phone:
+                    create_vals['phone'] = clean_phone
+            author_partner = self.env['res.partner'].create(create_vals)
+        if author_partner and not connect.partner_id:
+            connect.write({'partner_id': author_partner.id})
+
         # ── Крок 3: Зберігаємо повідомлення ─────────────────────────────
         if last_message:
             is_image = msg_type in ('image', 'sticker')
@@ -743,7 +769,7 @@ class SendpulseConnect(models.Model):
                     connect.channel_id.with_context(sendpulse_incoming=True).message_post(
                         body=body,
                         attachment_ids=[att.id],
-                        author_id=partner.id if partner else self.env.ref('base.partner_root').id,
+                        author_id=author_partner.id if author_partner else False,
                         message_type='comment',
                         subtype_xmlid='mail.mt_comment',
                     )
@@ -756,7 +782,7 @@ class SendpulseConnect(models.Model):
                     )
                     connect.channel_id.with_context(sendpulse_incoming=True).message_post(
                         body=body,
-                        author_id=partner.id if partner else self.env.ref('base.partner_root').id,
+                        author_id=author_partner.id if author_partner else False,
                         message_type='comment',
                         subtype_xmlid='mail.mt_comment',
                     )
@@ -771,7 +797,7 @@ class SendpulseConnect(models.Model):
                         body = Markup("<b>👤 {}</b><br/>{}").format(escape(contact_name), escape(last_message))
                     connect.channel_id.with_context(sendpulse_incoming=True).message_post(
                         body=body,
-                        author_id=partner.id if partner else self.env.ref('base.partner_root').id,
+                        author_id=author_partner.id if author_partner else False,
                         message_type='comment',
                         subtype_xmlid='mail.mt_comment',
                     )
