@@ -1277,18 +1277,38 @@ class SendpulseConnect(models.Model):
                 resp.status_code, resp.text.replace('\n', ' ').replace('\r', '')[:500],
             )
 
-            # 422 = Telegram 24h window закрито
+            # 422 = provider policy/payload rejection (not always the same reason).
             if resp.status_code == 422:
+                service_label_map = {
+                    'telegram': 'Telegram',
+                    'instagram': 'Instagram',
+                    'facebook': 'Facebook',
+                    'messenger': 'Messenger',
+                    'viber': 'Viber',
+                    'whatsapp': 'WhatsApp',
+                    'livechat': 'LiveChat',
+                    'tiktok': 'TikTok',
+                }
+                service_label = service_label_map.get(service, service or 'канал')
+                raw_reason = (resp.text or '').replace('\n', ' ').replace('\r', ' ').strip()
+                short_reason = raw_reason[:220] if raw_reason else 'Без деталей від API.'
                 _logger.warning(
-                    'SendPulse Odo: 422 — 24h вікно закрито для контакту %s (%s)',
-                    self.sendpulse_contact_id, self.name,
+                    'SendPulse Odo: 422 for %s contact=%s (%s): %s',
+                    service,
+                    self.sendpulse_contact_id,
+                    self.name,
+                    short_reason,
                 )
                 # Повідомляємо менеджера в Discuss чаті
-                warning_text = (
-                    '⚠️ Повідомлення не доставлено!\n'
-                    'Telegram заблокував відправку: клієнт не відповідав більше 24 годин.\n'
-                    'Щоб написати першим — використайте розсилку або зачекайте поки клієнт напише сам.'
+                policy_hint = (
+                    'Можлива причина: вікно відповіді для каналу закрите '
+                    '(для Meta зазвичай 24 години) або формат повідомлення не прийнято API.'
                 )
+                warning_text = (
+                    '⚠️ Повідомлення не доставлено у %s.\n'
+                    '%s\n'
+                    'API: %s'
+                ) % (service_label, policy_hint, short_reason)
                 if self.channel_id:
                     self.channel_id.sudo().message_post(
                         body=warning_text,
