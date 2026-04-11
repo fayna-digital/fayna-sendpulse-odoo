@@ -1425,41 +1425,65 @@ class SendpulseConnect(models.Model):
                         resp.status_code, resp.text.replace('\n', ' ').replace('\r', '')[:500],
                     )
 
+            # Карта назв каналів для повідомлень оператору
+            _SERVICE_LABELS = {
+                'telegram': 'Telegram', 'instagram': 'Instagram',
+                'facebook': 'Facebook', 'messenger': 'Messenger',
+                'viber': 'Viber', 'whatsapp': 'WhatsApp',
+                'livechat': 'LiveChat', 'tiktok': 'TikTok',
+            }
+
+            # 400 = контакт неактивний або невалідний запит
+            if resp.status_code == 400:
+                service_label = _SERVICE_LABELS.get(service, service or 'канал')
+                try:
+                    err_data = resp.json()
+                    contact_errors = (err_data.get('errors') or {}).get('contact_id', [])
+                    err_code = contact_errors[0] if contact_errors else ''
+                except Exception:
+                    err_code = ''
+
+                if err_code == 'contact.errors.not_active':
+                    hint = (
+                        'Контакт неактивний у SendPulse — '
+                        'клієнт відписався від бота або заблокував його.'
+                    )
+                else:
+                    raw = (resp.text or '').replace('\n', ' ').strip()[:200]
+                    hint = f'API відхилив запит. Код: {err_code or raw or "невідомо"}.'
+
+                _logger.warning(
+                    'SendPulse Odo: 400 for %s contact=%s (%s): %s',
+                    service, self.sendpulse_contact_id, self.name, err_code,
+                )
+                if self.channel_id:
+                    self.channel_id.sudo().message_post(
+                        body=f'❌ Повідомлення не доставлено у {service_label}.\n{hint}',
+                        message_type='comment',
+                        subtype_xmlid='mail.mt_note',
+                        author_id=self.env.ref('base.partner_root').id,
+                    )
+                return False
+
             # 422 = provider policy/payload rejection (not always the same reason).
             if resp.status_code == 422:
-                service_label_map = {
-                    'telegram': 'Telegram',
-                    'instagram': 'Instagram',
-                    'facebook': 'Facebook',
-                    'messenger': 'Messenger',
-                    'viber': 'Viber',
-                    'whatsapp': 'WhatsApp',
-                    'livechat': 'LiveChat',
-                    'tiktok': 'TikTok',
-                }
-                service_label = service_label_map.get(service, service or 'канал')
+                service_label = _SERVICE_LABELS.get(service, service or 'канал')
                 raw_reason = (resp.text or '').replace('\n', ' ').replace('\r', ' ').strip()
                 short_reason = raw_reason[:220] if raw_reason else 'Без деталей від API.'
                 _logger.warning(
                     'SendPulse Odo: 422 for %s contact=%s (%s): %s',
-                    service,
-                    self.sendpulse_contact_id,
-                    self.name,
-                    short_reason,
+                    service, self.sendpulse_contact_id, self.name, short_reason,
                 )
-                # Повідомляємо менеджера в Discuss чаті
                 policy_hint = (
                     'Можлива причина: вікно відповіді для каналу закрите '
                     '(для Meta зазвичай 24 години) або формат повідомлення не прийнято API.'
                 )
-                warning_text = (
-                    '⚠️ Повідомлення не доставлено у %s.\n'
-                    '%s\n'
-                    'API: %s'
-                ) % (service_label, policy_hint, short_reason)
                 if self.channel_id:
                     self.channel_id.sudo().message_post(
-                        body=warning_text,
+                        body=(
+                            f'⚠️ Повідомлення не доставлено у {service_label}.\n'
+                            f'{policy_hint}\nAPI: {short_reason}'
+                        ),
                         message_type='comment',
                         subtype_xmlid='mail.mt_note',
                         author_id=self.env.ref('base.partner_root').id,
@@ -1471,6 +1495,13 @@ class SendpulseConnect(models.Model):
             return True
         except Exception as e:
             _logger.error('SendPulse Odo: помилка відправки: %s', e)
+            if self.channel_id:
+                self.channel_id.sudo().message_post(
+                    body=f'❌ Помилка відправки повідомлення: {e}',
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_note',
+                    author_id=self.env.ref('base.partner_root').id,
+                )
             return False
 
     # ════════════════════════════════════════════════════════════════════
