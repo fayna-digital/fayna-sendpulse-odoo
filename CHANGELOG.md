@@ -4,10 +4,24 @@
 
 ---
 
+## [2026-04-11] — КРИТИЧНИЙ ІНЦИДЕНТ (AI: порушення меж модулів) — **відкат коду**
+
+<div style="color:#b00020; border-left:4px solid #b00020; padding-left:12px;">
+
+**Клас:** критична помилка роботи агента — **невиконання вимог**, **порушення промпту** (scope), **шкідливі наслідки** для продакшну (відкат, force-push, оновлення модуля на сервері).
+
+**Що сталося:** у контексті SendPulse агент **чіпав `campscout-management`** (ядро CampScout) і вносив зміни в зоні, не погодженій під цю задачу; каскад правок потребував **відкату** й цього репо до стабільного коміту **`153fbb4`**.
+
+**Документація:** `DevJournal/sessions/LOG.md` (розділ **2026-04-11**); технічний додаток: `docs/CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md` §7.
+
+</div>
+
+---
+
 ## [2026-04-10] — синхронізація репозиторію (без змін коду)
 
 - Локальний клон і сервер **CampScout** (`odoo_chatwoot_connector` → цей репо): **`git pull` / `git push`** узгоджені з **`origin/main`** (коміт **`092a80e`** на момент перевірки).
-- Змін у вихідниках модуля цього дня **немає**. Детальний журнал робіт по сусідньому **`omnichannel_bridge`** — `omnichannel-bridge/docs/IMPLEMENTATION_LOG.md` та `DevJournal/sessions/2026-04-10-omnichannel-operations-git-deploy.md`.
+- Змін у вихідниках модуля цього дня **немає**. Детальний журнал робіт по сусідньому **`omnichannel_bridge`** — `omnichannel-bridge/docs/IMPLEMENTATION_LOG.md` та `DevJournal/sessions/LOG.md` (розділ **2026-04-10**).
 
 ---
 
@@ -21,7 +35,7 @@
 
 **Ремедіація:** `main` повернуто до **`6905fa7`** (`git reset --hard` + `push --force-with-lease`). Коміти `9317e1c`, `2775941` знято з історії гілки.
 
-**Документація:** `docs/TZ.md` (червоний блок), `TECHNICAL_DOCS.md`, **`docs/CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md` (повний окремий лог)**, логи в `omnichannel-bridge` та `DevJournal/sessions/2026-04-09-sendpulse-critical-scope-violation.md`.
+**Документація:** `docs/TZ.md` (червоний блок), `TECHNICAL_DOCS.md`, **`docs/CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md`**, `omnichannel-bridge/docs/IMPLEMENTATION_LOG.md`, `DevJournal/sessions/LOG.md` (розділ **2026-04-09**).
 
 </div>
 

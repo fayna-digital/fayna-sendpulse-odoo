@@ -8,13 +8,13 @@
 
 **Детальний окремий лог (файли, коміти, мотивація, ремедіація):** [`docs/CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md`](CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md).
 
-Короткі дублі: `CHANGELOG.md`, `TECHNICAL_DOCS.md`, `omnichannel-bridge/docs/IMPLEMENTATION_LOG.md`, `omnichannel-bridge/docs/TZ_CHECKLIST.md`, `DevJournal/sessions/2026-04-09-sendpulse-critical-scope-violation.md`.
+Короткі дублі: `CHANGELOG.md`, `TECHNICAL_DOCS.md`, `omnichannel-bridge/docs/IMPLEMENTATION_LOG.md`, `omnichannel-bridge/docs/TZ_CHECKLIST.md`, `DevJournal/sessions/LOG.md`.
 
 </div>
 
 ### Операційна примітка (2026-04-10)
 
-- Код модуля **не змінювався**. Виконано лише **синхронізацію git** (локально та на сервері CampScout, каталог **`odoo_chatwoot_connector`** ↔ цей репозиторій). Детальний журнал робіт по **omnichannel / деплою / інших репо** — у **`DevJournal/sessions/2026-04-10-omnichannel-operations-git-deploy.md`** та на початку **`omnichannel-bridge/docs/IMPLEMENTATION_LOG.md`**.
+- Код модуля **не змінювався**. Виконано лише **синхронізацію git** (локально та на сервері CampScout, каталог **`odoo_chatwoot_connector`** ↔ цей репозиторій). Детальний журнал робіт по **omnichannel / деплою / інших репо** — у **`DevJournal/sessions/LOG.md`** (розділ **2026-04-10**) та на початку **`omnichannel-bridge/docs/IMPLEMENTATION_LOG.md`**.
 
 > Повний чеклист реалізованих та запланованих функцій.
 > ✅ — готово | 🔲 — заплановано | ❌ — скасовано
