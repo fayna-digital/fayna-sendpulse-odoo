@@ -1,7 +1,7 @@
 # ТЗ: Автовідповідь на коментарі Facebook та Instagram
 
 **Модуль:** `odoo_chatwoot_connector` (SendPulse Odo)
-**Версія:** 1.2
+**Версія:** 1.3
 **Дата:** 2026-04-11
 **Статус:** ✅ Затверджено — готово до реалізації
 
@@ -277,8 +277,9 @@ send_private = not bool(already_private)
 | Публічна відповідь | Boolean | `sp_comment_public_enabled` | True |
 | Приватне повідомлення | Boolean | `sp_comment_private_enabled` | True |
 | Facebook Page Access Token | Char (password) | `fb_page_access_token` | — |
-| URL лендінгу (у публічних відповідях) | Char | `sp_comment_landing_url` | — |
+| URL лендінгу (у публічних відповідях) | Char | `sp_comment_landing_url` | https://lato2026.campscout.eu |
 | URL ТГ-каналу (у публічних відповідях) | Char | `sp_comment_tg_url` | — |
+| URL YouTube-плейлисту (у приватних) | Char | `sp_comment_yt_url` | https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV |
 | Текст приватного повідомлення | Text | `sp_comment_private_text` | §4.2 |
 | Текст публічної відповіді (повторний) | Text | `sp_comment_public_repeat_text` | §4.3 |
 
@@ -311,29 +312,35 @@ send_private = not bool(already_private)
 
 ### 4.2 Приватне повідомлення (Messenger / Instagram Direct) — варіанти
 
-**Варіант A — з акцентом на відповідь на питання:**
+**Шаблон використовує `{landing_url}` і `{yt_url}` — підставляються з `ir.config_parameter`.**
+
+**Дефолтні значення:**
+- `{landing_url}` → `https://lato2026.campscout.eu`
+- `{yt_url}` → `https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV`
+
+**Варіант A — з акцентом на відповідь на питання (дефолт):**
 > Вітаємо! 🏕️ Дякуємо за ваш коментар під нашим постом.
 >
 > Підготували для вас відповіді на найпоширеніші запитання — безпека, програма, харчування, вартість, терміни:
-> 🎬 https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV
+> 🎬 {yt_url}
 >
 > Вся актуальна інформація про табори 2026 також тут:
-> 🌐 https://lato2026.campscout.eu
+> 🌐 {landing_url}
 >
 > Якщо залишились питання — пишіть тут, відповімо особисто! 😊
 
 **Варіант B — коротший, з акцентом на розмову:**
 > Привіт! 👋 Побачили ваш коментар і одразу написали 😊
 >
-> Усі деталі про табори CampScout 2026 — на сайті: https://lato2026.campscout.eu
+> Усі деталі про табори CampScout 2026 — на сайті: {landing_url}
 >
-> Або перегляньте короткі відео з відповідями для батьків: https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV
+> Або перегляньте короткі відео з відповідями для батьків: {yt_url}
 >
 > Будь-яке питання — просто відповідайте тут, допоможемо! 🏕️
 
 **Варіант C — найстисліший:**
 > Дякуємо за інтерес до CampScout! 🏕️
-> Деталі про табори 2026: https://lato2026.campscout.eu
+> Деталі про табори 2026: {landing_url}
 > Питання? Пишіть — відповімо особисто 😊
 
 *Дефолтний варіант у Settings: **A**. Можна змінити через Налаштування без змін коду.*
