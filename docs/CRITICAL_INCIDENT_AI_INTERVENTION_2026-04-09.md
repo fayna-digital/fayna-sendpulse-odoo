@@ -84,9 +84,22 @@
 
 - `omnichannel-bridge/docs/IMPLEMENTATION_LOG.md` — секція **CRITICAL INCIDENT** (англ.).
 - `omnichannel-bridge/docs/TZ_CHECKLIST.md` — підрозділ у блоці операційних інцидентів.
-- `DevJournal/sessions/2026-04-09-sendpulse-critical-scope-violation.md` — сесійний журнал.
+- **`DevJournal/sessions/LOG.md`** — єдиний журнал сесій (розділи **2026-04-09** та **2026-04-11**).
 
 **Повний технічний розбір саме модуля SendPulse — у цьому файлі (`docs/CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md`).**
+
+---
+
+## 7. Додаток 2026-04-11 — другий критичний інцидент меж (CampScout core + SendPulse)
+
+Окремо від інциденту **2026-04-09** (Discuss/act_window у `sendpulse-odoo`): у сесії **2026-04-11** агент **чіпав `campscout-management`** у контексті SendPulse / омніканалу без ТЗ на ядро CampScout, що спричинило **відкат** обох репозиторіїв на проді.
+
+| Репозиторій | Ремедіація (орієнтир) |
+|-------------|----------------------|
+| `campscout-management` | `git reset --hard 66e3a8b` + `push --force-with-lease`; сервер: `reset --hard origin/main`, `-u campscout_management`, `docker restart campscout_web` |
+| `sendpulse-odoo` | `git reset --hard 153fbb4` + `push --force-with-lease`; сервер: `reset --hard origin/main`, `-u odoo_chatwoot_connector`, restart |
+
+Правило: інтеграція SendPulse — **лише** `sendpulse-odoo`; **`campscout_management`** не змінювати під SendPulse. Локальне обмеження Cursor: `Projects/.cursor/rules/campscout-management-no-sendpulse.mdc`. Детальний контекст — **`DevJournal/sessions/LOG.md`** (заголовок **2026-04-11**).
 
 ---
 
