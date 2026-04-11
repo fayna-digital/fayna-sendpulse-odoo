@@ -1,9 +1,9 @@
 # ТЗ: Автовідповідь на коментарі Facebook та Instagram
 
 **Модуль:** `odoo_chatwoot_connector` (SendPulse Odo)
-**Версія:** 1.0
+**Версія:** 1.1
 **Дата:** 2026-04-11
-**Статус:** ✅ Затверджено — очікує реалізації
+**Статус:** ✅ Затверджено — готово до реалізації
 
 ---
 
@@ -21,9 +21,26 @@
 ### Рішення
 
 Автоматично при надходженні коментаря:
-1. **Публічно відповісти під коментарем** — подяка + посилання на лендінг або YouTube
-2. **Надіслати приватне повідомлення** у Messenger / Instagram Direct — активувати розмову
-3. **Повідомити оператора** у Discuss що розмову ініційовано, показати текст коментаря
+1. **Відповісти публічно під коментарем** — подяка + натяк що надіслали повідомлення у приват
+2. **Надіслати приватне повідомлення** через Graph API private_replies — активувати розмову
+3. **Повідомити оператора** у Discuss: текст коментаря + що зроблено + очікуємо відповіді
+
+### Логіка Meta (підтверджена)
+
+```
+Клієнт пише коментар
+    │
+    ├─► Публічна відповідь — видна одразу всім
+    │       "Написали вам у повідомлення — там детальніше 😊"
+    │       ↓ клієнт бачить → цікавиться → перевіряє inbox
+    │
+    └─► Private Reply → потрапляє у "Запити повідомлень" клієнта
+            ↓ клієнт відкриває → відповідає → розмова відкрита
+            ↓ після цього: звичайний 24h Messenger window
+
+Якщо клієнт НЕ відповів → ми більше писати не можемо (правило Meta).
+Оператор просто очікує. Інших варіантів немає — це нормально.
+```
 
 ### Цінність
 
@@ -32,13 +49,13 @@
 | Маркетинг | Публічна відповідь піднімає рейтинг поста в алгоритмі FB/IG |
 | Конверсія | Приватне повідомлення активує клієнта до розмови |
 | Ефективність | Оператор не витрачає час на моніторинг коментарів вручну |
-| Охоплення | Відповідь видно всім — інші люди теж бачать посилання |
+| Охоплення | Відповідь видна всім — інші люди теж бачать посилання |
 
 ---
 
 ## 2. Як це працює технічно
 
-### 2.1 Webhook payload для коментаря (факт з бази даних)
+### 2.1 Webhook payload для коментаря (реальні дані з БД)
 
 SendPulse надсилає `incoming_message` з вкладеною структурою.
 **Ключовий маркер:** `info.message.channel_data.message.item == "comment"`
@@ -81,27 +98,17 @@ SendPulse надсилає `incoming_message` з вкладеною структ
 **Відмінності від звичайного повідомлення:**
 - `contact.last_message` = **null** (у звичайних — є текст)
 - Текст коментаря — у `info.message.channel_data.message.message`
-- `comment_id` — потрібен для публічної відповіді через Graph API
-- `post_id` — ідентифікатор допису де залишили коментар
+- `item = "comment"` + `verb = "add"` — маркери нового коментаря
+- `comment_id` — потрібен для обох API викликів (публічний + приватний)
 
-### 2.2 Архітектурна проблема: чому `not_active`
+### 2.2 Чому SendPulse chat API не підходить для нових коментаторів
 
-Поточний код використовує `/messenger/contacts/send` з `type: "RESPONSE"`.
-Цей тип вимагає щоб клієнт **раніше взаємодіяв з ботом у Messenger**.
-Для нових коментаторів → `400 contact.errors.not_active`.
+| Метод | Для кого | Результат |
+|-------|----------|-----------|
+| `/messenger/contacts/send` тип RESPONSE | Лише активні підписники бота | 400 `not_active` для нових |
+| **Graph API `/{comment_id}/private_replies`** | **Будь-який коментатор** | ✅ Доходить без opt-in |
 
-**Правильний підхід для коментарів:**
-Facebook дозволяє **Private Reply** без попередньої взаємодії з ботом,
-але через **Facebook Graph API** напряму, а не через SendPulse chat endpoint.
-
-| Метод | Для кого працює | Вимога |
-|-------|----------------|--------|
-| `/messenger/contacts/send` (тип RESPONSE) | Лише активні підписники бота | Попередня взаємодія з ботом |
-| Facebook Graph API `/{comment_id}/private_replies` | **Будь-який коментатор** | Page Access Token + 7 днів з моменту коментаря |
-| SendPulse `/facebook/comments/reply` | Потребує уточнення у SP | Можливо достатньо SP OAuth |
-
-**Висновок для реалізації:** Приватна відповідь на коментар повинна йти через
-**Facebook Graph API** `/{comment_id}/private_replies`, а не через SendPulse chat API.
+**Рішення:** Використовувати **Facebook Graph API напряму** з Page Access Token.
 
 ---
 
@@ -109,7 +116,7 @@ Facebook дозволяє **Private Reply** без попередньої вза
 
 ### F1 — Розпізнавання коментаря ✅ Must
 
-У методі `_process_incoming_event` (controllers/main.py → sendpulse_connect.py):
+У методі `_process_incoming_event`:
 
 ```python
 channel_data_msg = (
@@ -123,87 +130,99 @@ is_comment = (
     and channel_data_msg.get('item') == 'comment'
     and channel_data_msg.get('verb') == 'add'
 )
+if is_comment:
+    return self._process_comment_event(...)
 ```
-
-Якщо `is_comment` → не обробляти як звичайне повідомлення, а викликати `_process_comment_event()`.
 
 ---
 
 ### F2 — Зберігання даних коментаря ✅ Must
 
-Нові поля у моделі `sendpulse.connect`:
+Нові поля у `sendpulse.connect`:
 
 ```python
 sp_is_comment          = fields.Boolean('Ініційовано з коментаря', default=False)
-sp_comment_id          = fields.Char('Facebook Comment ID')
+sp_comment_id          = fields.Char('Facebook/Instagram Comment ID')
 sp_comment_text        = fields.Char('Текст коментаря', size=500)
-sp_post_id             = fields.Char('Facebook Post ID')
+sp_post_id             = fields.Char('Post ID')
 sp_post_url            = fields.Char('URL допису')
 sp_replied_private     = fields.Boolean('Приватна відповідь надіслана', default=False)
 sp_replied_public      = fields.Boolean('Публічна відповідь надіслана', default=False)
 ```
 
-Відображення у формі розмови — нова секція "Коментар" (видима тільки якщо `sp_is_comment = True`).
+Відображення у формі розмови — секція "Коментар" (видима тільки якщо `sp_is_comment = True`).
 
 ---
 
-### F3 — Публічна відповідь під коментарем ✅ Must (Facebook), Should (Instagram)
+### F3 — Публічна відповідь під коментарем ✅ Must
 
-**Facebook — через Facebook Graph API:**
-
+**Facebook:**
 ```http
 POST https://graph.facebook.com/v19.0/{comment_id}/comments
 Content-Type: application/json
 
 {
-  "message": "{текст публічної відповіді}",
+  "message": "{текст_публічної_відповіді}",
   "access_token": "{page_access_token}"
 }
 ```
 
-**Instagram — через Instagram Graph API:**
-
+**Instagram:**
 ```http
 POST https://graph.facebook.com/v19.0/{comment_id}/replies
 Content-Type: application/json
 
 {
-  "message": "{текст публічної відповіді}",
+  "message": "{текст_публічної_відповіді}",
   "access_token": "{page_access_token}"
 }
 ```
 
-Новий параметр у Settings: `facebook_page_access_token` (зберігається у `ir.config_parameter`).
-
 ---
 
-### F4 — Приватне повідомлення у Messenger/Instagram Direct ✅ Must
+### F4 — Приватне повідомлення ✅ Must
 
-**Facebook Messenger — через Graph API Private Reply:**
-
+**Facebook Messenger і Instagram Direct — однаковий endpoint:**
 ```http
 POST https://graph.facebook.com/v19.0/{comment_id}/private_replies
 Content-Type: application/json
 
 {
-  "message": "{текст приватного повідомлення}",
+  "message": "{текст_приватного_повідомлення}",
   "access_token": "{page_access_token}"
 }
 ```
 
-Цей метод працює **без попередньої взаємодії** клієнта з ботом (на відміну від SendPulse chat API).
-Дозволено протягом **7 днів** після коментаря.
-
-**Instagram Direct** — аналогічно через `/{comment_id}/private_replies` Instagram API.
-
-> ⚠️ **Важливо:** Після того як клієнт відповів у приватному — подальше листування
-> веде вже через SendPulse webhook (incoming_message) як звичайна розмова.
+Умови Meta:
+- Дозволено **без попередньої взаємодії** клієнта з ботом
+- Вікно: **7 днів** після коментаря
+- Одне повідомлення на коментар
+- Повідомлення потрапляє у "Запити повідомлень" — клієнт бачить тільки якщо перейде туди
 
 ---
 
-### F5 — Сповіщення оператора у Discuss ✅ Must
+### F5 — Дедуплікація ✅ Must
 
-Системна нотатка (від OdooBot) у Discuss-каналі розмови одразу після дій:
+**Правило:** Автоматична відповідь надсилається **тільки на перший коментар** від клієнта.
+Якщо той самий контакт прокоментував повторно (інший пост) — **тільки публічна відповідь**.
+Приватне повідомлення повторно не надсилається.
+
+```python
+existing_connect = self.search([
+    ('partner_id', '=', partner.id if partner else False),
+    ('sp_replied_private', '=', True),
+], limit=1)
+
+send_private = not bool(existing_connect)  # тільки якщо ще не писали у приват
+```
+
+Якщо `existing_connect` → публічна відповідь = варіант "вже знайомий клієнт" (§4.3).
+
+---
+
+### F6 — Сповіщення оператора у Discuss ✅ Must
+
+Системна нотатка від OdooBot у Discuss-каналі розмови:
 
 ```
 💬 Новий коментар під постом [Facebook / Instagram]
@@ -212,217 +231,238 @@ Content-Type: application/json
 📝 Коментар: "Дитині 8, яка вартість і терміни?"
 🔗 Допис: https://www.facebook.com/reel/...
 
-✅ Публічна відповідь надіслана під коментарем
+✅ Публічна відповідь опублікована під коментарем
 ✅ Приватне повідомлення надіслано у Messenger
-⏳ Очікуємо відповіді від клієнта
+⏳ Очікуємо відповіді від клієнта — поки клієнт не відповів, писати йому не можна (правило Meta)
 ```
 
-Якщо приватна або публічна відповідь не вдалась — показувати причину:
+Якщо щось не вдалось:
 ```
-❌ Приватне повідомлення не доставлено: вікно відповіді закрите (>7 днів)
+❌ Приватне повідомлення не надіслано: минуло більше 7 днів з моменту коментаря
+⚠️ Публічна відповідь: помилка API — {деталь}
 ```
 
 ---
 
-### F6 — Налаштування у Settings ✅ Must
+### F7 — Налаштування у Settings ✅ Must
 
-Нова секція "SendPulse — Коментарі" у `Налаштування → Обговорення`:
+Нова секція **"SendPulse — Відповіді на коментарі"** у Налаштування → Обговорення:
 
-| Поле | Тип | Дефолт | Опис |
-|------|-----|--------|------|
-| Автовідповідь на коментарі | Boolean | True | Вмикає/вимикає всю фічу |
-| Публічна відповідь | Boolean | True | Відповідати публічно під коментарем |
-| Приватне повідомлення | Boolean | True | Надсилати приватний Messenger/DM |
-| Facebook Page Access Token | Char (password) | — | Токен сторінки FB для Graph API |
-| Текст публічної відповіді (варіант А) | Text | (нижче) | З посиланням на лендінг |
-| Текст публічної відповіді (варіант Б) | Text | (нижче) | З посиланням на YouTube |
-| Активний варіант публічної відповіді | Selection (А/Б) | А | Який текст використовувати |
-| Текст приватного повідомлення | Text | (нижче) | Шаблон для Messenger/DM |
-
----
-
-### F7 — Дедуплікація ✅ Must
-
-Не надсилати повторно якщо:
-- `sp_replied_private = True` — вже надіслали приватне
-- `sp_replied_public = True` — вже відповіли публічно
-- Той самий `comment_id` вже є в базі
-
-Перевірка на початку `_process_comment_event()`:
-```python
-existing = self.search([('sp_comment_id', '=', comment_id)], limit=1)
-if existing and existing.sp_replied_private and existing.sp_replied_public:
-    return existing  # нічого не робимо
-```
+| Поле | Тип | Дефолт |
+|------|-----|--------|
+| Автовідповідь на коментарі | Boolean | True |
+| Публічна відповідь | Boolean | True |
+| Приватне повідомлення | Boolean | True |
+| Facebook Page Access Token | Char (password) | — |
+| Текст публічної відповіді | Text | §4.1 |
+| Текст приватного повідомлення | Text | §4.2 |
+| Текст публічної (повторний коментар) | Text | §4.3 |
 
 ---
 
 ## 4. Тексти автовідповідей
 
-### 4.1 Публічна відповідь — Варіант А (лендінг)
+### 4.1 Публічна відповідь — перший коментар
 
-> Дякуємо за коментар! 🏕️ Усі деталі про табори, вартість та терміни — на нашому сайті:
-> https://lato2026.campscout.eu
-> Якщо виникнуть питання — пишіть у повідомлення, відповімо особисто 😊
+> Дякуємо за коментар! 🏕️ Написали вам детальніше у приватні повідомлення — перевірте, будь ласка, свою вхідну пошту чи запити 😊
 
-### 4.2 Публічна відповідь — Варіант Б (YouTube)
+*(Стисло. Не дублює весь контент — мета: змусити клієнта відкрити inbox.)*
 
-> Дякуємо за коментар! 🎬 Відповіді на головні питання батьків (безпека, програма, харчування, побут):
-> https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV
-> Написали вам у приватні повідомлення — там зручно поговорити детальніше 😊
+### 4.2 Приватне повідомлення (Messenger / Instagram Direct) — варіанти
 
-### 4.3 Приватне повідомлення (Messenger / Instagram Direct)
-
+**Варіант A — з акцентом на відповідь на питання:**
 > Вітаємо! 🏕️ Дякуємо за ваш коментар під нашим постом.
 >
-> Ми підготували відповіді на найпоширеніші запитання батьків — безпека, програма, харчування, доїзд, вартість і терміни:
+> Підготували для вас відповіді на найпоширеніші запитання — безпека, програма, харчування, вартість, терміни:
 > 🎬 https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV
 >
-> Також вся актуальна інформація про табори 2026 на сайті:
+> Вся актуальна інформація про табори 2026 також тут:
 > 🌐 https://lato2026.campscout.eu
 >
 > Якщо залишились питання — пишіть тут, відповімо особисто! 😊
 
+**Варіант B — коротший, з акцентом на розмову:**
+> Привіт! 👋 Побачили ваш коментар і одразу написали 😊
+>
+> Усі деталі про табори CampScout 2026 — на сайті: https://lato2026.campscout.eu
+>
+> Або перегляньте короткі відео з відповідями для батьків: https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV
+>
+> Будь-яке питання — просто відповідайте тут, допоможемо! 🏕️
+
+**Варіант C — найстисліший:**
+> Дякуємо за інтерес до CampScout! 🏕️
+> Деталі про табори 2026: https://lato2026.campscout.eu
+> Питання? Пишіть — відповімо особисто 😊
+
+*Дефолтний варіант у Settings: **A**. Можна змінити через Налаштування без змін коду.*
+
+### 4.3 Публічна відповідь — повторний коментар (клієнт вже отримував приватне)
+
+> Раді бачити вас знову! 😊 Наш менеджер вже напише вам у повідомленнях — слідкуйте за вхідними 🏕️
+
 ---
 
-## 5. Структура коду
+## 5. Де взяти Facebook Page Access Token
 
-### 5.1 Нові файли / зміни
+### Крок 1 — Увійти у Facebook Developer Portal
+Перейти: https://developers.facebook.com/apps
+
+### Крок 2 — Вибрати або створити App
+- Якщо App для CampScout вже є (через SendPulse) — вибрати його
+- Якщо ні — створити новий: тип **Business**
+
+### Крок 3 — Graph API Explorer
+Перейти: https://developers.facebook.com/tools/explorer/
+- Вибрати свій **App** у правому верхньому куті
+- Вибрати **Page** (CampScout) замість User
+- Натиснути **Generate Access Token**
+- Підтвердити permissions (список нижче)
+
+### Необхідні permissions
+```
+pages_manage_posts
+pages_read_engagement
+pages_manage_engagement     ← для публікації відповіді під коментарем
+pages_messaging             ← для private_replies
+instagram_basic             ← для Instagram
+instagram_manage_comments   ← для Instagram comment replies
+instagram_manage_messages   ← для Instagram private_replies
+```
+
+### Крок 4 — Довгостроковий токен (важливо!)
+Стандартний токен живе **1 годину**. Для продакшн потрібен **довгостроковий (60 днів)**:
+
+```bash
+curl -X GET "https://graph.facebook.com/v19.0/oauth/access_token
+  ?grant_type=fb_exchange_token
+  &client_id={app_id}
+  &client_secret={app_secret}
+  &fb_exchange_token={short_lived_token}"
+```
+
+### Крок 5 — Page Token з довгострокового User Token
+```bash
+curl -X GET "https://graph.facebook.com/v19.0/me/accounts
+  ?access_token={long_lived_user_token}"
+```
+→ У відповіді знайти об'єкт з `name: "CampScout"` → взяти його `access_token`.
+Це буде **безстроковий Page Token** (не потребує оновлення поки App активний).
+
+### Де вставити в Odoo
+`Налаштування → Обговорення → SendPulse — Відповіді на коментарі → Facebook Page Access Token`
+
+---
+
+## 6. Структура коду
+
+### 6.1 Нові файли / зміни
 
 | Файл | Зміна |
 |------|-------|
-| `models/sendpulse_connect.py` | Нові поля + методи `_process_comment_event`, `_send_comment_public_reply`, `_send_comment_private_reply` |
-| `models/res_config_settings.py` | Нові поля налаштувань |
-| `views/sendpulse_connect_views.xml` | Нова секція "Коментар" у формі розмови |
-| `views/res_config_settings_views.xml` | Нова секція "SendPulse — Коментарі" |
-| `security/ir.model.access.csv` | Без змін (нові поля на існуючій моделі) |
+| `models/sendpulse_connect.py` | Нові поля + `_process_comment_event`, `_send_comment_public_reply`, `_send_comment_private_reply`, `_notify_operator_comment` |
+| `models/res_config_settings.py` | Нові поля: token, тексти, toggles |
+| `views/sendpulse_connect_views.xml` | Секція "Коментар" у формі (visible if `sp_is_comment`) |
+| `views/res_config_settings_views.xml` | Секція "SendPulse — Відповіді на коментарі" |
+| `CHANGELOG.md` | Запис v17.0.3.0.0 |
 
-### 5.2 Нові методи у `sendpulse_connect.py`
+### 6.2 Нові методи
 
 ```python
 @api.model
 def _process_comment_event(self, data, contact, bot, service,
                             comment_id, comment_text, post_id, post_url):
     """
-    Обробляє вхідний коментар під постом FB/IG.
-    1. Знайти або створити sendpulse.connect (без discuss.channel поки)
-    2. Зберегти comment_id, comment_text, post_id
-    3. Публічна відповідь (якщо увімкнена)
-    4. Приватне повідомлення (якщо увімкнена)
-    5. Сповістити оператора у Discuss
+    1. Дедуплікація по comment_id
+    2. Знайти/створити sendpulse.connect (sp_is_comment=True)
+    3. _send_comment_public_reply() — публічна відповідь
+    4. _send_comment_private_reply() — тільки якщо перший коментар
+    5. _notify_operator_comment() — нотатка у Discuss
+    6. sp_replied_public / sp_replied_private = True
     """
 
-def _send_comment_public_reply(self, comment_id, service):
+def _send_comment_public_reply(self, comment_id, service, text):
     """
-    POST /{comment_id}/comments (Facebook)
-    POST /{comment_id}/replies  (Instagram)
-    через Facebook Graph API v19.0 з Page Access Token.
-    Повертає True/False.
-    """
-
-def _send_comment_private_reply(self, comment_id, service):
-    """
-    POST /{comment_id}/private_replies через Facebook Graph API.
-    Не потребує попередньої взаємодії з ботом (на відміну від SendPulse chat API).
-    Дозволено протягом 7 днів після коментаря.
-    Повертає True/False.
+    Facebook: POST /v19.0/{comment_id}/comments
+    Instagram: POST /v19.0/{comment_id}/replies
+    Повертає (success: bool, error: str|None)
     """
 
-def _get_facebook_page_token(self):
+def _send_comment_private_reply(self, comment_id, text):
     """
-    Читає Page Access Token з ir.config_parameter.
+    POST /v19.0/{comment_id}/private_replies
+    Працює для Facebook і Instagram.
+    Повертає (success: bool, error: str|None)
     """
+
+def _get_fb_page_token(self):
+    """ir.config_parameter → odoo_chatwoot_connector.fb_page_access_token"""
 
 def _notify_operator_comment(self, comment_text, post_url,
                               sent_private, sent_public,
-                              private_error=None, public_error=None):
-    """
-    Системна нотатка у Discuss-каналі розмови з підсумком дій.
-    """
+                              private_error, public_error):
+    """Системна нотатка OdooBot у Discuss-каналі розмови."""
 ```
 
 ---
 
-## 6. Flow діаграма
+## 7. Flow діаграма
 
 ```
-SendPulse webhook
+SendPulse webhook → POST /sendpulse/webhook
     │
     ▼
-controllers/main.py: handle_webhook()
+handle_webhook() → event=incoming_message, item=comment?
+    │                           │
+    │ ТАК                       │ НІ
+    ▼                           ▼
+_process_comment_event()   _process_incoming_event() (існуючий)
     │
-    ├─ event_type = incoming_message
-    │   ├─ item = "comment"? ──► _process_comment_event()
-    │   │                              │
-    │   │                              ├─ Дедуплікація по comment_id
-    │   │                              │
-    │   │                              ├─ Публічна відповідь
-    │   │                              │   └─ Graph API POST /{comment_id}/comments
-    │   │                              │
-    │   │                              ├─ Приватне повідомлення
-    │   │                              │   └─ Graph API POST /{comment_id}/private_replies
-    │   │                              │
-    │   │                              ├─ Створити sendpulse.connect (stage=new)
-    │   │                              │   sp_is_comment=True
-    │   │                              │   sp_comment_text="текст коментаря"
-    │   │                              │
-    │   │                              └─ Нотатка оператору у Discuss
-    │   │
-    │   └─ item ≠ "comment" ──► _process_incoming_event() (існуючий flow)
+    ├─ comment_id вже є в БД?
+    │   ТАК → skip (дедуплікація)
+    │   НІ  → продовжити
     │
-    └─ event_type = outbound/unsubscribe ──► існуючі handlers
+    ├─ Знайти/створити sendpulse.connect
+    │   sp_is_comment=True, sp_comment_text=..., sp_comment_id=...
+    │
+    ├─ Публічна відповідь (якщо увімкнена)
+    │   └─ Graph API POST /{comment_id}/comments (FB) або /replies (IG)
+    │       ✅ sp_replied_public=True
+    │       ❌ логуємо помилку
+    │
+    ├─ Приватне повідомлення (якщо перший коментар + увімкнено)
+    │   └─ Graph API POST /{comment_id}/private_replies
+    │       ✅ sp_replied_private=True
+    │       ❌ логуємо помилку
+    │
+    └─ Нотатка оператору у Discuss
+        "💬 Коментар від X: '...' | ✅ публічна | ✅ приватна | ⏳ очікуємо"
 ```
 
 ---
 
-## 7. Що НЕ входить у scope v1.0
+## 8. Критерії прийняття (Definition of Done)
 
-- Аналіз тексту коментаря (NLP) для вибору відповідного шаблону відповіді
-- Автоматичне закриття розмови якщо клієнт не відповів протягом N днів
-- Статистика по коментарях у Odoo (окремий звіт)
-- Підтримка коментарів у Instagram Stories (окремий API flow)
-- A/B тестування текстів відповідей
-
----
-
-## 8. Передумови для реалізації
-
-До початку кодування потрібно:
-
-1. ✅ Знайти Facebook Page Access Token для сторінки CampScout
-   - Facebook Business Manager → Налаштування → Розширений доступ → Page Token
-   - Або через Facebook Developer App (Graph API Explorer)
-   - Потрібні permissions: `pages_manage_posts`, `pages_read_engagement`,
-     `pages_manage_engagement`, `instagram_basic`, `instagram_manage_comments`
-
-2. ✅ Перевірити чи SendPulse має окремий endpoint для reply-to-comment
-   - Якщо є — можна не використовувати Graph API напряму
-   - Перевірити у кабінеті SendPulse → API → документація
-
-3. ✅ Тест: надіслати `POST /{comment_id}/private_replies` вручну через Graph API Explorer
-   - Переконатись що `not_active` помилки не виникають (Graph API обходить це обмеження)
+- [ ] Коментар під постом FB → публічна відповідь з'являється під тим самим коментарем (видно всім)
+- [ ] Коментар → приватне повідомлення приходить у Messenger клієнту (навіть якщо не підписник бота)
+- [ ] Коментар Instagram → ті самі дії через Instagram API
+- [ ] У Odoo Discuss: нотатка з текстом коментаря + URL поста + що зроблено
+- [ ] Повторний коментар від того самого клієнта → тільки публічна, без повторного приватного
+- [ ] Помилка Graph API (токен прострочений, >7 днів) → чітке повідомлення оператору в Discuss
+- [ ] Тексти відповідей редагуються через Налаштування без змін коду
+- [ ] Page Access Token зберігається у `ir.config_parameter` (не у коді, не у репо)
+- [ ] CHANGELOG.md оновлено → версія 17.0.3.0.0
+- [ ] Коміт з описом згідно `repo-deploy-server-gate.mdc`
 
 ---
 
-## 9. Критерії прийняття (Definition of Done)
+## 9. Відкриті питання — ЗАКРИТІ
 
-- [ ] Коментар під постом FB/IG → публічна відповідь з'являється під тим самим коментарем
-- [ ] Коментар → приватне повідомлення приходить у Messenger/IG Direct клієнту
-- [ ] У Odoo Discuss з'являється розмова з нотаткою: текст коментаря + що зроблено
-- [ ] Повторний коментар від того самого клієнта → не дублює відповіді
-- [ ] Якщо приватне не вдалось (>7 днів) → оператор бачить причину в Discuss
-- [ ] Тексти відповідей редагуються через Налаштування Odoo без змін коду
-- [ ] Фіча вимикається повністю одним перемикачем у Налаштуваннях
-- [ ] Всі зміни покриті комітом з описом + оновлено CHANGELOG.md
-
----
-
-## 10. Відкриті питання (для уточнення перед кодом)
-
-| № | Питання | Від кого | Статус |
-|---|---------|----------|--------|
-| 1 | Чи є Facebook Page Access Token для сторінки CampScout? | Замовник | ⏳ |
-| 2 | Публічна відповідь — Варіант А (сайт) чи Б (YouTube) як дефолт? | Замовник | ⏳ |
-| 3 | Instagram Direct — пріоритет для v1.0 чи відкласти? | Замовник | ⏳ |
-| 4 | Що робити якщо той самий клієнт напише 2+ коментарі під різними постами? | Замовник | ⏳ |
-| 5 | Чи потрібна кнопка "Відповісти на коментар вручну" у формі розмови? | Замовник | ⏳ |
+| № | Питання | Відповідь |
+|---|---------|-----------|
+| 1 | API: SendPulse чи Graph API напряму? | **Graph API напряму** з Page Token |
+| 2 | Де взяти Page Token? | **§5 цього документу** — покрокова інструкція |
+| 3 | Instagram для v1.0? | **Так**, та сама логіка, той самий endpoint |
+| 4 | Кілька коментарів від одного клієнта? | **Тільки перший** отримує приватне. Публічна — завжди. Тексти §4.3 |
+| 5 | Кнопка ручної відповіді? | **Не потрібна в v1.0.** Публічна відповідь каже що менеджер пише у приват |
+| 6 | Логіка Meta щодо першого повідомлення? | **Підтверджено:** private_replies не потребує opt-in. Клієнт бачить у "Запитах". Якщо не відповів — ми нічого не можемо. Оператор чекає. |
