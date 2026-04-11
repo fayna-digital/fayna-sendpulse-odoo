@@ -141,6 +141,31 @@ class SendpulseConnect(models.Model):
     last_notified_at = fields.Datetime(string='Остання сповіщення')
     source_id = fields.Many2one('utm.source', string='UTM Джерело')
 
+    # ── Коментар (Facebook / Instagram) ─────────────────────────────────
+    sp_is_comment = fields.Boolean(
+        string='Ініційовано з коментаря', default=False,
+        help='True якщо розмову відкрито автоматично після коментаря під постом',
+    )
+    sp_comment_id = fields.Char(
+        string='Comment ID',
+        help='Facebook/Instagram comment_id з webhook payload',
+        index=True,
+    )
+    sp_comment_text = fields.Char(
+        string='Текст коментаря', size=500,
+        help='Текст коментаря клієнта під постом',
+    )
+    sp_post_id = fields.Char(string='Post ID')
+    sp_post_url = fields.Char(string='URL допису')
+    sp_replied_public = fields.Boolean(
+        string='Публічна відповідь надіслана', default=False,
+        help='True якщо публічна відповідь під коментарем успішно опублікована',
+    )
+    sp_replied_private = fields.Boolean(
+        string='Приватне повідомлення надіслано', default=False,
+        help='True якщо private_reply успішно надіслано через Graph API',
+    )
+
     # ── Computed ────────────────────────────────────────────────────────
     is_unidentified = fields.Boolean(
         string='Не ідентифікований', compute='_compute_is_unidentified', store=True,
@@ -688,6 +713,27 @@ class SendpulseConnect(models.Model):
           4. Зберігаємо повідомлення
           5. Якщо розмова нова — створюємо discuss.channel
         """
+        # ── Перевірка: чи це коментар під постом FB/IG ─────────────────────
+        channel_data_msg = (
+            data.get('info', {})
+            .get('message', {})
+            .get('channel_data', {})
+            .get('message', {})
+        )
+        is_comment = (
+            isinstance(channel_data_msg, dict)
+            and channel_data_msg.get('item') == 'comment'
+            and channel_data_msg.get('verb') == 'add'
+        )
+        if is_comment:
+            return self._process_comment_event(
+                data=data,
+                contact=contact,
+                bot=bot,
+                service=service,
+                channel_data_msg=channel_data_msg,
+            )
+
         contact_id = contact.get('id', '')
         contact_name = contact.get('name', 'Невідомий')
         email = contact.get('email', '') or ''
@@ -920,6 +966,279 @@ class SendpulseConnect(models.Model):
             connect._create_discuss_channel()
 
         return connect
+
+    # ════════════════════════════════════════════════════════════════════
+    # Коментарі Facebook / Instagram — автовідповідь
+    # ════════════════════════════════════════════════════════════════════
+
+    # Ротаційні шаблони публічної відповіді.
+    # {landing_url} і {tg_url} підставляються з ir.config_parameter.
+    _COMMENT_PUBLIC_TEMPLATES = [
+        "Дякуємо за коментар! 🏕️ Написали вам детальніше у приватні — перевірте вхідні 😊 Або одразу: {landing_url}",
+        "Дякуємо! 🌟 Всі деталі надіслали в особисті. Також можна одразу глянути програму: {landing_url}",
+        "Радіємо вашій зацікавленості! ✨ Написали в приват — там детальна відповідь. Підписуйтесь на наш ТГ-канал і отримайте -5% на табір: {tg_url} 🎁",
+        "Привіт! Відповіли вам у повідомленнях 📩 Актуальні табори 2026 та знижка -5% за підписку: {tg_url}",
+        "Дякуємо за інтерес! 🏕️ Детальніше написали у приватних. Все про табори 2026: {landing_url}",
+    ]
+
+    _COMMENT_PUBLIC_REPEAT_TEMPLATE = (
+        "Раді бачити вас знову! 😊 Наш менеджер вже напише вам у повідомленнях — слідкуйте за вхідними 🏕️"
+    )
+
+    @api.model
+    def _process_comment_event(self, data, contact, bot, service, channel_data_msg):
+        """
+        Обробляє коментар під постом Facebook/Instagram.
+        1. Дедуплікація по comment_id
+        2. Знайти/створити sendpulse.connect (sp_is_comment=True)
+        3. Публічна відповідь під коментарем (Graph API) — завжди
+        4. Приватне повідомлення (Graph API) — тільки якщо перший коментар від контакту
+        5. Нотатка оператору у Discuss
+        """
+        contact_id = contact.get('id', '')
+        contact_name = contact.get('name', 'Невідомий')
+        comment_id = channel_data_msg.get('comment_id', '')
+        comment_text = channel_data_msg.get('message', '') or ''
+        post_id = channel_data_msg.get('post_id', '')
+        post_url = (channel_data_msg.get('post', {}) or {}).get('permalink_url', '')
+
+        # Перевіряємо чи увімкнена автовідповідь
+        ICP = self.env['ir.config_parameter'].sudo()
+        if not ICP.get_param('odoo_chatwoot_connector.sp_comment_autoreply_enabled', 'True') == 'True':
+            _logger.info('SendPulse Odo: comment autoreply disabled, skipping %s', comment_id)
+            return None
+
+        # Дедуплікація: той самий comment_id вже оброблявся
+        if comment_id:
+            existing = self.search([('sp_comment_id', '=', comment_id)], limit=1)
+            if existing:
+                _logger.info('SendPulse Odo: comment %s already processed, skipping', comment_id)
+                return existing
+
+        # Знаходимо/створюємо розмову
+        connect = self.search([
+            ('sendpulse_contact_id', '=', contact_id),
+            ('service', '=', service),
+            ('stage', '!=', 'close'),
+            ('sp_is_comment', '=', True),
+        ], limit=1)
+
+        now = fields.Datetime.now()
+        if not connect:
+            connect = self.create({
+                'name': contact_name,
+                'sendpulse_contact_id': contact_id,
+                'service': service,
+                'bot_id': bot.get('id', ''),
+                'bot_name': bot.get('name', ''),
+                'stage': 'new',
+                'sp_is_comment': True,
+                'sp_comment_id': comment_id,
+                'sp_comment_text': comment_text[:500] if comment_text else '',
+                'sp_post_id': post_id,
+                'sp_post_url': post_url,
+                'last_message_preview': f'💬 Коментар: {comment_text[:80]}' if comment_text else '💬 Коментар',
+                'last_message_date': now,
+            })
+        else:
+            connect.write({
+                'sp_comment_id': comment_id,
+                'sp_comment_text': comment_text[:500] if comment_text else '',
+                'sp_post_id': post_id,
+                'sp_post_url': post_url,
+                'last_message_preview': f'💬 Коментар: {comment_text[:80]}' if comment_text else '💬 Коментар',
+                'last_message_date': now,
+            })
+
+        if not connect.channel_id:
+            connect._create_discuss_channel()
+
+        # Визначаємо чи надсилати приватне (тільки перший раз для цього контакту)
+        already_private = self.search([
+            ('sendpulse_contact_id', '=', contact_id),
+            ('sp_replied_private', '=', True),
+        ], limit=1)
+        send_private = (
+            not bool(already_private)
+            and ICP.get_param('odoo_chatwoot_connector.sp_comment_private_enabled', 'True') == 'True'
+        )
+
+        send_public = (
+            ICP.get_param('odoo_chatwoot_connector.sp_comment_public_enabled', 'True') == 'True'
+        )
+
+        # Тексти з підстановкою URL
+        landing_url = ICP.get_param('odoo_chatwoot_connector.sp_comment_landing_url', 'https://lato2026.campscout.eu')
+        tg_url = ICP.get_param('odoo_chatwoot_connector.sp_comment_tg_url', 'https://t.me/campscouting')
+
+        # Публічна відповідь
+        public_ok = False
+        public_error = None
+        if send_public and comment_id:
+            # Ротація по кількості наявних comment-розмов
+            count = self.search_count([('sp_is_comment', '=', True)])
+            # Якщо вже є приватне від цього контакту — використовуємо repeat шаблон
+            if bool(already_private):
+                public_text = self._COMMENT_PUBLIC_REPEAT_TEMPLATE
+            else:
+                tmpl = self._COMMENT_PUBLIC_TEMPLATES[count % len(self._COMMENT_PUBLIC_TEMPLATES)]
+                public_text = tmpl.format(
+                    landing_url=landing_url or 'https://lato2026.campscout.eu',
+                    tg_url=tg_url or 'https://t.me/campscouting',
+                )
+            public_ok, public_error = connect._send_comment_public_reply(comment_id, service, public_text)
+            if public_ok:
+                connect.write({'sp_replied_public': True})
+
+        # Приватне повідомлення
+        private_ok = False
+        private_error = None
+        if send_private and comment_id:
+            yt_url = ICP.get_param(
+                'odoo_chatwoot_connector.sp_comment_yt_url',
+                'https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV',
+            )
+            private_text_tmpl = ICP.get_param(
+                'odoo_chatwoot_connector.sp_comment_private_text',
+                '',
+            )
+            if not private_text_tmpl:
+                private_text_tmpl = (
+                    "Вітаємо! 🏕️ Дякуємо за ваш коментар під нашим постом.\n\n"
+                    "Підготували для вас відповіді на найпоширеніші запитання — "
+                    "безпека, програма, харчування, вартість, терміни:\n"
+                    "🎬 {yt_url}\n\n"
+                    "Вся актуальна інформація про табори 2026 також тут:\n"
+                    "🌐 {landing_url}\n\n"
+                    "Якщо залишились питання — пишіть тут, відповімо особисто! 😊"
+                )
+            private_text = private_text_tmpl.format(
+                landing_url=landing_url or 'https://lato2026.campscout.eu',
+                tg_url=tg_url or 'https://t.me/campscouting',
+                yt_url=yt_url or 'https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV',
+            )
+            private_ok, private_error = connect._send_comment_private_reply(comment_id, private_text)
+            if private_ok:
+                connect.write({'sp_replied_private': True})
+
+        # Нотатка оператору
+        connect._notify_operator_comment(
+            contact_name=contact_name,
+            comment_text=comment_text,
+            post_url=post_url,
+            sent_public=public_ok,
+            sent_private=private_ok,
+            public_error=public_error,
+            private_error=private_error,
+        )
+
+        return connect
+
+    def _send_comment_public_reply(self, comment_id, service, text):
+        """
+        Публікує публічну відповідь під коментарем через Facebook Graph API.
+        Facebook: POST /v19.0/{comment_id}/comments
+        Instagram: POST /v19.0/{comment_id}/replies
+        Повертає (success: bool, error: str|None)
+        """
+        token = self._get_fb_page_token()
+        if not token:
+            return False, 'Page Access Token не налаштований (Налаштування → SendPulse → Facebook Page Access Token)'
+
+        endpoint = 'replies' if service == 'instagram' else 'comments'
+        url = f'https://graph.facebook.com/v19.0/{comment_id}/{endpoint}'
+        try:
+            resp = requests.post(url, json={'message': text, 'access_token': token}, timeout=15)
+            if resp.status_code == 200:
+                _logger.info('SendPulse Odo: public reply posted for comment %s', comment_id)
+                return True, None
+            err = self._parse_fb_error(resp)
+            _logger.warning('SendPulse Odo: public reply failed for %s: %s', comment_id, err)
+            return False, err
+        except Exception as e:
+            _logger.error('SendPulse Odo: public reply exception for %s: %s', comment_id, e)
+            return False, str(e)
+
+    def _send_comment_private_reply(self, comment_id, text):
+        """
+        Надсилає приватне повідомлення через Facebook Graph API private_replies.
+        Працює для Facebook і Instagram.
+        Вікно: 7 днів після коментаря. Не потребує попереднього opt-in.
+        Повертає (success: bool, error: str|None)
+        """
+        token = self._get_fb_page_token()
+        if not token:
+            return False, 'Page Access Token не налаштований'
+
+        url = f'https://graph.facebook.com/v19.0/{comment_id}/private_replies'
+        try:
+            resp = requests.post(url, json={'message': text, 'access_token': token}, timeout=15)
+            if resp.status_code == 200:
+                _logger.info('SendPulse Odo: private reply sent for comment %s', comment_id)
+                return True, None
+            err = self._parse_fb_error(resp)
+            _logger.warning('SendPulse Odo: private reply failed for %s: %s', comment_id, err)
+            return False, err
+        except Exception as e:
+            _logger.error('SendPulse Odo: private reply exception for %s: %s', comment_id, e)
+            return False, str(e)
+
+    def _get_fb_page_token(self):
+        """Повертає Facebook Page Access Token з ir.config_parameter."""
+        return self.env['ir.config_parameter'].sudo().get_param(
+            'odoo_chatwoot_connector.fb_page_access_token', ''
+        ) or ''
+
+    @staticmethod
+    def _parse_fb_error(resp):
+        """Витягує людиночитане повідомлення про помилку з відповіді Graph API."""
+        try:
+            data = resp.json()
+            err = data.get('error', {})
+            msg = err.get('message', '') or ''
+            code = err.get('code', '')
+            subcode = err.get('error_subcode', '')
+            parts = [p for p in [f'код {code}' if code else '', f'підкод {subcode}' if subcode else '', msg] if p]
+            return ' — '.join(parts) or resp.text[:200]
+        except Exception:
+            return resp.text[:200] if resp.text else f'HTTP {resp.status_code}'
+
+    def _notify_operator_comment(self, contact_name, comment_text, post_url,
+                                  sent_public, sent_private, public_error, private_error):
+        """Надсилає системну нотатку від OdooBot у Discuss-канал розмови."""
+        if not self.channel_id:
+            return
+
+        lines = [f'💬 Новий коментар під постом [{self._get_service_label()}]', '']
+        lines.append(f'👤 Клієнт: {contact_name}')
+        if comment_text:
+            lines.append(f'📝 Коментар: "{comment_text}"')
+        if post_url:
+            lines.append(f'🔗 Допис: {post_url}')
+        lines.append('')
+
+        if sent_public:
+            lines.append('✅ Публічна відповідь опублікована під коментарем')
+        elif public_error:
+            lines.append(f'❌ Публічна відповідь не надіслана: {public_error}')
+        else:
+            lines.append('⏭️ Публічна відповідь вимкнена в налаштуваннях')
+
+        if sent_private:
+            lines.append('✅ Приватне повідомлення надіслано у Messenger')
+            lines.append('⏳ Очікуємо відповіді від клієнта — поки клієнт не відповів, писати йому не можна (правило Meta)')
+        elif private_error:
+            lines.append(f'❌ Приватне повідомлення не надіслано: {private_error}')
+        else:
+            lines.append('⏭️ Приватне повідомлення не надіслається (клієнт вже отримував раніше або вимкнено)')
+
+        body = Markup('<br/>').join(escape(line) if line else Markup('') for line in lines)
+        self.channel_id.sudo().message_post(
+            body=body,
+            message_type='comment',
+            subtype_xmlid='mail.mt_note',
+            author_id=self.env.ref('base.partner_root').id,
+        )
 
     @api.model
     def _find_partner(self, contact_id, email, phone, variables=None):

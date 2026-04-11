@@ -58,6 +58,79 @@
                             </div>
                         </div>
                     </div>
+                    <!-- ── Автовідповідь на коментарі ─────────────────────── -->
+                    <h3 class="mt16">Відповіді на коментарі FB / Instagram</h3>
+                    <p class="text-muted">
+                        Автоматична публічна відповідь під коментарем та приватне повідомлення
+                        через Facebook Graph API при надходженні коментаря під постом.
+                    </p>
+
+                    <div class="row mt8">
+                        <label for="sp_comment_autoreply_enabled" class="col-lg-3 o_light_label"/>
+                        <div class="col-lg-9">
+                            <field name="sp_comment_autoreply_enabled"/>
+                        </div>
+                    </div>
+                    <div class="row mt8" invisible="not sp_comment_autoreply_enabled">
+                        <label for="sp_comment_public_enabled" class="col-lg-3 o_light_label"/>
+                        <div class="col-lg-9">
+                            <field name="sp_comment_public_enabled"/>
+                        </div>
+                    </div>
+                    <div class="row mt8" invisible="not sp_comment_autoreply_enabled">
+                        <label for="sp_comment_private_enabled" class="col-lg-3 o_light_label"/>
+                        <div class="col-lg-9">
+                            <field name="sp_comment_private_enabled"/>
+                        </div>
+                    </div>
+                    <div class="row mt16" invisible="not sp_comment_autoreply_enabled">
+                        <label for="fb_page_access_token" class="col-lg-3 o_light_label"/>
+                        <div class="col-lg-9">
+                            <field name="fb_page_access_token"
+                                   placeholder="Вставте безстроковий Page Access Token"
+                                   password="True"
+                                   class="o_field_char"/>
+                            <field name="fb_page_token_is_set" invisible="1"/>
+                            <small class="text-success" invisible="not fb_page_token_is_set">✓ Token збережено</small>
+                            <small class="text-warning" invisible="fb_page_token_is_set">⚠ Token не налаштовано — відповіді на коментарі не працюватимуть</small>
+                            <div class="text-muted" style="font-size:12px; margin-top:4px;">
+                                Отримати: developers.facebook.com/tools/explorer → Page Token (з правами pages_manage_engagement, pages_messaging)
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt8" invisible="not sp_comment_autoreply_enabled">
+                        <label for="sp_comment_landing_url" class="col-lg-3 o_light_label"/>
+                        <div class="col-lg-9">
+                            <field name="sp_comment_landing_url"
+                                   placeholder="https://lato2026.campscout.eu"
+                                   class="o_field_char"/>
+                        </div>
+                    </div>
+                    <div class="row mt8" invisible="not sp_comment_autoreply_enabled">
+                        <label for="sp_comment_tg_url" class="col-lg-3 o_light_label"/>
+                        <div class="col-lg-9">
+                            <field name="sp_comment_tg_url"
+                                   placeholder="https://t.me/campscouting"
+                                   class="o_field_char"/>
+                        </div>
+                    </div>
+                    <div class="row mt8" invisible="not sp_comment_autoreply_enabled">
+                        <label for="sp_comment_yt_url" class="col-lg-3 o_light_label"/>
+                        <div class="col-lg-9">
+                            <field name="sp_comment_yt_url"
+                                   placeholder="https://www.youtube.com/playlist?list=..."
+                                   class="o_field_char"/>
+                        </div>
+                    </div>
+                    <div class="row mt8" invisible="not sp_comment_autoreply_enabled">
+                        <label for="sp_comment_private_text" class="col-lg-3 o_light_label"/>
+                        <div class="col-lg-9">
+                            <field name="sp_comment_private_text"
+                                   placeholder="Залиште порожнім для дефолтного тексту. Змінні: {landing_url}, {tg_url}, {yt_url}"
+                                   class="o_field_text"
+                                   rows="5"/>
+                        </div>
+                    </div>
                 </div>
             </xpath>
         </field>

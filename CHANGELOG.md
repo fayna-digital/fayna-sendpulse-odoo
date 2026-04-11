@@ -4,6 +4,57 @@
 
 ---
 
+## [2026-04-11] — v17.0.3.0.0
+
+### Нові можливості
+
+**Автовідповідь на коментарі Facebook / Instagram (Comment Autoreply)**
+
+Нова функціональність для автоматичної обробки коментарів під постами FB/IG через Facebook Graph API.
+
+**Як працює:**
+1. SendPulse надсилає `incoming_message` з `item=comment` у webhook
+2. Система розпізнає коментар і направляє до нового методу `_process_comment_event()`
+3. Публікується публічна відповідь під коментарем (Graph API `/{comment_id}/comments`)
+4. Надсилається приватне повідомлення клієнту (Graph API `/{comment_id}/private_replies`)
+5. Оператор отримує нотатку в Discuss з текстом коментаря, URL поста і статусом відправки
+
+**Дедуплікація (маркетингова логіка):**
+- Публічна відповідь — **завжди** (видна всій аудиторії поста, підвищує охоплення)
+- Приватне повідомлення — **тільки перший раз** для кожного контакту (не спамимо)
+- Захист від дублювання одного comment_id (SendPulse може надіслати двічі)
+
+**5 ротаційних шаблонів** публічної відповіді з підстановкою:
+- `{landing_url}` → лендінг https://lato2026.campscout.eu
+- `{tg_url}` → ТГ-канал https://t.me/campscouting (+ знижка -5%)
+
+**Нові поля `sendpulse.connect`:**
+- `sp_is_comment`, `sp_comment_id`, `sp_comment_text`, `sp_post_id`, `sp_post_url`
+- `sp_replied_public`, `sp_replied_private`
+
+**Нові поля Налаштувань (Налаштування → SendPulse Odo → Відповіді на коментарі):**
+- Перемикачі: автовідповідь, публічна, приватна
+- `Facebook Page Access Token` (password, зберігається в ir.config_parameter)
+- `sp_comment_landing_url`, `sp_comment_tg_url`, `sp_comment_yt_url`
+- `sp_comment_private_text` (кастомний текст приватного повідомлення)
+
+**Нові методи `sendpulse.connect`:**
+- `_process_comment_event()` — головна логіка
+- `_send_comment_public_reply()` — Graph API публічна відповідь
+- `_send_comment_private_reply()` — Graph API private_reply
+- `_get_fb_page_token()` — читає токен з ir.config_parameter
+- `_parse_fb_error()` — парсить помилки Graph API
+- `_notify_operator_comment()` — нотатка OdooBot у Discuss
+
+### Виправлення
+
+**Сповіщення оператора при помилках доставки (400 / Exception)**
+- Код 400 `contact.errors.not_active` → повідомлення ❌ в Discuss з поясненням
+- Загальний Exception handler → повідомлення ❌ в Discuss з текстом помилки
+- (Раніше: лише логувалися як ERROR без видимого сигналу оператору)
+
+---
+
 ## [2026-04-11] — КРИТИЧНИЙ ІНЦИДЕНТ (AI: зміни коду без ТЗ / порушення `repo-deploy-server-gate`)
 
 <div style="color:#b00020; border-left:4px solid #b00020; padding-left:12px;">
