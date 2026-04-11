@@ -116,6 +116,19 @@
                             <field name="channel_id" string="Discuss Канал"/>
                         </group>
                     </group>
+                    <!-- Секція коментаря — видима тільки якщо розмова ініційована з коментаря -->
+                    <group string="💬 Коментар (Facebook / Instagram)" invisible="not sp_is_comment">
+                        <group>
+                            <field name="sp_is_comment" string="Ініційовано з коментаря" readonly="1"/>
+                            <field name="sp_comment_text" string="Текст коментаря" readonly="1"/>
+                            <field name="sp_post_url" string="URL допису" widget="url" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="sp_replied_public" string="Публічна відповідь надіслана" readonly="1"/>
+                            <field name="sp_replied_private" string="Приватне повідомлення надіслано" readonly="1"/>
+                            <field name="sp_comment_id" string="Comment ID" readonly="1"/>
+                        </group>
+                    </group>
                     <notebook>
                         <page string="Повідомлення" name="messages">
                             <field name="message_ids" readonly="1">

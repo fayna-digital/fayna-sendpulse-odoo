@@ -278,7 +278,7 @@ send_private = not bool(already_private)
 | Приватне повідомлення | Boolean | `sp_comment_private_enabled` | True |
 | Facebook Page Access Token | Char (password) | `fb_page_access_token` | — |
 | URL лендінгу (у публічних відповідях) | Char | `sp_comment_landing_url` | https://lato2026.campscout.eu |
-| URL ТГ-каналу (у публічних відповідях) | Char | `sp_comment_tg_url` | — |
+| URL ТГ-каналу (у публічних відповідях) | Char | `sp_comment_tg_url` | https://t.me/campscouting |
 | URL YouTube-плейлисту (у приватних) | Char | `sp_comment_yt_url` | https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV |
 | Текст приватного повідомлення | Text | `sp_comment_private_text` | §4.2 |
 | Текст публічної відповіді (повторний) | Text | `sp_comment_public_repeat_text` | §4.3 |
