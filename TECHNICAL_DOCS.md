@@ -1017,6 +1017,31 @@ env.cr.commit()
 
 ---
 
+## ІНЦИДЕНТ БЕЗПЕКИ 2026-04-11 — Заборонені команди при роботі з сервером
+
+<div style="color:#b00020; border:2px solid #b00020; padding:12px 16px; margin:12px 0; background:#fff8f8;">
+
+**Три витоки паролів у AI-сесії від 2026-04-11.** Детальний лог: `docs/CRITICAL_INCIDENT_AI_PASSWORD_EXPOSURE_2026-04-11.md`
+
+**Назавжди заборонено для AI-агента:**
+- `docker inspect <container> --format '{{range .Config.Env}}...'`
+- `cat /opt/*/.env` або будь-який read секрет-файлу
+- Генерація паролів локально з виведенням у змінну bash-команди
+- `echo $PASSWORD`, `echo "PASS=$NEW"`, передача паролів через аргументи команд
+
+**Єдиний дозволений спосіб ротації паролів:**
+```bash
+ssh server 'bash -s' << '"SCRIPT"'
+NEW=$(openssl rand -base64 32 | tr -d '/+=\n' | head -c 40)
+sed -i "s|PARAM=.*|PARAM=${NEW}|" /path/.env
+# Значення існує лише на сервері, ніколи не з'являється в UI
+SCRIPT
+```
+
+</div>
+
+---
+
 ## 12. Встановлення та розгортання
 
 ### Вимоги
