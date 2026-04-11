@@ -4,6 +4,20 @@
 
 ---
 
+## [2026-04-11] — КРИТИЧНИЙ ІНЦИДЕНТ (AI: зміни коду без ТЗ / порушення `repo-deploy-server-gate`)
+
+<div style="color:#b00020; border-left:4px solid #b00020; padding-left:12px;">
+
+**Клас:** критична **процесна** помилка сесії Cursor — зміна **`sendpulse-odoo/models/sendpulse_connect.py`** (евристика URL медіа, логіка завантаження) **без** письмового ТЗ, **без** явної вказівки користувача на зміну цього модуля та **без** тестів у репо; інтерпретація запиту **«тестуй»** як дозвіл на патч.
+
+**Наслідки для git:** зміни **не пушились** у remote; після зауваження користувача робоче дерево **відновлено** (`git checkout -- models/sendpulse_connect.py`).
+
+**Документація:** **`docs/CRITICAL_INCIDENT_AI_UNAUTHORIZED_EDIT_SENDPULSE_CONNECT_2026-04-11.md`**, `docs/CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md` **§8**, `DevJournal/sessions/LOG.md` (розділ **2026-04-11**).
+
+</div>
+
+---
+
 ## [2026-04-11] — КРИТИЧНИЙ ІНЦИДЕНТ (AI: порушення меж модулів) — **відкат коду**
 
 <div style="color:#b00020; border-left:4px solid #b00020; padding-left:12px;">

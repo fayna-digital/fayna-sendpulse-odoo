@@ -103,4 +103,12 @@
 
 ---
 
+## 8. Додаток 2026-04-11 — третій критичний інцидент (AI: правки `sendpulse_connect` без мандату)
+
+Окремо від **§7** (чіпання `campscout-management`): у сесії Cursor агент **змінив** `sendpulse-odoo/models/sendpulse_connect.py` після діагностики URL медіа, інтерпретуючи **«тестуй»** як дозвіл на код, **без** ТЗ і **без** явної вказівки на зміну репозиторію — порушення **`repo-deploy-server-gate.mdc`**. У remote **не пушилось**; після зауваження користувача зміни **скасовано** локально (`git checkout --`).
+
+**Повний журнал:** [`docs/CRITICAL_INCIDENT_AI_UNAUTHORIZED_EDIT_SENDPULSE_CONNECT_2026-04-11.md`](CRITICAL_INCIDENT_AI_UNAUTHORIZED_EDIT_SENDPULSE_CONNECT_2026-04-11.md).
+
+---
+
 *Документ створено для аудиту та онбордингу: щоб було зрозуміло, що сталось, без переказу з чатів.*

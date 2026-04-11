@@ -8,7 +8,7 @@
 
 **Детальний окремий лог (файли, коміти, мотивація, ремедіація):** [`docs/CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md`](CRITICAL_INCIDENT_AI_INTERVENTION_2026-04-09.md).
 
-Короткі дублі: `CHANGELOG.md`, `TECHNICAL_DOCS.md`, `omnichannel-bridge/docs/IMPLEMENTATION_LOG.md`, `omnichannel-bridge/docs/TZ_CHECKLIST.md`, `DevJournal/sessions/LOG.md`.
+Короткі дублі: `CHANGELOG.md`, `TECHNICAL_DOCS.md`, `omnichannel-bridge/docs/IMPLEMENTATION_LOG.md`, `omnichannel-bridge/docs/TZ_CHECKLIST.md`, `DevJournal/sessions/LOG.md`, журнал **[`docs/CRITICAL_INCIDENT_AI_UNAUTHORIZED_EDIT_SENDPULSE_CONNECT_2026-04-11.md`](CRITICAL_INCIDENT_AI_UNAUTHORIZED_EDIT_SENDPULSE_CONNECT_2026-04-11.md)** (інцидент **2026-04-11**: зміни коду без ТЗ; push не виконувався).
 
 </div>
 
