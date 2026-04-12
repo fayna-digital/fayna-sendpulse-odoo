@@ -1763,10 +1763,18 @@ class SendpulseConnect(models.Model):
                     err_code = ''
 
                 if err_code == 'contact.errors.not_active':
-                    hint = (
-                        'Контакт неактивний у SendPulse — '
-                        'клієнт відписався від бота або заблокував його.'
-                    )
+                    if service in ('messenger', 'facebook'):
+                        hint = (
+                            'Facebook Messenger: вікно 24 години закрите — '
+                            'клієнт не писав першим більше доби. '
+                            'Надсилати через Messenger вже немає сенсу. '
+                            'Зверніться через інший канал (WhatsApp, email).'
+                        )
+                    else:
+                        hint = (
+                            f'Контакт неактивний у {service_label} — '
+                            'клієнт відписався від бота або заблокував його.'
+                        )
                 else:
                     raw = (resp.text or '').replace('\n', ' ').strip()[:200]
                     hint = f'API відхилив запит. Код: {err_code or raw or "невідомо"}.'
@@ -1776,7 +1784,7 @@ class SendpulseConnect(models.Model):
                     service, self.sendpulse_contact_id, self.name, err_code,
                 )
                 if self.channel_id:
-                    self.channel_id.sudo().message_post(
+                    self.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
                         body=f'❌ Повідомлення не доставлено у {service_label}.\n{hint}',
                         message_type='comment',
                         subtype_xmlid='mail.mt_note',
@@ -1798,7 +1806,7 @@ class SendpulseConnect(models.Model):
                     '(для Meta зазвичай 24 години) або формат повідомлення не прийнято API.'
                 )
                 if self.channel_id:
-                    self.channel_id.sudo().message_post(
+                    self.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
                         body=(
                             f'⚠️ Повідомлення не доставлено у {service_label}.\n'
                             f'{policy_hint}\nAPI: {short_reason}'
@@ -1815,7 +1823,7 @@ class SendpulseConnect(models.Model):
         except Exception as e:
             _logger.error('SendPulse Odo: помилка відправки: %s', e)
             if self.channel_id:
-                self.channel_id.sudo().message_post(
+                self.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
                     body=f'❌ Помилка відправки повідомлення: {e}',
                     message_type='comment',
                     subtype_xmlid='mail.mt_note',
