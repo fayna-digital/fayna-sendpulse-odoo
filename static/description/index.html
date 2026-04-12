@@ -1,126 +1,195 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-    <meta charset="utf-8"/>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; margin: 0; }
-        .hero { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #fff; padding: 48px 40px; text-align: center; }
-        .hero h1 { font-size: 2.4em; margin: 0 0 8px; font-weight: 700; letter-spacing: -0.5px; }
-        .hero p { font-size: 1.1em; color: #aac4e8; margin: 0 0 20px; }
-        .badge { display: inline-block; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; padding: 4px 14px; font-size: 0.82em; margin: 0 4px; color: #cde; }
+<meta charset="utf-8"/>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #111; line-height: 1.6; }
 
-        .section { padding: 40px; }
-        .section-dark { background: #f8f8fb; padding: 40px; }
-        .section-title { font-size: 1.5em; font-weight: 700; color: #875A7B; text-align: center; margin: 0 0 28px; }
+  /* HERO */
+  .hero { padding: 56px 48px 48px; border-bottom: 1px solid #f0f0f0; }
+  .hero-inner { max-width: 760px; }
+  .hero-label { display: inline-block; background: #20ac41; color: #fff; font-size: 0.72em; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 4px 12px; border-radius: 4px; margin-bottom: 20px; }
+  .hero h1 { font-size: 2.4em; font-weight: 800; letter-spacing: -1px; color: #111; line-height: 1.15; margin-bottom: 16px; }
+  .hero h1 span { color: #20ac41; }
+  .hero p { font-size: 1.05em; color: #555; max-width: 580px; margin-bottom: 28px; }
+  .hero-meta { display: flex; gap: 24px; flex-wrap: wrap; }
+  .meta-item { font-size: 0.82em; color: #888; }
+  .meta-item strong { color: #111; }
 
-        .grid-2 { display: flex; gap: 24px; flex-wrap: wrap; }
-        .card { flex: 1; min-width: 280px; background: #fff; border: 1px solid #e8e0ef; border-radius: 10px; padding: 24px; box-shadow: 0 2px 8px rgba(135,90,123,0.07); }
-        .card h4 { color: #875A7B; font-size: 1em; margin: 0 0 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-        .card ul { margin: 0; padding: 0 0 0 18px; line-height: 1.9; }
-        .card li { font-size: 0.93em; }
-        .card li b { color: #333; }
+  /* SECTION */
+  .section { padding: 48px; border-bottom: 1px solid #f0f0f0; }
+  .section-gray { background: #fafafa; }
+  .section-label { font-size: 0.72em; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #20ac41; margin-bottom: 10px; }
+  .section-title { font-size: 1.5em; font-weight: 800; color: #111; margin-bottom: 32px; letter-spacing: -0.3px; }
 
-        .channels { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 8px; }
-        .ch-badge { background: #fff; border: 1px solid #d8cfe8; border-radius: 6px; padding: 6px 16px; font-size: 0.88em; font-weight: 600; color: #555; }
-        .ch-badge.free { border-color: #22c55e; color: #15803d; background: #f0fdf4; }
-        .ch-badge.window { border-color: #f59e0b; color: #92400e; background: #fffbeb; }
+  /* FEATURE GRID */
+  .feat-grid { display: flex; gap: 16px; flex-wrap: wrap; }
+  .feat-card { flex: 1; min-width: 260px; border: 1px solid #e8e8e8; border-radius: 8px; padding: 24px; background: #fff; }
+  .feat-card:hover { border-color: #20ac41; }
+  .feat-icon { font-size: 1.6em; margin-bottom: 10px; }
+  .feat-card h4 { font-size: 0.92em; font-weight: 700; color: #111; margin-bottom: 6px; }
+  .feat-card p { font-size: 0.85em; color: #666; line-height: 1.55; }
 
-        .steps { counter-reset: step; display: flex; flex-direction: column; gap: 14px; max-width: 600px; margin: 0 auto; }
-        .step { display: flex; align-items: flex-start; gap: 14px; }
-        .step-num { background: #875A7B; color: #fff; border-radius: 50%; width: 28px; height: 28px; min-width: 28px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85em; }
-        .step-text { padding-top: 4px; font-size: 0.93em; line-height: 1.5; }
-        code { background: #f0eaf5; border-radius: 4px; padding: 1px 6px; font-size: 0.88em; color: #5a3068; }
+  /* CHANNELS */
+  .ch-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+  .ch-item { display: flex; align-items: center; gap: 8px; border: 1px solid #e8e8e8; border-radius: 6px; padding: 10px 16px; background: #fff; min-width: 180px; }
+  .ch-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .ch-dot.green { background: #20ac41; }
+  .ch-dot.yellow { background: #f59e0b; }
+  .ch-name { font-size: 0.88em; font-weight: 600; color: #111; }
+  .ch-note { font-size: 0.75em; color: #999; }
 
-        .footer { background: #1a1a2e; color: #aac4e8; text-align: center; padding: 22px 40px; font-size: 0.85em; }
-        .footer a { color: #7eb8f7; text-decoration: none; }
-        .version-tag { display: inline-block; background: #875A7B; color: #fff; border-radius: 4px; padding: 2px 8px; font-size: 0.8em; font-weight: 700; margin-left: 6px; }
-    </style>
+  /* STEPS */
+  .steps { display: flex; flex-direction: column; gap: 0; max-width: 640px; }
+  .step-row { display: flex; gap: 20px; padding: 20px 0; border-bottom: 1px solid #f0f0f0; }
+  .step-row:last-child { border-bottom: none; }
+  .step-num { width: 32px; height: 32px; min-width: 32px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.82em; font-weight: 800; margin-top: 2px; }
+  .step-body h5 { font-size: 0.92em; font-weight: 700; color: #111; margin-bottom: 4px; }
+  .step-body p { font-size: 0.85em; color: #666; }
+  code { background: #f4f4f4; border: 1px solid #e0e0e0; border-radius: 4px; padding: 2px 7px; font-size: 0.85em; color: #333; }
+
+  /* FOOTER */
+  .footer { padding: 32px 48px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .footer-left { font-size: 0.88em; color: #555; }
+  .footer-left strong { color: #111; }
+  .footer-left a { color: #20ac41; text-decoration: none; font-weight: 600; }
+  .ver-badge { background: #111; color: #fff; font-size: 0.75em; font-weight: 700; padding: 3px 10px; border-radius: 4px; letter-spacing: 0.5px; }
+</style>
 </head>
 <body>
 
 <!-- HERO -->
 <div class="hero">
-    <h1>💬 SendPulse Odo</h1>
-    <p>Двостороння інтеграція SendPulse з Odoo — вся переписка з месенджерів прямо в Discuss</p>
-    <div>
-        <span class="badge">Odoo 17</span>
-        <span class="badge">Community / Enterprise</span>
-        <span class="badge">LGPL-3.0</span>
-        <span class="badge">v17.0.3.1.0</span>
+  <div class="hero-inner">
+    <div class="hero-label">Odoo 17 Module</div>
+    <h1>SendPulse <span>Odo</span></h1>
+    <p>Двостороння інтеграція SendPulse з Odoo — всі месенджери в одному вікні Discuss. Telegram, WhatsApp, Instagram, Facebook та інші канали без зміни інтерфейсу.</p>
+    <div class="hero-meta">
+      <div class="meta-item"><strong>Розробник:</strong> Volodymyr Shevchenko</div>
+      <div class="meta-item"><strong>Компанія:</strong> <a href="https://fayna.company" style="color:#20ac41;font-weight:600;">Fayna Digital</a></div>
+      <div class="meta-item"><strong>Ліцензія:</strong> LGPL-3.0</div>
+      <div class="meta-item"><strong>Версія:</strong> 17.0.3.1.0</div>
     </div>
+  </div>
 </div>
 
 <!-- FEATURES -->
-<div class="section-dark">
-    <h2 class="section-title">Функціонал</h2>
-    <div class="grid-2">
-        <div class="card">
-            <h4>Робота з клієнтами</h4>
-            <ul>
-                <li><b>Discuss інтеграція</b> — повідомлення з'являються прямо в Odoo Discuss</li>
-                <li><b>Відповідь з Odoo</b> — клієнт отримує у своєму месенджері</li>
-                <li><b>Картка клієнта</b> — повна історія переписки в партнері назавжди</li>
-                <li><b>Ідентифікація</b> — автоматично або вручну по email / телефону</li>
-                <li><b>CRM /lead</b> — команда в чаті створює ліда одним кліком</li>
-                <li><b>Вкладення</b> — фото та файли в обох напрямках</li>
-            </ul>
-        </div>
-        <div class="card">
-            <h4>Автоматизація та контроль</h4>
-            <ul>
-                <li><b>Нові чати зверху</b> — непрочитані завжди перші у списку</li>
-                <li><b>Авто-синхронізація</b> — cron кожні 10 хв підхоплює нові чати</li>
-                <li><b>Сповіщення про помилки</b> — бот заблоковано, вікно 24h, відписка — оператор бачить причину в чаті</li>
-                <li><b>Збереження історії</b> — закриття розмови не видаляє переписку з Discuss</li>
-                <li><b>UTM атрибуція</b> — автоматичне джерело трафіку для кожного каналу</li>
-                <li><b>Автовідповідь на коментарі</b> — публічна + приватна відповідь FB/Instagram</li>
-            </ul>
-        </div>
+<div class="section section-gray">
+  <div class="section-label">Можливості</div>
+  <div class="section-title">Що вміє модуль</div>
+  <div class="feat-grid">
+    <div class="feat-card">
+      <div class="feat-icon">💬</div>
+      <h4>Discuss інтеграція</h4>
+      <p>Повідомлення від клієнтів з усіх месенджерів з'являються прямо в Odoo Discuss. Оператори відповідають — клієнт отримує у своєму каналі.</p>
     </div>
+    <div class="feat-card">
+      <div class="feat-icon">📋</div>
+      <h4>Повна історія в картці</h4>
+      <p>Вся переписка зберігається у вкладці Messaging картки партнера назавжди. Закриття розмови не видаляє листування з Discuss.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🔍</div>
+      <h4>Ідентифікація клієнтів</h4>
+      <p>Автоматично за email або телефоном, або вручну через wizard. Нові контакти — в окремій черзі без прив'язаного партнера.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">⚠️</div>
+      <h4>Сповіщення про помилки</h4>
+      <p>Якщо повідомлення не дійшло — оператор бачить причину прямо в чаті: бот заблокований, вікно 24h закрите, відписка.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">💡</div>
+      <h4>Автовідповідь на коментарі</h4>
+      <p>Публічна + приватна відповідь на коментарі під постами Facebook та Instagram через Graph API.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📊</div>
+      <h4>UTM + CRM</h4>
+      <p>Автоматична UTM-атрибуція для кожного каналу. Команда <code>/lead</code> у Discuss — створює CRM-лід одним повідомленням.</p>
+    </div>
+  </div>
 </div>
 
 <!-- CHANNELS -->
 <div class="section">
-    <h2 class="section-title">Підтримувані канали</h2>
-    <div class="channels">
-        <span class="ch-badge free">✅ Telegram — будь-коли</span>
-        <span class="ch-badge window">⏱ Instagram — 24h вікно</span>
-        <span class="ch-badge window">⏱ Facebook / Messenger — 24h вікно</span>
-        <span class="ch-badge free">✅ WhatsApp</span>
-        <span class="ch-badge free">✅ Viber</span>
-        <span class="ch-badge free">✅ TikTok</span>
-        <span class="ch-badge free">✅ LiveChat</span>
+  <div class="section-label">Канали</div>
+  <div class="section-title">Підтримувані месенджери</div>
+  <div class="ch-grid">
+    <div class="ch-item">
+      <div class="ch-dot green"></div>
+      <div><div class="ch-name">Telegram</div><div class="ch-note">Відповідати будь-коли</div></div>
     </div>
+    <div class="ch-item">
+      <div class="ch-dot green"></div>
+      <div><div class="ch-name">WhatsApp</div><div class="ch-note">Відповідати будь-коли</div></div>
+    </div>
+    <div class="ch-item">
+      <div class="ch-dot green"></div>
+      <div><div class="ch-name">Viber</div><div class="ch-note">Відповідати будь-коли</div></div>
+    </div>
+    <div class="ch-item">
+      <div class="ch-dot green"></div>
+      <div><div class="ch-name">TikTok</div><div class="ch-note">Відповідати будь-коли</div></div>
+    </div>
+    <div class="ch-item">
+      <div class="ch-dot yellow"></div>
+      <div><div class="ch-name">Instagram</div><div class="ch-note">24-годинне вікно</div></div>
+    </div>
+    <div class="ch-item">
+      <div class="ch-dot yellow"></div>
+      <div><div class="ch-name">Facebook / Messenger</div><div class="ch-note">24-годинне вікно</div></div>
+    </div>
+    <div class="ch-item">
+      <div class="ch-dot green"></div>
+      <div><div class="ch-name">LiveChat</div><div class="ch-note">Сайт</div></div>
+    </div>
+  </div>
 </div>
 
 <!-- SETUP -->
-<div class="section-dark">
-    <h2 class="section-title">Налаштування</h2>
-    <div class="steps">
-        <div class="step">
-            <div class="step-num">1</div>
-            <div class="step-text">Вкажіть <b>Client ID</b> та <b>Client Secret</b> від SendPulse API у <b>Налаштуваннях → SendPulse</b></div>
-        </div>
-        <div class="step">
-            <div class="step-num">2</div>
-            <div class="step-text">Додайте <b>Webhook URL</b> у кабінеті SendPulse для кожного бота:<br/><code>https://your-domain/sendpulse/webhook</code></div>
-        </div>
-        <div class="step">
-            <div class="step-num">3</div>
-            <div class="step-text">Призначте операторів до групи <b>SendPulse Officer</b> у <b>Налаштуваннях → Користувачі</b></div>
-        </div>
-        <div class="step">
-            <div class="step-num">4</div>
-            <div class="step-text">(Опціонально) Додайте <b>Facebook Page Access Token</b> для автовідповідей на коментарі FB/IG</div>
-        </div>
+<div class="section section-gray">
+  <div class="section-label">Початок роботи</div>
+  <div class="section-title">Налаштування за 4 кроки</div>
+  <div class="steps">
+    <div class="step-row">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h5>API ключі SendPulse</h5>
+        <p>Вкажіть <strong>Client ID</strong> та <strong>Client Secret</strong> у <strong>Налаштуваннях → SendPulse Odo</strong></p>
+      </div>
     </div>
+    <div class="step-row">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h5>Webhook у SendPulse</h5>
+        <p>Додайте URL вебхука в кабінеті SendPulse для кожного бота: <code>https://your-domain/sendpulse/webhook</code></p>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h5>Доступ операторів</h5>
+        <p>Призначте співробітників до групи <strong>SendPulse Officer</strong> у Налаштуваннях → Користувачі</p>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h5>Facebook коментарі (опціонально)</h5>
+        <p>Додайте <strong>Facebook Page Access Token</strong> для автовідповідей на коментарі FB / Instagram</p>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- FOOTER -->
 <div class="footer">
-    Розроблено: <b>Volodymyr Shevchenko</b> / <a href="https://fayna.company">Fayna Digital</a>
-    <span class="version-tag">v17.0.3.1.0</span>
-    &nbsp;·&nbsp; Для <a href="https://campscout.eu">CampScout</a>
+  <div class="footer-left">
+    Розробник: <strong>Volodymyr Shevchenko</strong> · <a href="https://fayna.company">Fayna Digital</a> · для <a href="https://campscout.eu">CampScout</a>
+  </div>
+  <div class="ver-badge">v17.0.3.1.0</div>
 </div>
 
 </body>
