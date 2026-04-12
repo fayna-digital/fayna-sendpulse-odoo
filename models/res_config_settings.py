@@ -69,6 +69,15 @@ class ResConfigSettings(models.TransientModel):
     fb_page_token_is_set = fields.Boolean(
         compute='_compute_fb_page_token_is_set',
     )
+    ig_user_id = fields.Char(
+        string='Instagram Business Account ID',
+        help='Числовий ID Instagram Business Account (~15 цифр). '
+             'Потрібен для private_reply на коментарі Instagram. '
+             'Отримати: GET /me?fields=instagram_business_account з Page Token.',
+    )
+    ig_user_id_is_set = fields.Boolean(
+        compute='_compute_ig_user_id_is_set',
+    )
     sp_comment_landing_url = fields.Char(
         string='URL лендінгу (у публічних відповідях)',
         config_parameter='odoo_chatwoot_connector.sp_comment_landing_url',
@@ -102,6 +111,14 @@ class ResConfigSettings(models.TransientModel):
         for rec in self:
             rec.fb_page_token_is_set = bool(token)
 
+    @api.depends('ig_user_id')
+    def _compute_ig_user_id_is_set(self):
+        val = self.env['ir.config_parameter'].sudo().get_param(
+            'odoo_chatwoot_connector.ig_user_id', ''
+        )
+        for rec in self:
+            rec.ig_user_id_is_set = bool(val)
+
     def get_values(self):
         # sendpulse_client_secret навмисно не повертається:
         # поле завжди завантажується порожнім (False == False → не dirty).
@@ -119,4 +136,9 @@ class ResConfigSettings(models.TransientModel):
             self.env['ir.config_parameter'].sudo().set_param(
                 'odoo_chatwoot_connector.fb_page_access_token',
                 self.fb_page_access_token,
+            )
+        if self.ig_user_id:
+            self.env['ir.config_parameter'].sudo().set_param(
+                'odoo_chatwoot_connector.ig_user_id',
+                self.ig_user_id,
             )

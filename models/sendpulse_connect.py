@@ -1138,7 +1138,7 @@ class SendpulseConnect(models.Model):
                 tg_url=tg_url or 'https://t.me/campscouting',
                 yt_url=yt_url or 'https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV',
             )
-            private_ok, private_error = connect._send_comment_private_reply(comment_id, private_text)
+            private_ok, private_error = connect._send_comment_private_reply(comment_id, private_text, service)
             if private_ok:
                 connect.write({'sp_replied_private': True})
 
@@ -1180,22 +1180,37 @@ class SendpulseConnect(models.Model):
             _logger.error('SendPulse Odo: public reply exception for %s: %s', comment_id, e)
             return False, str(e)
 
-    def _send_comment_private_reply(self, comment_id, text):
+    def _send_comment_private_reply(self, comment_id, text, service='facebook'):
         """
-        Надсилає приватне повідомлення через Facebook Graph API private_replies.
-        Працює для Facebook і Instagram.
-        Вікно: 7 днів після коментаря. Не потребує попереднього opt-in.
+        Надсилає приватне повідомлення у відповідь на коментар.
+        Facebook: POST /{comment_id}/private_replies
+        Instagram: POST /{ig-user-id}/messages з recipient.comment_id
         Повертає (success: bool, error: str|None)
         """
         token = self._get_fb_page_token()
         if not token:
             return False, 'Page Access Token не налаштований'
 
-        url = f'https://graph.facebook.com/v19.0/{comment_id}/private_replies'
         try:
-            resp = requests.post(url, json={'message': text, 'access_token': token}, timeout=15)
+            if service == 'instagram':
+                ig_user_id = self.env['ir.config_parameter'].sudo().get_param(
+                    'odoo_chatwoot_connector.ig_user_id', ''
+                )
+                if not ig_user_id:
+                    return False, 'Instagram User ID не налаштований (odoo_chatwoot_connector.ig_user_id)'
+                url = f'https://graph.facebook.com/v19.0/{ig_user_id}/messages'
+                payload = {
+                    'recipient': {'comment_id': comment_id},
+                    'message': {'text': text},
+                    'access_token': token,
+                }
+            else:
+                url = f'https://graph.facebook.com/v19.0/{comment_id}/private_replies'
+                payload = {'message': text, 'access_token': token}
+
+            resp = requests.post(url, json=payload, timeout=15)
             if resp.status_code == 200:
-                _logger.info('SendPulse Odo: private reply sent for comment %s', comment_id)
+                _logger.info('SendPulse Odo: private reply sent for comment %s (%s)', comment_id, service)
                 return True, None
             err = self._parse_fb_error(resp)
             _logger.warning('SendPulse Odo: private reply failed for %s: %s', comment_id, err)
