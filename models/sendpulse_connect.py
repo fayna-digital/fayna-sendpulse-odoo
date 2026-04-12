@@ -1798,10 +1798,33 @@ class SendpulseConnect(models.Model):
                     'SendPulse Odo: 422 for %s contact=%s (%s): %s',
                     service, self.sendpulse_contact_id, self.name, short_reason,
                 )
-                policy_hint = (
-                    'Можлива причина: вікно відповіді для каналу закрите '
-                    '(для Meta зазвичай 24 години) або формат повідомлення не прийнято API.'
-                )
+                # Розбираємо тіло відповіді щоб дати точну підказку
+                try:
+                    err_data = resp.json()
+                    err_code = err_data.get('error_code')
+                    err_errors = err_data.get('errors', {})
+                    err_text = ' '.join(
+                        str(v) for vals in err_errors.values() for v in (vals if isinstance(vals, list) else [vals])
+                    ).lower()
+                except Exception:
+                    err_code = None
+                    err_text = ''
+
+                if err_code == 403 or 'blocked by the user' in err_text or 'forbidden' in err_text:
+                    policy_hint = (
+                        f'Клієнт заблокував бота у {service_label}. '
+                        'Написати через цей канал більше неможливо — зверніться через інший спосіб зв\'язку.'
+                    )
+                elif service in ('messenger', 'facebook', 'instagram'):
+                    policy_hint = (
+                        f'Вікно відповіді {service_label} закрите (24 години). '
+                        'Зверніться через інший канал (WhatsApp, email).'
+                    )
+                else:
+                    policy_hint = (
+                        'Можлива причина: вікно відповіді для каналу закрите '
+                        'або формат повідомлення не прийнято API.'
+                    )
                 if self.channel_id:
                     self.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
                         body=(
