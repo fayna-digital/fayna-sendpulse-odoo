@@ -4,6 +4,28 @@
 
 ---
 
+## [2026-04-12] — v17.0.3.1.0
+
+### Виправлення
+
+**1. Рекурсія `message_post` в блоках помилок** _(commit f6fe0d4)_
+
+`message_post` у трьох `except`-блоках `send_message_to_sendpulse` не мав контексту `sendpulse_incoming=True` → кожна помилка API запускала повторну спробу надіслати повідомлення → нескінченна петля. Додано `with_context(sendpulse_incoming=True)` до всіх трьох `message_post`.
+
+**2. Збереження історії — заборонено архівування `discuss.channel`** _(commit 5ef5b3a)_
+
+`action_close` і `_close_channel` виставляли `active=False` на `discuss.channel` → канал зникав із Discuss, frontend повертав 404, вся переписка ставала недоступною. Виправлено: `action_close` тепер лише виставляє `stage='close'`, `_close_channel` — порожній метод. Відновлено 85 архівованих каналів через SQL (`active = true`).
+
+**3. Статус "Нове повідомлення" залишався після відповіді оператора** _(commit cdaf029)_
+
+`stage: new_message → in_progress` відбувалося лише через кнопку "Відкрити чат" у списку розмов (`action_open`). Якщо менеджер відповідав напряму в Discuss — статус назавжди залишався `new_message`. Додано знімання позначки в `mail_channel.py` після відправки повідомлення через API.
+
+**4. 422-handler: хибне повідомлення "Meta 24h вікно"** _(commit 7dca1eb)_
+
+Усі 422-помилки отримували однакову підказку "вікно відповіді закрите (Meta 24h)". SendPulse повертає HTTP 422 з `error_code: 403` у тілі для різних причин (наприклад, "Forbidden: bot was blocked by the user" у Telegram). Виправлено: хендлер парсить JSON-тіло, визначає `error_code` і показує точну причину — "клієнт заблокував бота" або "вікно 24h Meta" для Facebook/Instagram.
+
+---
+
 ## [2026-04-11] — v17.0.3.0.0
 
 ### Нові можливості
