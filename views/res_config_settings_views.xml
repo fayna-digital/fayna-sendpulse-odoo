@@ -99,6 +99,17 @@
                         </div>
                     </div>
                     <div class="row mt8" invisible="not sp_comment_autoreply_enabled">
+                        <label for="ig_user_id" class="col-lg-3 o_light_label"/>
+                        <div class="col-lg-9">
+                            <field name="ig_user_id"
+                                   placeholder="17841457668400063"
+                                   class="o_field_char"/>
+                            <field name="ig_user_id_is_set" invisible="1"/>
+                            <small class="text-success" invisible="not ig_user_id_is_set">✓ Instagram ID збережено</small>
+                            <small class="text-warning" invisible="ig_user_id_is_set">⚠ Instagram ID не налаштовано — private reply на IG не працюватиме</small>
+                        </div>
+                    </div>
+                    <div class="row mt8" invisible="not sp_comment_autoreply_enabled">
                         <label for="sp_comment_landing_url" class="col-lg-3 o_light_label"/>
                         <div class="col-lg-9">
                             <field name="sp_comment_landing_url"
