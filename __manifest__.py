@@ -37,7 +37,6 @@
         'views/sendpulse_connect_views.xml',
         'views/sendpulse_identify_wizard_views.xml',
         'views/res_partner_views.xml',
-        'views/res_config_settings_views.xml',
     ],
     'assets': {
         'web.assets_backend': [
