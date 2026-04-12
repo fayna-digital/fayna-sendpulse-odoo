@@ -1233,7 +1233,7 @@ class SendpulseConnect(models.Model):
             lines.append('⏭️ Приватне повідомлення не надіслається (клієнт вже отримував раніше або вимкнено)')
 
         body = Markup('<br/>').join(escape(line) if line else Markup('') for line in lines)
-        self.channel_id.sudo().message_post(
+        self.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
             body=body,
             message_type='comment',
             subtype_xmlid='mail.mt_note',
