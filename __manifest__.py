@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'SendPulse Odo',
-    'version': '17.0.2.0.0',
+    'version': '17.0.3.0.0',
     'summary': 'Інтеграція SendPulse з Odoo — зберігання чатів у картці клієнта',
     'description': """
         Двостороння інтеграція між Odoo і SendPulse (чат-боти месенджерів).
@@ -37,6 +37,7 @@
         'views/sendpulse_connect_views.xml',
         'views/sendpulse_identify_wizard_views.xml',
         'views/res_partner_views.xml',
+        'views/res_config_settings_views.xml',
     ],
     'assets': {
         'web.assets_backend': [
