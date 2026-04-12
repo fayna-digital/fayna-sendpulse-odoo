@@ -202,6 +202,34 @@
                             <field name="sendpulse_webhook_url" readonly="1"/>
                         </group>
                     </group>
+                    <h2>Відповіді на коментарі FB / Instagram</h2>
+                    <group>
+                        <group string="Увімкнення">
+                            <field name="sp_comment_autoreply_enabled" string="Автовідповідь на коментарі FB/IG"/>
+                            <field name="sp_comment_public_enabled" string="Публічна відповідь під коментарем"/>
+                            <field name="sp_comment_private_enabled" string="Приватне повідомлення (перший раз)"/>
+                        </group>
+                        <group string="Facebook Page Access Token">
+                            <field name="fb_page_access_token" password="True"
+                                   placeholder="Вставте Page Access Token"
+                                   string="Page Access Token"/>
+                            <field name="fb_page_token_is_set" invisible="1"/>
+                            <div colspan="2">
+                                <small class="text-success" invisible="not fb_page_token_is_set">✓ Token збережено</small>
+                                <small class="text-warning" invisible="fb_page_token_is_set">⚠ Token не налаштовано</small>
+                            </div>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="URL-и для шаблонів">
+                            <field name="sp_comment_landing_url" string="Лендінг URL"/>
+                            <field name="sp_comment_tg_url" string="Telegram URL"/>
+                            <field name="sp_comment_yt_url" string="YouTube URL"/>
+                        </group>
+                        <group string="Приватне повідомлення">
+                            <field name="sp_comment_private_text" string="Текст (порожньо = дефолт)" nolabel="1"/>
+                        </group>
+                    </group>
                 </sheet>
             </form>
         </field>
