@@ -118,6 +118,9 @@ class DiscussChannel(models.Model):
         # Відправляємо в SendPulse
         if body_plain.strip() or attachment_url:
             connect.send_message_to_sendpulse(body_plain.strip(), attachment_url=attachment_url)
+            # Менеджер відповів — знімаємо позначку "Нове повідомлення"
+            if connect.stage == 'new_message':
+                connect.write({'stage': 'in_progress'})
 
             # Зберігаємо повідомлення оператора в sendpulse.message
             self.env['sendpulse.message'].create({
