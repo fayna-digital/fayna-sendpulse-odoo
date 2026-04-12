@@ -15,7 +15,7 @@
         - Відповідь клієнту прямо з Odoo Discuss
         - Прикріплення файлів/фото
     """,
-    'author': 'Fayna',
+    'author': 'Fayna Digital — Volodymyr Shevchenko',
     'website': 'https://fayna.company',
     'license': 'LGPL-3',
     'category': 'Discuss',
