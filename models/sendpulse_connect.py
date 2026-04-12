@@ -272,13 +272,11 @@ class SendpulseConnect(models.Model):
         }
 
     def action_close(self):
-        """Закриває розмову і архівує discuss.channel щоб не захаращував Discuss."""
+        """Закриває розмову (stage → close). Канал НЕ архівується — історія залишається доступною."""
         self.ensure_one()
         self.write({'stage': 'close'})
         if self.partner_id:
             self._post_history_to_partner()
-        if self.channel_id:
-            self.channel_id.write({'active': False})
         return {'type': 'ir.actions.client', 'tag': 'reload'}
 
     def action_reopen(self):
@@ -381,9 +379,8 @@ class SendpulseConnect(models.Model):
         return ' | '.join(parts)
 
     def _close_channel(self):
-        """Архівує discuss.channel при закритті розмови."""
-        if self.channel_id:
-            self.channel_id.write({'active': False})
+        """Канал НЕ архівується — щоб не втрачати історію переписки."""
+        pass
 
     def action_sync_discuss_channels(self):
         """
