@@ -719,8 +719,13 @@ class SendpulseConnect(models.Model):
         )
         is_comment = (
             isinstance(channel_data_msg, dict)
-            and channel_data_msg.get('item') == 'comment'
-            and channel_data_msg.get('verb') == 'add'
+            and (
+                # Facebook format: item/verb
+                (channel_data_msg.get('item') == 'comment' and channel_data_msg.get('verb') == 'add')
+                # Instagram via SendPulse: media.media_product_type == FEED
+                or (isinstance(channel_data_msg.get('media'), dict)
+                    and channel_data_msg['media'].get('media_product_type') == 'FEED')
+            )
         )
         if is_comment:
             return self._process_comment_event(
@@ -994,10 +999,29 @@ class SendpulseConnect(models.Model):
         """
         contact_id = contact.get('id', '')
         contact_name = contact.get('name', 'Невідомий')
-        comment_id = channel_data_msg.get('comment_id', '')
-        comment_text = channel_data_msg.get('message', '') or ''
-        post_id = channel_data_msg.get('post_id', '')
-        post_url = (channel_data_msg.get('post', {}) or {}).get('permalink_url', '')
+        channel_data = data.get('info', {}).get('message', {}).get('channel_data', {})
+        # FB: comment_id/message; IG via SendPulse: id/text
+        comment_id = str(
+            channel_data_msg.get('comment_id')
+            or channel_data_msg.get('id')
+            or ''
+        )
+        comment_text = (
+            channel_data_msg.get('message')
+            or channel_data_msg.get('text')
+            or ''
+        )
+        post_id = str(
+            channel_data_msg.get('post_id')
+            or (channel_data_msg.get('media') or {}).get('id')
+            or (channel_data.get('media') or {}).get('id')
+            or ''
+        )
+        post_url = (
+            (channel_data_msg.get('post') or {}).get('permalink_url')
+            or (channel_data.get('media') or {}).get('permalink')
+            or ''
+        )
 
         # Перевіряємо чи увімкнена автовідповідь
         ICP = self.env['ir.config_parameter'].sudo()
