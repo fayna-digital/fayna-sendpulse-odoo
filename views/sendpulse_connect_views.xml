@@ -227,7 +227,7 @@
                             <field name="sp_comment_yt_url" string="YouTube URL"/>
                         </group>
                         <group string="Приватне повідомлення">
-                            <field name="sp_comment_private_text" string="Текст (порожньо = дефолт)" nolabel="1"/>
+                            <field name="sp_comment_private_text" string="Текст (порожньо = дефолт)" nolabel="1" class="o_field_char"/>
                         </group>
                     </group>
                 </sheet>
