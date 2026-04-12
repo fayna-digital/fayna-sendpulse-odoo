@@ -1,195 +1,145 @@
 <!DOCTYPE html>
 <html lang="uk">
-<head>
-<meta charset="utf-8"/>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #111; line-height: 1.6; }
-
-  /* HERO */
-  .hero { padding: 56px 48px 48px; border-bottom: 1px solid #f0f0f0; }
-  .hero-inner { max-width: 760px; }
-  .hero-label { display: inline-block; background: #20ac41; color: #fff; font-size: 0.72em; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 4px 12px; border-radius: 4px; margin-bottom: 20px; }
-  .hero h1 { font-size: 2.4em; font-weight: 800; letter-spacing: -1px; color: #111; line-height: 1.15; margin-bottom: 16px; }
-  .hero h1 span { color: #20ac41; }
-  .hero p { font-size: 1.05em; color: #555; max-width: 580px; margin-bottom: 28px; }
-  .hero-meta { display: flex; gap: 24px; flex-wrap: wrap; }
-  .meta-item { font-size: 0.82em; color: #888; }
-  .meta-item strong { color: #111; }
-
-  /* SECTION */
-  .section { padding: 48px; border-bottom: 1px solid #f0f0f0; }
-  .section-gray { background: #fafafa; }
-  .section-label { font-size: 0.72em; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #20ac41; margin-bottom: 10px; }
-  .section-title { font-size: 1.5em; font-weight: 800; color: #111; margin-bottom: 32px; letter-spacing: -0.3px; }
-
-  /* FEATURE GRID */
-  .feat-grid { display: flex; gap: 16px; flex-wrap: wrap; }
-  .feat-card { flex: 1; min-width: 260px; border: 1px solid #e8e8e8; border-radius: 8px; padding: 24px; background: #fff; }
-  .feat-card:hover { border-color: #20ac41; }
-  .feat-icon { font-size: 1.6em; margin-bottom: 10px; }
-  .feat-card h4 { font-size: 0.92em; font-weight: 700; color: #111; margin-bottom: 6px; }
-  .feat-card p { font-size: 0.85em; color: #666; line-height: 1.55; }
-
-  /* CHANNELS */
-  .ch-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-  .ch-item { display: flex; align-items: center; gap: 8px; border: 1px solid #e8e8e8; border-radius: 6px; padding: 10px 16px; background: #fff; min-width: 180px; }
-  .ch-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .ch-dot.green { background: #20ac41; }
-  .ch-dot.yellow { background: #f59e0b; }
-  .ch-name { font-size: 0.88em; font-weight: 600; color: #111; }
-  .ch-note { font-size: 0.75em; color: #999; }
-
-  /* STEPS */
-  .steps { display: flex; flex-direction: column; gap: 0; max-width: 640px; }
-  .step-row { display: flex; gap: 20px; padding: 20px 0; border-bottom: 1px solid #f0f0f0; }
-  .step-row:last-child { border-bottom: none; }
-  .step-num { width: 32px; height: 32px; min-width: 32px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.82em; font-weight: 800; margin-top: 2px; }
-  .step-body h5 { font-size: 0.92em; font-weight: 700; color: #111; margin-bottom: 4px; }
-  .step-body p { font-size: 0.85em; color: #666; }
-  code { background: #f4f4f4; border: 1px solid #e0e0e0; border-radius: 4px; padding: 2px 7px; font-size: 0.85em; color: #333; }
-
-  /* FOOTER */
-  .footer { padding: 32px 48px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-  .footer-left { font-size: 0.88em; color: #555; }
-  .footer-left strong { color: #111; }
-  .footer-left a { color: #20ac41; text-decoration: none; font-weight: 600; }
-  .ver-badge { background: #111; color: #fff; font-size: 0.75em; font-weight: 700; padding: 3px 10px; border-radius: 4px; letter-spacing: 0.5px; }
-</style>
-</head>
-<body>
+<head><meta charset="utf-8"/></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fff;color:#111;line-height:1.6;margin:0;padding:0;">
 
 <!-- HERO -->
-<div class="hero">
-  <div class="hero-inner">
-    <div class="hero-label">Odoo 17 Module</div>
-    <h1>SendPulse <span>Odo</span></h1>
-    <p>Двостороння інтеграція SendPulse з Odoo — всі месенджери в одному вікні Discuss. Telegram, WhatsApp, Instagram, Facebook та інші канали без зміни інтерфейсу.</p>
-    <div class="hero-meta">
-      <div class="meta-item"><strong>Розробник:</strong> Volodymyr Shevchenko</div>
-      <div class="meta-item"><strong>Компанія:</strong> <a href="https://fayna.company" style="color:#20ac41;font-weight:600;">Fayna Digital</a></div>
-      <div class="meta-item"><strong>Ліцензія:</strong> LGPL-3.0</div>
-      <div class="meta-item"><strong>Версія:</strong> 17.0.3.1.0</div>
-    </div>
+<div style="padding:48px 48px 40px;border-bottom:1px solid #f0f0f0;">
+  <div style="display:inline-block;background:#20ac41;color:#fff;font-size:0.72em;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 12px;border-radius:4px;margin-bottom:18px;">Odoo 17 Module</div>
+  <h1 style="font-size:2.2em;font-weight:800;letter-spacing:-1px;color:#111;line-height:1.15;margin:0 0 14px;">Fayna <span style="color:#20ac41;">SendPulse Odo</span></h1>
+  <p style="font-size:1.05em;color:#555;max-width:580px;margin:0 0 24px;">Двостороння інтеграція SendPulse з Odoo — всі месенджери в одному вікні Discuss. Telegram, WhatsApp, Instagram, Facebook та інші без зміни інтерфейсу.</p>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+    <span style="font-size:0.82em;color:#888;"><strong style="color:#111;">Розробник:</strong> Volodymyr Shevchenko</span>
+    <span style="font-size:0.82em;color:#888;"><strong style="color:#111;">Компанія:</strong> <a href="https://fayna.company" style="color:#20ac41;font-weight:600;text-decoration:none;">Fayna Digital</a></span>
+    <span style="font-size:0.82em;color:#888;"><strong style="color:#111;">Ліцензія:</strong> LGPL-3.0</span>
+    <span style="font-size:0.82em;color:#888;"><strong style="color:#111;">Версія:</strong> 17.0.3.1.0</span>
   </div>
 </div>
 
 <!-- FEATURES -->
-<div class="section section-gray">
-  <div class="section-label">Можливості</div>
-  <div class="section-title">Що вміє модуль</div>
-  <div class="feat-grid">
-    <div class="feat-card">
-      <div class="feat-icon">💬</div>
-      <h4>Discuss інтеграція</h4>
-      <p>Повідомлення від клієнтів з усіх месенджерів з'являються прямо в Odoo Discuss. Оператори відповідають — клієнт отримує у своєму каналі.</p>
+<div style="padding:44px 48px;border-bottom:1px solid #f0f0f0;background:#fafafa;">
+  <div style="font-size:0.72em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#20ac41;margin-bottom:8px;">Можливості</div>
+  <h2 style="font-size:1.4em;font-weight:800;color:#111;margin:0 0 28px;letter-spacing:-0.3px;">Що вміє модуль</h2>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;">
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">💬</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">Discuss інтеграція</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Повідомлення з усіх месенджерів з'являються прямо в Odoo Discuss. Оператори відповідають — клієнт отримує у своєму каналі.</p>
     </div>
-    <div class="feat-card">
-      <div class="feat-icon">📋</div>
-      <h4>Повна історія в картці</h4>
-      <p>Вся переписка зберігається у вкладці Messaging картки партнера назавжди. Закриття розмови не видаляє листування з Discuss.</p>
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">📋</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">Повна історія в картці</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Вся переписка зберігається у вкладці Messaging картки партнера назавжди. Закриття розмови не видаляє листування.</p>
     </div>
-    <div class="feat-card">
-      <div class="feat-icon">🔍</div>
-      <h4>Ідентифікація клієнтів</h4>
-      <p>Автоматично за email або телефоном, або вручну через wizard. Нові контакти — в окремій черзі без прив'язаного партнера.</p>
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">🔍</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">Ідентифікація клієнтів</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Автоматично за email або телефоном, або вручну через wizard. Нові контакти — в окремій черзі.</p>
     </div>
-    <div class="feat-card">
-      <div class="feat-icon">⚠️</div>
-      <h4>Сповіщення про помилки</h4>
-      <p>Якщо повідомлення не дійшло — оператор бачить причину прямо в чаті: бот заблокований, вікно 24h закрите, відписка.</p>
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">⚠️</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">Сповіщення про помилки</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Якщо повідомлення не дійшло — оператор бачить причину в чаті: бот заблоковано, вікно 24h, відписка.</p>
     </div>
-    <div class="feat-card">
-      <div class="feat-icon">💡</div>
-      <h4>Автовідповідь на коментарі</h4>
-      <p>Публічна + приватна відповідь на коментарі під постами Facebook та Instagram через Graph API.</p>
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">💡</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">Автовідповідь на коментарі</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Публічна + приватна відповідь на коментарі під постами Facebook та Instagram через Graph API.</p>
     </div>
-    <div class="feat-card">
-      <div class="feat-icon">📊</div>
-      <h4>UTM + CRM</h4>
-      <p>Автоматична UTM-атрибуція для кожного каналу. Команда <code>/lead</code> у Discuss — створює CRM-лід одним повідомленням.</p>
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">📊</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">UTM + CRM</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Автоматична UTM-атрибуція для кожного каналу. Команда <code style="background:#f4f4f4;border-radius:3px;padding:1px 5px;font-size:0.88em;">/lead</code> — створює CRM-лід з чату.</p>
     </div>
+
   </div>
 </div>
 
 <!-- CHANNELS -->
-<div class="section">
-  <div class="section-label">Канали</div>
-  <div class="section-title">Підтримувані месенджери</div>
-  <div class="ch-grid">
-    <div class="ch-item">
-      <div class="ch-dot green"></div>
-      <div><div class="ch-name">Telegram</div><div class="ch-note">Відповідати будь-коли</div></div>
+<div style="padding:44px 48px;border-bottom:1px solid #f0f0f0;">
+  <div style="font-size:0.72em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#20ac41;margin-bottom:8px;">Канали</div>
+  <h2 style="font-size:1.4em;font-weight:800;color:#111;margin:0 0 24px;letter-spacing:-0.3px;">Підтримувані месенджери</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;">
+
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid #e8e8e8;border-radius:6px;padding:10px 18px;background:#fff;min-width:170px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:#20ac41;flex-shrink:0;"></div>
+      <div><div style="font-size:0.88em;font-weight:600;color:#111;">Telegram</div><div style="font-size:0.75em;color:#999;">Відповідати будь-коли</div></div>
     </div>
-    <div class="ch-item">
-      <div class="ch-dot green"></div>
-      <div><div class="ch-name">WhatsApp</div><div class="ch-note">Відповідати будь-коли</div></div>
+
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid #e8e8e8;border-radius:6px;padding:10px 18px;background:#fff;min-width:170px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:#20ac41;flex-shrink:0;"></div>
+      <div><div style="font-size:0.88em;font-weight:600;color:#111;">WhatsApp</div><div style="font-size:0.75em;color:#999;">Відповідати будь-коли</div></div>
     </div>
-    <div class="ch-item">
-      <div class="ch-dot green"></div>
-      <div><div class="ch-name">Viber</div><div class="ch-note">Відповідати будь-коли</div></div>
+
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid #e8e8e8;border-radius:6px;padding:10px 18px;background:#fff;min-width:170px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:#20ac41;flex-shrink:0;"></div>
+      <div><div style="font-size:0.88em;font-weight:600;color:#111;">Viber</div><div style="font-size:0.75em;color:#999;">Відповідати будь-коли</div></div>
     </div>
-    <div class="ch-item">
-      <div class="ch-dot green"></div>
-      <div><div class="ch-name">TikTok</div><div class="ch-note">Відповідати будь-коли</div></div>
+
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid #e8e8e8;border-radius:6px;padding:10px 18px;background:#fff;min-width:170px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:#20ac41;flex-shrink:0;"></div>
+      <div><div style="font-size:0.88em;font-weight:600;color:#111;">TikTok</div><div style="font-size:0.75em;color:#999;">Відповідати будь-коли</div></div>
     </div>
-    <div class="ch-item">
-      <div class="ch-dot yellow"></div>
-      <div><div class="ch-name">Instagram</div><div class="ch-note">24-годинне вікно</div></div>
+
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid #e8e8e8;border-radius:6px;padding:10px 18px;background:#fff;min-width:170px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:#f59e0b;flex-shrink:0;"></div>
+      <div><div style="font-size:0.88em;font-weight:600;color:#111;">Instagram</div><div style="font-size:0.75em;color:#999;">24-годинне вікно</div></div>
     </div>
-    <div class="ch-item">
-      <div class="ch-dot yellow"></div>
-      <div><div class="ch-name">Facebook / Messenger</div><div class="ch-note">24-годинне вікно</div></div>
+
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid #e8e8e8;border-radius:6px;padding:10px 18px;background:#fff;min-width:170px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:#f59e0b;flex-shrink:0;"></div>
+      <div><div style="font-size:0.88em;font-weight:600;color:#111;">Facebook / Messenger</div><div style="font-size:0.75em;color:#999;">24-годинне вікно</div></div>
     </div>
-    <div class="ch-item">
-      <div class="ch-dot green"></div>
-      <div><div class="ch-name">LiveChat</div><div class="ch-note">Сайт</div></div>
+
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid #e8e8e8;border-radius:6px;padding:10px 18px;background:#fff;min-width:170px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:#20ac41;flex-shrink:0;"></div>
+      <div><div style="font-size:0.88em;font-weight:600;color:#111;">LiveChat</div><div style="font-size:0.75em;color:#999;">Сайт</div></div>
     </div>
+
   </div>
 </div>
 
 <!-- SETUP -->
-<div class="section section-gray">
-  <div class="section-label">Початок роботи</div>
-  <div class="section-title">Налаштування за 4 кроки</div>
-  <div class="steps">
-    <div class="step-row">
-      <div class="step-num">1</div>
-      <div class="step-body">
-        <h5>API ключі SendPulse</h5>
-        <p>Вкажіть <strong>Client ID</strong> та <strong>Client Secret</strong> у <strong>Налаштуваннях → SendPulse Odo</strong></p>
-      </div>
+<div style="padding:44px 48px;border-bottom:1px solid #f0f0f0;background:#fafafa;">
+  <div style="font-size:0.72em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#20ac41;margin-bottom:8px;">Початок роботи</div>
+  <h2 style="font-size:1.4em;font-weight:800;color:#111;margin:0 0 28px;letter-spacing:-0.3px;">Налаштування за 4 кроки</h2>
+  <div style="max-width:640px;">
+
+    <div style="display:flex;gap:18px;padding:18px 0;border-bottom:1px solid #ebebeb;">
+      <div style="width:30px;height:30px;min-width:30px;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.82em;font-weight:800;margin-top:2px;">1</div>
+      <div><h5 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 4px;">API ключі SendPulse</h5><p style="font-size:0.85em;color:#666;margin:0;">Вкажіть <strong>Client ID</strong> та <strong>Client Secret</strong> у <strong>Налаштуваннях → SendPulse Odo</strong></p></div>
     </div>
-    <div class="step-row">
-      <div class="step-num">2</div>
-      <div class="step-body">
-        <h5>Webhook у SendPulse</h5>
-        <p>Додайте URL вебхука в кабінеті SendPulse для кожного бота: <code>https://your-domain/sendpulse/webhook</code></p>
-      </div>
+
+    <div style="display:flex;gap:18px;padding:18px 0;border-bottom:1px solid #ebebeb;">
+      <div style="width:30px;height:30px;min-width:30px;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.82em;font-weight:800;margin-top:2px;">2</div>
+      <div><h5 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 4px;">Webhook у SendPulse</h5><p style="font-size:0.85em;color:#666;margin:0;">Додайте URL в кабінеті SendPulse для кожного бота: <code style="background:#f4f4f4;border-radius:3px;padding:1px 5px;font-size:0.85em;">https://your-domain/sendpulse/webhook</code></p></div>
     </div>
-    <div class="step-row">
-      <div class="step-num">3</div>
-      <div class="step-body">
-        <h5>Доступ операторів</h5>
-        <p>Призначте співробітників до групи <strong>SendPulse Officer</strong> у Налаштуваннях → Користувачі</p>
-      </div>
+
+    <div style="display:flex;gap:18px;padding:18px 0;border-bottom:1px solid #ebebeb;">
+      <div style="width:30px;height:30px;min-width:30px;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.82em;font-weight:800;margin-top:2px;">3</div>
+      <div><h5 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 4px;">Доступ операторів</h5><p style="font-size:0.85em;color:#666;margin:0;">Призначте співробітників до групи <strong>SendPulse Officer</strong> у Налаштуваннях → Користувачі</p></div>
     </div>
-    <div class="step-row">
-      <div class="step-num">4</div>
-      <div class="step-body">
-        <h5>Facebook коментарі (опціонально)</h5>
-        <p>Додайте <strong>Facebook Page Access Token</strong> для автовідповідей на коментарі FB / Instagram</p>
-      </div>
+
+    <div style="display:flex;gap:18px;padding:18px 0;">
+      <div style="width:30px;height:30px;min-width:30px;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.82em;font-weight:800;margin-top:2px;">4</div>
+      <div><h5 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 4px;">Facebook коментарі (опціонально)</h5><p style="font-size:0.85em;color:#666;margin:0;">Додайте <strong>Facebook Page Access Token</strong> для автовідповідей на коментарі FB / Instagram</p></div>
     </div>
+
   </div>
 </div>
 
 <!-- FOOTER -->
-<div class="footer">
-  <div class="footer-left">
-    Розробник: <strong>Volodymyr Shevchenko</strong> · <a href="https://fayna.company">Fayna Digital</a> · для <a href="https://campscout.eu">CampScout</a>
+<div style="padding:24px 48px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+  <div style="font-size:0.85em;color:#555;">
+    Розробник: <strong style="color:#111;">Volodymyr Shevchenko</strong> · <a href="https://fayna.company" style="color:#20ac41;text-decoration:none;font-weight:600;">Fayna Digital</a> · для <a href="https://campscout.eu" style="color:#20ac41;text-decoration:none;">CampScout</a>
   </div>
-  <div class="ver-badge">v17.0.3.1.0</div>
+  <div style="background:#111;color:#fff;font-size:0.75em;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:0.5px;">v17.0.3.1.0</div>
 </div>
 
 </body>
