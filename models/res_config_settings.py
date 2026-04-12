@@ -87,7 +87,7 @@ class ResConfigSettings(models.TransientModel):
         default='https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV',
         help='Підставляється як {yt_url} у шаблон приватного повідомлення',
     )
-    sp_comment_private_text = fields.Text(
+    sp_comment_private_text = fields.Char(
         string='Текст приватного повідомлення',
         config_parameter='odoo_chatwoot_connector.sp_comment_private_text',
         help='Шаблон приватного повідомлення. Доступні змінні: {landing_url}, {tg_url}, {yt_url}. '
