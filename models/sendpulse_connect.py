@@ -1754,15 +1754,15 @@ class SendpulseConnect(models.Model):
             if attachment_url:
                 payload['message'] = {'type': 'image', 'image': {'link': attachment_url}}
         else:
+            messages = []
+            if text:
+                messages.append({'type': 'text', 'message': {'text': text}})
+            if attachment_url:
+                messages.append({'type': 'image', 'message': {'url': attachment_url}})
             payload = {
                 'contact_id': self.sendpulse_contact_id,
-                'messages': [{'type': 'text', 'message': {'text': text}}],
+                'messages': messages,
             }
-            if attachment_url:
-                payload['messages'].append({
-                    'type': 'image',
-                    'message': {'url': attachment_url},
-                })
 
         try:
             _logger.info(
@@ -1859,6 +1859,11 @@ class SendpulseConnect(models.Model):
                     policy_hint = (
                         f'Клієнт заблокував бота у {service_label}. '
                         'Написати через цей канал більше неможливо — зверніться через інший спосіб зв\'язку.'
+                    )
+                elif 'invalid' in err_text or 'invalid data' in err_text:
+                    policy_hint = (
+                        f'API {service_label} відхилив повідомлення: невалідний формат. '
+                        'Можливо тип вкладення не підтримується (Instagram не підтримує PDF/документи).'
                     )
                 elif service in ('messenger', 'facebook', 'instagram'):
                     policy_hint = (
