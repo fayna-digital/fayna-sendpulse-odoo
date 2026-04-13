@@ -113,7 +113,22 @@ class DiscussChannel(models.Model):
         attachment_url = None
         attachment_ids = kwargs.get('attachment_ids', [])
         if attachment_ids:
-            attachment_url = self._get_attachment_url(attachment_ids[0])
+            att = self.env['ir.attachment'].browse(attachment_ids[0])
+            if (connect.service == 'instagram'
+                    and att.mimetype
+                    and not att.mimetype.startswith('image/')):
+                # Instagram не підтримує PDF/документи — попереджаємо оператора
+                self.with_context(sendpulse_incoming=True).message_post(
+                    body=(
+                        '⚠️ Instagram не підтримує PDF та інші документи — файл не надіслано.\n'
+                        'Надішліть файл клієнту на пошту або поділіться посиланням текстом.'
+                    ),
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_note',
+                    author_id=self.env.ref('base.partner_root').id,
+                )
+            else:
+                attachment_url = self._get_attachment_url(attachment_ids[0])
 
         # Відправляємо в SendPulse
         if body_plain.strip() or attachment_url:
