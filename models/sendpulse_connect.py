@@ -712,10 +712,10 @@ class SendpulseConnect(models.Model):
         """
         # ── Перевірка: чи це коментар під постом FB/IG ─────────────────────
         channel_data_msg = (
-            data.get('info', {})
-            .get('message', {})
-            .get('channel_data', {})
-            .get('message', {})
+            (((data.get('info') or {})
+            .get('message') or {})
+            .get('channel_data') or {})
+            .get('message') or {}
         )
         is_comment = (
             isinstance(channel_data_msg, dict)
