@@ -1079,8 +1079,14 @@ class SendpulseConnect(models.Model):
             ('sendpulse_contact_id', '=', contact_id),
             ('sp_replied_private', '=', True),
         ], limit=1)
+        # Не спамимо людей у яких вже є прямий діалог (не comment)
+        has_direct_dialog = self.search([
+            ('sendpulse_contact_id', '=', contact_id),
+            ('sp_is_comment', '=', False),
+        ], limit=1)
         send_private = (
             not bool(already_private)
+            and not bool(has_direct_dialog)
             and ICP.get_param('odoo_chatwoot_connector.sp_comment_private_enabled', 'True') == 'True'
         )
 
