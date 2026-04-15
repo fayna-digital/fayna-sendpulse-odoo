@@ -342,47 +342,62 @@ class SendpulseConnect(models.Model):
 
     def _send_autoreply_greeting(self, channel=None):
         """
-        Надсилає автоматичне привітання клієнту через SendPulse
-        і дублює його в discuss.channel щоб менеджер бачив контекст.
+        Надсилає два автоматичних повідомлення клієнту через SendPulse
+        і дублює їх в discuss.channel щоб менеджер бачив контекст.
+
+        Тексти конфігуруються через System Parameters:
+          odoo_chatwoot_connector.new_contact_greeting  (перше повідомлення)
+          odoo_chatwoot_connector.new_contact_greeting2 (друге повідомлення, необов'язкове)
         """
         self.ensure_one()
-        greeting = self.env['ir.config_parameter'].sudo().get_param(
-            'odoo_chatwoot_connector.new_contact_greeting',
-            'Доброго дня! 👋 Дякуємо за звернення до CampScout. '
-            'Наш менеджер відповість вам найближчим часом 🙂',
-        )
-        if not greeting:
+        params = self.env['ir.config_parameter'].sudo()
+
+        messages = [
+            params.get_param(
+                'odoo_chatwoot_connector.new_contact_greeting',
+                'Доброго дня! 👋 Дякуємо за звернення до CampScout. '
+                'Наш менеджер відповість вам найближчим часом 🙂',
+            ),
+            params.get_param(
+                'odoo_chatwoot_connector.new_contact_greeting2',
+                'Поки очікуєте, можете переглянути питання інших батьків та відповіді на них: '
+                'https://campscout.eu/pitannia-batkiv',
+            ),
+        ]
+        messages = [m for m in messages if m]
+        if not messages:
             return
 
-        # Надсилаємо клієнту через SendPulse
-        try:
-            self.send_message_to_sendpulse(greeting)
-        except Exception as e:
-            _logger.warning('SendPulse auto-greeting send failed for %s: %s', self.name, e)
-
+        ch = channel or self.channel_id
         now = fields.Datetime.now()
 
-        # Зберігаємо як outgoing в sendpulse.message
-        self.env['sendpulse.message'].create({
-            'name': now.strftime('%Y-%m-%d %H:%M'),
-            'date': now,
-            'connect_id': self.id,
-            'sendpulse_contact_id': self.sendpulse_contact_id,
-            'direction': 'outgoing',
-            'message_type': 'text',
-            'text_message': greeting,
-            'raw_json': str({'text': greeting, 'source': 'auto_greeting'}),
-        })
+        for text in messages:
+            # Надсилаємо клієнту через SendPulse
+            try:
+                self.send_message_to_sendpulse(text)
+            except Exception as e:
+                _logger.warning('SendPulse auto-greeting send failed for %s: %s', self.name, e)
 
-        # Постимо в канал щоб менеджер бачив (з OdooBot як автором)
-        ch = channel or self.channel_id
-        if ch:
-            ch.with_context(sendpulse_incoming=True).message_post(
-                body=Markup('🤖 <i>Авто-привітання:</i> {}').format(escape(greeting)),
-                author_id=self.env.ref('base.partner_root').id,
-                message_type='comment',
-                subtype_xmlid='mail.mt_comment',
-            )
+            # Зберігаємо як outgoing в sendpulse.message
+            self.env['sendpulse.message'].create({
+                'name': now.strftime('%Y-%m-%d %H:%M'),
+                'date': now,
+                'connect_id': self.id,
+                'sendpulse_contact_id': self.sendpulse_contact_id,
+                'direction': 'outgoing',
+                'message_type': 'text',
+                'text_message': text,
+                'raw_json': str({'text': text, 'source': 'auto_greeting'}),
+            })
+
+            # Постимо в канал щоб менеджер бачив (з OdooBot як автором)
+            if ch:
+                ch.with_context(sendpulse_incoming=True).message_post(
+                    body=Markup('🤖 <i>Авто-привітання:</i> {}').format(escape(text)),
+                    author_id=self.env.ref('base.partner_root').id,
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_comment',
+                )
 
     def _get_service_label(self):
         labels = {
