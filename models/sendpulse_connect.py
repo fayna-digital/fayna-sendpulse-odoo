@@ -474,14 +474,21 @@ class SendpulseConnect(models.Model):
         self.ensure_one()
         if not self.partner_id:
             return
+        # Дедуплікація: не дублювати якщо викликається повторно (assign + close)
+        existing = self.env['partner.sendpulse.message'].search([
+            ('partner_id', '=', self.partner_id.id),
+            ('service', '=', self.service),
+        ])
+        existing_keys = {(r.date, r.direction) for r in existing}
         for msg in self.message_ids.sorted('date'):
-            self.env['partner.sendpulse.message'].create({
-                'partner_id': self.partner_id.id,
-                'date': msg.date,
-                'text_message': plaintext2html(msg.text_message or ''),
-                'service': self.service,
-                'direction': msg.direction,
-            })
+            if (msg.date, msg.direction) not in existing_keys:
+                self.env['partner.sendpulse.message'].create({
+                    'partner_id': self.partner_id.id,
+                    'date': msg.date,
+                    'text_message': plaintext2html(msg.text_message or ''),
+                    'service': self.service,
+                    'direction': msg.direction,
+                })
 
     def assign_partner(self, partner_id):
         """
@@ -1489,6 +1496,20 @@ class SendpulseConnect(models.Model):
                 contact_id, service,
             )
 
+    _ALLOWED_MEDIA_DOMAINS = ('sendpulse.com', 'sendpulse.net')
+    _MEDIA_MAX_BYTES = 20 * 1024 * 1024  # 20 MB
+
+    @staticmethod
+    def _is_allowed_media_url(url):
+        """SSRF guard: дозволяємо завантажувати медіа лише з доменів SendPulse."""
+        from urllib.parse import urlparse
+        try:
+            host = (urlparse(url).hostname or '').lower()
+            allowed = SendpulseConnect._ALLOWED_MEDIA_DOMAINS
+            return host in allowed or any(host.endswith('.' + d) for d in allowed)
+        except Exception:
+            return False
+
     def _download_media_as_attachment(self, media_url):
         """
         Download media file from SendPulse API (requires Bearer token) and
@@ -1496,24 +1517,41 @@ class SendpulseConnect(models.Model):
         Returns ir.attachment record or None on failure.
         """
         try:
+            # SSRF guard
+            if not self._is_allowed_media_url(media_url):
+                _logger.warning('SendPulse Odo: заблоковано URL не з домену SendPulse: %s', media_url)
+                return None
+
             token = self._get_access_token()
             if not token:
                 return None
-            resp = requests.get(
-                media_url,
-                headers={'Authorization': f'Bearer {token}'},
-                timeout=30,
-            )
+
+            def _fetch(t):
+                return requests.get(
+                    media_url,
+                    headers={'Authorization': f'Bearer {t}'},
+                    timeout=30,
+                    stream=True,
+                )
+
+            resp = _fetch(token)
             if resp.status_code == 401:
                 self._sendpulse_oauth_invalidate_cache()
                 token = self._get_access_token(force_refresh=True)
                 if token:
-                    resp = requests.get(
-                        media_url,
-                        headers={'Authorization': f'Bearer {token}'},
-                        timeout=30,
-                    )
+                    resp = _fetch(token)
             resp.raise_for_status()
+
+            # Перевіряємо оголошений розмір перед завантаженням
+            content_length = resp.headers.get('Content-Length')
+            if content_length:
+                try:
+                    if int(content_length) > self._MEDIA_MAX_BYTES:
+                        _logger.warning('SendPulse Odo: медіа завелике (%s байт), пропускаємо', content_length)
+                        return None
+                except ValueError:
+                    pass
+
             content_type = resp.headers.get('Content-Type', 'image/jpeg').split(';')[0].strip()
             ext_map = {
                 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif',
@@ -1522,9 +1560,18 @@ class SendpulseConnect(models.Model):
             }
             ext = ext_map.get(content_type, 'bin')
             filename = f'sendpulse_{fields.Datetime.now().strftime("%Y%m%d_%H%M%S")}.{ext}'
+
+            # Потокове завантаження з жорстким лімітом
+            data = b''
+            for chunk in resp.iter_content(8192):
+                data += chunk
+                if len(data) > self._MEDIA_MAX_BYTES:
+                    _logger.warning('SendPulse Odo: медіа перевищило 20 MB ліміт, скасовуємо')
+                    return None
+
             att = self.env['ir.attachment'].create({
                 'name': filename,
-                'datas': base64.b64encode(resp.content).decode(),
+                'datas': base64.b64encode(data).decode(),
                 'mimetype': content_type,
             })
             att.generate_access_token()

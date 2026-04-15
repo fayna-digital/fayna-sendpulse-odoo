@@ -61,6 +61,20 @@ class SendpulseWebhookController(http.Controller):
             return Response(json.dumps(data), content_type='application/json', status=200)
 
         try:
+            # Token auth: налаштовується у ir.config_parameter → odoo_chatwoot_connector.webhook_token
+            # Додай ?token=SECRET до webhook URL в SendPulse
+            expected_token = request.env['ir.config_parameter'].sudo().get_param(
+                'odoo_chatwoot_connector.webhook_token', ''
+            )
+            if expected_token:
+                provided_token = request.params.get('token', '')
+                if provided_token != expected_token:
+                    _logger.warning(
+                        'SendPulse Odo: невірний webhook token від %s',
+                        request.httprequest.remote_addr,
+                    )
+                    return _json({'status': 'error', 'message': 'Unauthorized'})
+
             raw = request.httprequest.data
             if not raw:
                 return _json({'status': 'error', 'message': 'Empty payload'})
@@ -125,4 +139,4 @@ class SendpulseWebhookController(http.Controller):
 
         except Exception as e:
             _logger.error('SendPulse Odo webhook error: %s', e, exc_info=True)
-            return _json({'status': 'error', 'message': str(e)})
+            return _json({'status': 'error', 'message': 'Processing failed'})
