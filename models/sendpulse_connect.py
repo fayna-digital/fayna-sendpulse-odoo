@@ -347,9 +347,15 @@ class SendpulseConnect(models.Model):
             body = Markup("<b>{}</b><br/>{}").format(direction_label, escape(msg.text_message or ''))
             if msg.attachment_url:
                 body += Markup('<br/><a href="{}" target="_blank">📎 Вкладення</a>').format(msg.attachment_url)
+            if msg.direction == 'incoming':
+                # Клієнт — підставляємо партнера, щоб не було Public User (Olha Lipowa)
+                author_id = self.partner_id.id if self.partner_id else self.env.ref('base.partner_root').id
+            else:
+                # Оператор — використовуємо OdooBot (менеджер невідомий)
+                author_id = self.env.ref('base.partner_root').id
             channel.with_context(sendpulse_incoming=True).message_post(
                 body=body,
-                author_id=self.partner_id.id if msg.direction == 'outgoing' and self.partner_id else None,
+                author_id=author_id,
                 message_type='comment',
                 subtype_xmlid='mail.mt_comment',
             )
