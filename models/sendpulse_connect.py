@@ -777,6 +777,9 @@ class SendpulseConnect(models.Model):
         if not social_profile_url and social_username and service == 'telegram':
             social_profile_url = f"https://t.me/{social_username}"
 
+        # Фото контакту з webhook
+        photo_url = (contact.get('photo') or contact.get('profile_pic') or '').strip() or ''
+
         # ── Bot-змінні ────────────────────────────────────────────────────
         sp_child_name = (variables.get('child_name') or '').strip() or False
         sp_booking_email = (variables.get('booking_email') or '').strip() or False
@@ -1356,6 +1359,17 @@ class SendpulseConnect(models.Model):
         last_message = contact.get('last_message', '') or ''
 
         if not last_message or not contact_id:
+            return
+
+        # ── Guard: contact.last_message у outbound_message завжди містить ОСТАННЄ
+        # КЛІЄНТСЬКЕ повідомлення, а не текст оператора/бота. Якщо цей текст вже
+        # збережений як incoming — це "луна" клієнта, ігноруємо.
+        already_incoming = self.env['sendpulse.message'].search([
+            ('sendpulse_contact_id', '=', contact_id),
+            ('direction', '=', 'incoming'),
+            ('text_message', '=', last_message),
+        ], limit=1)
+        if already_incoming:
             return
 
         # ── Дедуплікація: перевіряємо чи не ми самі щойно надіслали цей текст ──
