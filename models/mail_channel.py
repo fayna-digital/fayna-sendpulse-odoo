@@ -43,6 +43,7 @@ SYSTEM_MSG_PATTERNS = [
     r'приєднав',
     r'покинув',
     r'запросив',
+    r'запрошено',
 ]
 
 
@@ -102,9 +103,14 @@ class DiscussChannel(models.Model):
         if self.env.context.get('sendpulse_incoming'):
             return msg
 
+        # Пропускаємо системні нотифікації Odoo (join/leave/invite тощо)
+        # message_type='notification' — ніколи не є ручним повідомленням оператора
+        if kwargs.get('message_type') in ('notification', 'auto_comment'):
+            return msg
+
         connect = self.sendpulse_connect_id
 
-        # Пропускаємо системні повідомлення Odoo
+        # Пропускаємо системні повідомлення Odoo за текстом (резервний фільтр)
         body_plain = _html_to_text(kwargs.get('body', '') or '')
         if self._is_system_message(body_plain):
             return msg
