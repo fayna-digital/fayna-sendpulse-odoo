@@ -1358,6 +1358,11 @@ class SendpulseConnect(models.Model):
         contact_id = contact.get('id', '')
         last_message = contact.get('last_message', '') or ''
 
+        _logger.info(
+            'SendPulse _process_outgoing_event: contact_id=%s, last_message=%r',
+            contact_id, last_message[:80] if last_message else '',
+        )
+
         if not last_message or not contact_id:
             return
 
@@ -1369,6 +1374,10 @@ class SendpulseConnect(models.Model):
             ('direction', '=', 'incoming'),
             ('text_message', '=', last_message),
         ], limit=1)
+        _logger.info(
+            'SendPulse _process_outgoing_event: already_incoming=%s for text=%r',
+            bool(already_incoming), last_message[:40] if last_message else '',
+        )
         if already_incoming:
             return
 
