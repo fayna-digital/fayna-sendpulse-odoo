@@ -106,7 +106,7 @@ class SendpulseWebhookController(http.Controller):
                     timestamp_ms=timestamp_ms,
                 )
 
-            elif event_type in (EVENT_OUTGOING_MSG, EVENT_OUTGOING_MSG2):
+            elif event_type == EVENT_OUTGOING_MSG:
                 # Вихідне повідомлення з SendPulse (може бути з мобільного додатку менеджера)
                 # Зберігаємо з дедуплікацією — якщо вже є в Odoo (надіслано з Discuss) — пропускаємо
                 request.env['sendpulse.connect'].sudo()._process_outgoing_event(
