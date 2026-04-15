@@ -287,10 +287,11 @@ class SendpulseConnect(models.Model):
             self.channel_id.write({'active': True})
         return {'type': 'ir.actions.client', 'tag': 'reload'}
 
-    def _create_discuss_channel(self):
+    def _create_discuss_channel(self, send_greeting=False):
         """
         Створює discuss.channel для розмови.
-        Канал з'являється у Discuss (дзвіночок) для призначених операторів.
+        Менеджери бачать новий чат у черзі і долучаються вручну.
+        send_greeting=True → надсилає авто-привітання клієнту через SendPulse.
         """
         self.ensure_one()
         channel_name = f"[{self._get_service_label()}] {self.name}"
@@ -302,42 +303,11 @@ class SendpulseConnect(models.Model):
             'description': self._get_channel_description(),
         })
 
-        # Збираємо партнерів для каналу
-        partner_ids = set()
-
-        # 1. Всі активні користувачі групи officer
-        officer_group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_officer', raise_if_not_found=False)
-        if officer_group:
-            partner_ids.update(officer_group.users.filtered('active').mapped('partner_id').ids)
-
-        # 2. Всі активні користувачі групи admin
-        admin_group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_admin', raise_if_not_found=False)
-        if admin_group:
-            partner_ids.update(admin_group.users.filtered('active').mapped('partner_id').ids)
-
-        # 3. Призначені оператори розмови
-        for user in self.user_ids:
-            if user.active:
-                partner_ids.add(user.partner_id.id)
-
-        # 4. Fallback: якщо жодного реального оператора не налаштовано — додаємо всіх
-        #    внутрішніх (не портальних) активних користувачів системи.
-        #    OdooBot (partner_root) не рахується як реальний оператор — виключаємо
-        #    його ДО перевірки, щоб fallback спрацював коли в групі лише бот.
-        bot = self.env.ref('base.partner_root', raise_if_not_found=False)
-        bot_id = bot.id if bot else None
-        real_partner_ids = {pid for pid in partner_ids if pid != bot_id}
-        if not real_partner_ids:
-            internal_users = self.env['res.users'].search([
-                ('share', '=', False),
-                ('active', '=', True),
-            ])
-            partner_ids.update(internal_users.mapped('partner_id').ids)
-            # OdooBot може бути серед внутрішніх — прибираємо його з fallback набору
-            if bot_id:
-                partner_ids.discard(bot_id)
-
-        channel.add_members(partner_ids=list(partner_ids))
+        # Додаємо тільки явно призначених операторів цієї розмови.
+        # Ніякого fallback на всіх внутрішніх користувачів — менеджер долучається сам.
+        partner_ids = [u.partner_id.id for u in self.user_ids if u.active]
+        if partner_ids:
+            channel.add_members(partner_ids=partner_ids)
 
         # Якщо є збережені повідомлення — постимо їх в канал як історію
         # ВАЖЛИВО: sendpulse_incoming=True щоб mail_channel.py НЕ відправляв
@@ -364,7 +334,55 @@ class SendpulseConnect(models.Model):
             'channel_id': channel.id,
             'stage': 'in_progress',
         })
+
+        if send_greeting:
+            self._send_autoreply_greeting(channel)
+
         return channel
+
+    def _send_autoreply_greeting(self, channel=None):
+        """
+        Надсилає автоматичне привітання клієнту через SendPulse
+        і дублює його в discuss.channel щоб менеджер бачив контекст.
+        """
+        self.ensure_one()
+        greeting = self.env['ir.config_parameter'].sudo().get_param(
+            'odoo_chatwoot_connector.new_contact_greeting',
+            'Доброго дня! 👋 Дякуємо за звернення до CampScout. '
+            'Наш менеджер відповість вам найближчим часом 🙂',
+        )
+        if not greeting:
+            return
+
+        # Надсилаємо клієнту через SendPulse
+        try:
+            self.send_message_to_sendpulse(greeting)
+        except Exception as e:
+            _logger.warning('SendPulse auto-greeting send failed for %s: %s', self.name, e)
+
+        now = fields.Datetime.now()
+
+        # Зберігаємо як outgoing в sendpulse.message
+        self.env['sendpulse.message'].create({
+            'name': now.strftime('%Y-%m-%d %H:%M'),
+            'date': now,
+            'connect_id': self.id,
+            'sendpulse_contact_id': self.sendpulse_contact_id,
+            'direction': 'outgoing',
+            'message_type': 'text',
+            'text_message': greeting,
+            'raw_json': str({'text': greeting, 'source': 'auto_greeting'}),
+        })
+
+        # Постимо в канал щоб менеджер бачив (з OdooBot як автором)
+        ch = channel or self.channel_id
+        if ch:
+            ch.with_context(sendpulse_incoming=True).message_post(
+                body=Markup('🤖 <i>Авто-привітання:</i> {}').format(escape(greeting)),
+                author_id=self.env.ref('base.partner_root').id,
+                message_type='comment',
+                subtype_xmlid='mail.mt_comment',
+            )
 
     def _get_service_label(self):
         labels = {
@@ -824,6 +842,7 @@ class SendpulseConnect(models.Model):
                     connect.channel_id.write({'active': True})
 
         now = fields.Datetime.now()
+        is_brand_new = not connect   # True тільки якщо connect щойно буде створено
         if not connect:
             connect = self.create({
                 'name': contact_name,
@@ -974,7 +993,7 @@ class SendpulseConnect(models.Model):
 
         # ── Крок 5: Якщо немає каналу — створюємо discuss.channel ──────
         if not connect.channel_id:
-            connect._create_discuss_channel()
+            connect._create_discuss_channel(send_greeting=is_brand_new)
 
         return connect
 
