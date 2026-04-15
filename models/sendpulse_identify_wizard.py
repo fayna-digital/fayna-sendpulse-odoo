@@ -134,10 +134,10 @@ class SendpulseIdentifyWizard(models.TransientModel):
         elif self.connect_id.unidentified_phone:
             vals['phone'] = self.connect_id.unidentified_phone
 
-        partner = self.env['res.partner'].create(vals)
+        partner = self.env['res.partner'].sudo().create(vals)
         # Прив'язуємо sendpulse_contact_id одразу
         if self.connect_id.sendpulse_contact_id:
-            partner.write({'sendpulse_contact_id': self.connect_id.sendpulse_contact_id})
+            partner.sudo().write({'sendpulse_contact_id': self.connect_id.sendpulse_contact_id})
 
         self.connect_id.assign_partner(partner.id)
         self.connect_id.write({

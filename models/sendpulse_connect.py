@@ -372,13 +372,8 @@ class SendpulseConnect(models.Model):
         now = fields.Datetime.now()
 
         for text in messages:
-            # Надсилаємо клієнту через SendPulse
-            try:
-                self.send_message_to_sendpulse(text)
-            except Exception as e:
-                _logger.warning('SendPulse auto-greeting send failed for %s: %s', self.name, e)
-
-            # Зберігаємо як outgoing в sendpulse.message
+            # Зберігаємо ДО відправки — щоб outbound_message webhook одразу знайшов запис
+            # і не задублював повідомлення у discuss.channel
             self.env['sendpulse.message'].create({
                 'name': now.strftime('%Y-%m-%d %H:%M'),
                 'date': now,
@@ -389,6 +384,12 @@ class SendpulseConnect(models.Model):
                 'text_message': text,
                 'raw_json': str({'text': text, 'source': 'auto_greeting'}),
             })
+
+            # Надсилаємо клієнту через SendPulse
+            try:
+                self.send_message_to_sendpulse(text)
+            except Exception as e:
+                _logger.warning('SendPulse auto-greeting send failed for %s: %s', self.name, e)
 
             # Постимо в канал щоб менеджер бачив (з OdooBot як автором)
             if ch:
@@ -425,32 +426,12 @@ class SendpulseConnect(models.Model):
         """
         Масова синхронізація Discuss-каналів:
         - Для розмов без каналу → створює новий channel
-        - Для розмов з каналом → додає всіх поточних операторів як учасників
+        - Для розмов з каналом → нічого (менеджери долучаються самостійно)
 
         Викликається вручну з list-view (кнопка Action).
         """
-        # Збираємо партнерів усіх операторів
-        partner_ids = set()
-        officer_group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_officer', raise_if_not_found=False)
-        if officer_group:
-            partner_ids.update(officer_group.users.filtered('active').mapped('partner_id').ids)
-        admin_group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_admin', raise_if_not_found=False)
-        if admin_group:
-            partner_ids.update(admin_group.users.filtered('active').mapped('partner_id').ids)
-        bot = self.env.ref('base.partner_root', raise_if_not_found=False)
-        bot_id = bot.id if bot else None
-        real_partner_ids = {pid for pid in partner_ids if pid != bot_id}
-        if not real_partner_ids:
-            internal_users = self.env['res.users'].search([
-                ('share', '=', False), ('active', '=', True),
-            ])
-            partner_ids.update(internal_users.mapped('partner_id').ids)
-            if bot_id:
-                partner_ids.discard(bot_id)
-        partner_ids = list(partner_ids)
-
         created = 0
-        synced = 0
+        skipped = 0
         for connect in self:
             if connect.stage == 'close':
                 continue
@@ -458,17 +439,14 @@ class SendpulseConnect(models.Model):
                 connect._create_discuss_channel()
                 created += 1
             else:
-                # Переконуємось що всі оператори є учасниками
-                if partner_ids:
-                    connect.channel_id.add_members(partner_ids=partner_ids)
-                synced += 1
+                skipped += 1
 
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
                 'title': 'SendPulse: Sync завершено',
-                'message': f'Створено каналів: {created}. Оновлено: {synced}.',
+                'message': f'Створено каналів: {created}. Вже мають канал: {skipped}.',
                 'type': 'success',
                 'sticky': False,
             },
@@ -876,6 +854,19 @@ class SendpulseConnect(models.Model):
                 'last_message_date': now,
                 'stage': 'new',
             })
+            # Захист від race condition: new_subscriber + incoming_message можуть
+            # паралельно пройти search→None і обидва створити новий connect.
+            # Якщо є старший дублікат — видаляємо щойно створений і беремо його.
+            duplicate = self.search([
+                ('sendpulse_contact_id', '=', contact_id),
+                ('service', '=', service),
+                ('stage', '!=', 'close'),
+                ('id', '<', connect.id),
+            ], limit=1)
+            if duplicate:
+                connect.unlink()
+                connect = duplicate
+                is_brand_new = False
         else:
             # Оновлюємо існуючу розмову
             update_vals = {
@@ -918,7 +909,7 @@ class SendpulseConnect(models.Model):
                 clean_phone = phone.strip().replace(' ', '')
                 if clean_phone:
                     create_vals['phone'] = clean_phone
-            author_partner = self.env['res.partner'].create(create_vals)
+            author_partner = self.env['res.partner'].sudo().create(create_vals)
         if author_partner and not connect.partner_id:
             connect.write({'partner_id': author_partner.id})
 
