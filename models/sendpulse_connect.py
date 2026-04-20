@@ -2051,18 +2051,35 @@ class SendpulseConnect(models.Model):
                 _logger.warning('SendPulse Odo: RAG no JSON in response — %s', raw[:200])
                 return {**empty, 'reason': 'no_json'}
             data = _json.loads(m.group(0))
-            faq_id = data.get('faq_id')
+            faq_id_raw = data.get('faq_id')
             confidence = float(data.get('confidence') or 0.0)
             answer = (data.get('answer') or '').strip()
 
-            if not faq_id or not answer:
+            if not faq_id_raw or not answer:
                 return {
                     'matched': False, 'faq_id': None,
                     'confidence': confidence, 'answer': '', 'reason': 'no_match',
                 }
 
+            # Normalize faq_id: Claude іноді повертає "FAQ_6" або "6" замість integer
+            faq_id = None
+            if isinstance(faq_id_raw, int):
+                faq_id = faq_id_raw
+            elif isinstance(faq_id_raw, str):
+                digits = _re.search(r'\d+', faq_id_raw)
+                if digits:
+                    try:
+                        faq_id = int(digits.group(0))
+                    except (ValueError, TypeError):
+                        pass
+            if not faq_id:
+                return {
+                    'matched': False, 'faq_id': None,
+                    'confidence': confidence, 'answer': '', 'reason': 'bad_faq_id',
+                }
+
             # Increment hit count + last_used_at
-            faq = Faq.browse(int(faq_id)).exists()
+            faq = Faq.browse(faq_id).exists()
             if faq:
                 faq.sudo().write({
                     'hit_count': faq.hit_count + 1,
