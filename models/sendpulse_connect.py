@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import base64
+import hashlib
 import logging
 import time
 import requests
@@ -47,6 +48,10 @@ _SENDPULSE_OAUTH_TOKEN_PARAM = 'odoo_chatwoot_connector.oauth_access_token'
 _SENDPULSE_OAUTH_UNTIL_PARAM = 'odoo_chatwoot_connector.oauth_valid_until'
 _SENDPULSE_OAUTH_LOCK_KEY1 = 94219
 _SENDPULSE_OAUTH_LOCK_KEY2 = 55817
+
+# Advisory lock для запобігання race condition при конкурентних webhook-ах
+# від SendPulse для одного контакту (щоб search→create не створював дублікатів).
+_SENDPULSE_INBOUND_LOCK_KEY2 = 71234
 
 
 class SendpulseConnect(models.Model):
@@ -879,6 +884,21 @@ class SendpulseConnect(models.Model):
         # ── Крок 1: Ідентифікація партнера ──────────────────────────────
         partner = self._find_partner(contact_id, effective_email, phone, variables=variables)
 
+        # ── Race-guard: advisory lock на (contact_id, service) ──────────
+        # Два одночасних webhook-и (new_subscriber + incoming_message за ~1 сек)
+        # раніше створювали два записи (search→∅→create у обох). Тепер другий
+        # чекає COMMIT першого, тоді бачить створений запис і оновлює його
+        # замість створення дублю. Авто-привітання теж не дублюється бо
+        # is_brand_new=False у другого.
+        if contact_id:
+            lock_key1 = int(
+                hashlib.md5(f'{contact_id}|{service}'.encode('utf-8')).hexdigest()[:8], 16
+            ) & 0x7FFFFFFF
+            self.env.cr.execute(
+                'SELECT pg_advisory_xact_lock(%s, %s)',
+                (lock_key1, _SENDPULSE_INBOUND_LOCK_KEY2),
+            )
+
         # ── Крок 2: Знаходимо або створюємо розмову ─────────────────────
         # Пріоритет 1: активна розмова по sendpulse_contact_id + service
         connect = self.search([
@@ -1175,6 +1195,17 @@ class SendpulseConnect(models.Model):
                 from_id, comment_id,
             )
             return None
+
+        # Race-guard: advisory lock на comment_id — якщо той самий webhook
+        # прийде двічі одночасно (SendPulse іноді ретраїть), другий чекає.
+        if comment_id:
+            lock_key1 = int(
+                hashlib.md5(f'comment|{comment_id}'.encode('utf-8')).hexdigest()[:8], 16
+            ) & 0x7FFFFFFF
+            self.env.cr.execute(
+                'SELECT pg_advisory_xact_lock(%s, %s)',
+                (lock_key1, _SENDPULSE_INBOUND_LOCK_KEY2),
+            )
 
         # Дедуплікація: той самий comment_id вже оброблявся
         if comment_id:

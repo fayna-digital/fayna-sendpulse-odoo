@@ -4,6 +4,37 @@
 
 ---
 
+## [2026-04-20] — v17.0.3.7.1
+
+### Race condition fix — дублікати `sendpulse.connect` при конкурентних webhook-ах
+
+**Симптом:** два webhook-и від SendPulse за одного контакту приходили з інтервалом ~1 секунда (зазвичай `new_subscriber` / `open_chat` + `incoming_message`). Обидва робили `search()` і не знаходили одне одного (не було commit у першого) → обидва робили `create()` → два дублікати `sendpulse.connect` з двома окремими `discuss.channel`. На проді на момент фіксу — **14 пар дублів** за 4 дні.
+
+**Фікс:** `pg_advisory_xact_lock(hash(contact_id|service), KEY)` на початку `_process_inbound` (після ідентифікації партнера, до `search`/`create`). Другий webhook чекає commit першого, тоді бачить створений запис і оновлює його замість створення дублю. Авто-привітання теж не дублюється бо `is_brand_new=False` у другого.
+
+Аналогічний lock додано у `_process_comment_event` на `comment_id` — SendPulse іноді ретраїть webhook-и коментарів, без lock-у дві дедуплікації проходили б одночасно.
+
+**Cleanup existing duplicates:** всі 14 пар merged через odoo shell script. Повідомлення (`mail_message.res_id`) перенесено у keeper-канал, channel members переміщені, метадата об'єднана (`last_message_date`, `sp_first_inbound_at`), donor-канал видалено. Залишилось **0** дублів.
+
+### Технічні деталі
+
+```python
+_SENDPULSE_INBOUND_LOCK_KEY2 = 71234
+
+# У _process_inbound:
+lock_key1 = int(
+    hashlib.md5(f'{contact_id}|{service}'.encode('utf-8')).hexdigest()[:8], 16
+) & 0x7FFFFFFF
+self.env.cr.execute(
+    'SELECT pg_advisory_xact_lock(%s, %s)',
+    (lock_key1, _SENDPULSE_INBOUND_LOCK_KEY2),
+)
+```
+
+Lock автоматично звільняється при commit/rollback транзакції (xact-variant). Не блокує різних контактів.
+
+---
+
 ## [2026-04-20] — v17.0.3.7.0
 
 ### Multi-page FB/IG — повний refactor
