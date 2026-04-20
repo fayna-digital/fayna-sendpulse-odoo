@@ -13,3 +13,5 @@ access_sendpulse_identify_wizard_officer,sendpulse.identify.wizard officer,model
 access_sendpulse_identify_wizard_admin,sendpulse.identify.wizard admin,model_sendpulse_identify_wizard,group_sendpulse_admin,1,1,1,1
 access_sendpulse_facebook_page_officer,sendpulse.facebook.page officer,model_sendpulse_facebook_page,group_sendpulse_officer,1,0,0,0
 access_sendpulse_facebook_page_admin,sendpulse.facebook.page admin,model_sendpulse_facebook_page,group_sendpulse_admin,1,1,1,1
+access_sendpulse_faq_entry_officer,sendpulse.faq.entry officer,model_sendpulse_faq_entry,group_sendpulse_officer,1,1,1,0
+access_sendpulse_faq_entry_admin,sendpulse.faq.entry admin,model_sendpulse_faq_entry,group_sendpulse_admin,1,1,1,1

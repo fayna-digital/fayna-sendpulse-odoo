@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_sendpulse_faq_entry_tree" model="ir.ui.view">
+        <field name="name">sendpulse.faq.entry.tree</field>
+        <field name="model">sendpulse.faq.entry</field>
+        <field name="arch" type="xml">
+            <tree string="FAQ Entries" multi_edit="1">
+                <field name="priority" widget="priority"/>
+                <field name="name"/>
+                <field name="tags"/>
+                <field name="hit_count" readonly="1"/>
+                <field name="last_used_at" readonly="1"/>
+                <field name="active" widget="boolean_toggle"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sendpulse_faq_entry_form" model="ir.ui.view">
+        <field name="name">sendpulse.faq.entry.form</field>
+        <field name="model">sendpulse.faq.entry</field>
+        <field name="arch" type="xml">
+            <form string="FAQ Entry">
+                <header>
+                    <button name="action_test_match" type="object"
+                            string="Тест match" class="oe_highlight"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Архівовано" bg_color="bg-danger"
+                            invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Питання про ціну"/></h1>
+                    </div>
+                    <group>
+                        <group string="Матчинг">
+                            <field name="priority"/>
+                            <field name="tags" placeholder="price, summer, discount"/>
+                            <field name="active"/>
+                        </group>
+                        <group string="Статистика">
+                            <field name="hit_count" readonly="1"/>
+                            <field name="last_used_at" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Питання (шаблон для LLM-матчу)">
+                        <field name="question" nolabel="1" placeholder="Скільки коштує табір?"/>
+                    </group>
+                    <group string="Відповідь (канонічна)">
+                        <field name="answer" nolabel="1"
+                               placeholder="Ціни різняться залежно від програми..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_sendpulse_faq_entry_search" model="ir.ui.view">
+        <field name="name">sendpulse.faq.entry.search</field>
+        <field name="model">sendpulse.faq.entry</field>
+        <field name="arch" type="xml">
+            <search string="FAQ Search">
+                <field name="name"/>
+                <field name="tags"/>
+                <field name="question"/>
+                <filter name="active" string="Активні" domain="[('active', '=', True)]"/>
+                <filter name="inactive" string="Архівовані" domain="[('active', '=', False)]"/>
+                <group expand="0" string="Групувати за">
+                    <filter name="group_tags" string="Теги" context="{'group_by': 'tags'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_sendpulse_faq_entry" model="ir.actions.act_window">
+        <field name="name">FAQ Entries</field>
+        <field name="res_model">sendpulse.faq.entry</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_sendpulse_faq_entry_search"/>
+        <field name="context">{'search_default_active': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Створіть перший FAQ entry
+            </p>
+            <p>
+                FAQ записи використовуються для RAG auto-answer —
+                модуль автоматично відповідає на типові питання клієнтів
+                через Anthropic Claude. Додавайте питання і канонічні
+                відповіді — LLM сам підбере і персоналізує.
+            </p>
+        </field>
+    </record>
+
+</odoo>

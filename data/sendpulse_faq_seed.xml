@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <record id="faq_seed_price" model="sendpulse.faq.entry">
+            <field name="name">Ціна табору</field>
+            <field name="question">Скільки коштує табір? Яка ціна? Вартість?</field>
+            <field name="answer">Ціни залежать від програми і терміну. Актуальні пропозиції та деталі є на нашому сайті https://lato2026.campscout.eu — там можна підібрати табір під дитину і побачити знижки. Якщо хочете — напишіть вік дитини, я одразу підкажу найкращий варіант 🏕️</field>
+            <field name="tags">price,cost,cena</field>
+            <field name="priority">50</field>
+        </record>
+
+        <record id="faq_seed_dates" model="sendpulse.faq.entry">
+            <field name="name">Дати заїздів</field>
+            <field name="question">Коли заїзди? Які дати? Коли починається табір?</field>
+            <field name="answer">Заїзди літнього сезону 2026 йдуть з червня по серпень — точні дати залежать від програми. Всі актуальні дати і залишки місць тут: https://lato2026.campscout.eu 📅 Напишіть який місяць підходить — підкажу що є.</field>
+            <field name="tags">dates,schedule,terminy</field>
+            <field name="priority">50</field>
+        </record>
+
+        <record id="faq_seed_age" model="sendpulse.faq.entry">
+            <field name="name">З якого віку дітей беруть</field>
+            <field name="question">З якого віку? Скільки років дитині? Молодша/старша група?</field>
+            <field name="answer">Ми беремо дітей від 7 до 17 років, програми розділені за віковими групами щоб кожному було цікаво. Підбір під конкретний вік є на https://lato2026.campscout.eu — якщо напишете скільки років вашій дитині, я порекомендую найкраще.</field>
+            <field name="tags">age,wiek</field>
+            <field name="priority">50</field>
+        </record>
+
+        <record id="faq_seed_what_to_bring" model="sendpulse.faq.entry">
+            <field name="name">Що брати у табір</field>
+            <field name="question">Що брати з собою? Список речей? Що потрібно?</field>
+            <field name="answer">Ми надаємо детальний список речей після бронювання — з сезонним урахуванням (літо/зима). Основа: спальник, одяг на 10 днів, туалетні приналежності, одяг на активний відпочинок. Повна інструкція є у батьківському чаті. На сайті https://campscout.eu/pitannia-batkiv/ є розділ «Підготовка» з фото і порадами.</field>
+            <field name="tags">preparation,bring,rzeczy</field>
+            <field name="priority">40</field>
+        </record>
+
+        <record id="faq_seed_food" model="sendpulse.faq.entry">
+            <field name="name">Харчування</field>
+            <field name="question">Чим годують? Як з харчуванням? Меню?</field>
+            <field name="answer">5-разове харчування збалансоване, враховуємо індивідуальні обмеження (алергії, вегетаріанство) — вкажете при бронюванні. Готує кваліфікована кухня на території табору. Свіжі фрукти і овочі — щодня. Фото з кухні і меню є у блозі https://campscout.eu/blog 🍽️</field>
+            <field name="tags">food,meal,jedzenie</field>
+            <field name="priority">35</field>
+        </record>
+
+        <record id="faq_seed_safety" model="sendpulse.faq.entry">
+            <field name="name">Безпека</field>
+            <field name="question">Чи безпечно? Хто наглядає? Медична допомога?</field>
+            <field name="answer">Безпека — наш пріоритет №1. У таборі постійно присутні медик, ліцензовані інструктори і вожаті (1 вожатий на 10 дітей). Територія охороняється, є відеоспостереження. Маємо страхування відповідальності 31 617 PLN через Compensa VIG. Деталі — https://campscout.eu/bezpieczenstwo 🛡️</field>
+            <field name="tags">safety,security,bezpieczenstwo</field>
+            <field name="priority">45</field>
+        </record>
+
+        <record id="faq_seed_location" model="sendpulse.faq.entry">
+            <field name="name">Де знаходиться табір</field>
+            <field name="question">Де табір? Локація? Як добратися?</field>
+            <field name="answer">Табори проводимо у екологічно чистих локаціях Польщі — лісові бази, над озерами, у горах (залежно від програми). Точна адреса і логістика — після бронювання. Батьки можуть привезти дитину особисто або замовити трансфер. Деталі — https://lato2026.campscout.eu</field>
+            <field name="tags">location,where,lokalizacja</field>
+            <field name="priority">30</field>
+        </record>
+
+        <record id="faq_seed_phones" model="sendpulse.faq.entry">
+            <field name="name">Телефони дітям</field>
+            <field name="question">Чи можна телефон? Як зв'язатись? Дзвінки додому?</field>
+            <field name="answer">У нас є «телефонні години» — діти зможуть зателефонувати батькам. Постійне користування смартфоном обмежуємо — щоб діти дійсно відпочивали від екранів. Ви в курсі, як проходить кожен день: ми ведемо щоденний звіт з фото у закритому батьківському чаті.</field>
+            <field name="tags">phone,communication,telefon</field>
+            <field name="priority">30</field>
+        </record>
+
+        <record id="faq_seed_homesick" model="sendpulse.faq.entry">
+            <field name="name">Якщо дитина захоче додому</field>
+            <field name="question">А якщо дитина заскучить? Туга за домом?</field>
+            <field name="answer">Це нормальна ситуація перші 1-2 дні. Наші вожаті спеціально навчені підтримувати таких дітей. У нас працює психолог, якщо потрібно. За 5+ сезонів у нас майже не було випадків коли дитину довелось забирати раніше — діти швидко адаптуються у новій компанії. Детальніше у блозі https://campscout.eu/blog</field>
+            <field name="tags">emotions,homesick,psychology</field>
+            <field name="priority">35</field>
+        </record>
+
+        <record id="faq_seed_booking" model="sendpulse.faq.entry">
+            <field name="name">Як забронювати</field>
+            <field name="question">Як забронювати? Як записатись? Оплата?</field>
+            <field name="answer">Бронювання простеньке: обираєте програму і дату на https://lato2026.campscout.eu → заповнюєте дані дитини → отримуєте рахунок на передоплату (30%) → підписуєте договір → чекаєте заїзду. Повна оплата — за 14 днів до старту. Є можливість розстрочки.</field>
+            <field name="tags">booking,payment,rezerwacja</field>
+            <field name="priority">40</field>
+        </record>
+
+    </data>
+</odoo>
