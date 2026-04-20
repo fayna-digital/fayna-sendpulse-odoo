@@ -165,6 +165,73 @@ class SendpulseConnect(models.Model):
         string='Приватне повідомлення надіслано', default=False,
         help='True якщо private_reply успішно надіслано через Graph API',
     )
+    sp_messenger_window_expires_at = fields.Datetime(
+        string='Messenger 24h вікно до',
+        help='Коли закривається 24-годинне вікно Meta для вільного обміну повідомленнями. '
+             'Після цього менеджер не може писати клієнту (поки той не відповість).',
+    )
+    sp_window_alert_sent = fields.Boolean(
+        string='Алерт про закриття вікна надіслано', default=False,
+        help='True якщо Telegram-сповіщення за 2h до закриття вікна вже надіслано. '
+             'Скидається при новому inbound від клієнта.',
+    )
+    sp_comment_category = fields.Selection(
+        selection=[
+            ('question_price', 'Питання про ціну'),
+            ('question_dates', 'Питання про терміни'),
+            ('question_age', 'Питання про вік'),
+            ('question_general', 'Загальне питання'),
+            ('thanks', 'Подяка / позитив'),
+            ('complaint', 'Скарга'),
+            ('spam', 'Спам'),
+            ('other', 'Інше'),
+        ],
+        string='Категорія коментаря',
+        help='Автоматична класифікація коментаря через LLM для маршрутизації',
+    )
+
+    # ── Метрики воронки конверсії ───────────────────────────────────────
+    sp_funnel_stage = fields.Selection(
+        selection=[
+            ('comment_only', 'Коментар без реакції'),
+            ('private_sent', 'Надіслано приватне'),
+            ('customer_replied', 'Клієнт відповів'),
+            ('operator_engaged', 'Оператор підключився'),
+            ('lead_created', 'Створено лід'),
+            ('closed_won', 'Конверсія: замовлення'),
+            ('closed_lost', 'Втрата'),
+        ],
+        string='Стадія воронки',
+        index=True,
+    )
+    sp_first_inbound_at = fields.Datetime(
+        string='Перше повідомлення клієнта',
+        help='Коли клієнт написав перший раз (не коментар, а DM/чат)',
+    )
+    sp_first_reply_at = fields.Datetime(
+        string='Перша відповідь оператора',
+        help='Коли оператор відповів уперше (не автовідповідь)',
+    )
+    sp_first_reply_time_sec = fields.Integer(
+        string='Час до першої відповіді (сек)',
+        compute='_compute_first_reply_time',
+        store=True,
+        help='Скільки секунд між першим повідомленням клієнта і першою відповіддю оператора',
+    )
+    sp_lead_id = fields.Many2one(
+        'crm.lead', string='Лід',
+        help='CRM-лід створений з цієї розмови',
+    )
+
+    @api.depends('sp_first_inbound_at', 'sp_first_reply_at')
+    def _compute_first_reply_time(self):
+        for rec in self:
+            if rec.sp_first_inbound_at and rec.sp_first_reply_at and rec.sp_first_reply_at > rec.sp_first_inbound_at:
+                rec.sp_first_reply_time_sec = int(
+                    (rec.sp_first_reply_at - rec.sp_first_inbound_at).total_seconds()
+                )
+            else:
+                rec.sp_first_reply_time_sec = 0
 
     # ── Computed ────────────────────────────────────────────────────────
     is_unidentified = fields.Boolean(
@@ -880,7 +947,16 @@ class SendpulseConnect(models.Model):
                 'last_message_preview': last_message[:100] if last_message else connect.last_message_preview,
                 'last_message_date': now,
                 'stage': 'new_message' if connect.stage == 'in_progress' else connect.stage,
+                # Клієнт написав → вікно 24h відновлюється
+                'sp_messenger_window_expires_at': now + timedelta(hours=24),
+                'sp_window_alert_sent': False,
             }
+            # Метрики: перший inbound від клієнта
+            if not connect.sp_first_inbound_at:
+                update_vals['sp_first_inbound_at'] = now
+            # Funnel: comment_only/private_sent → customer_replied
+            if connect.sp_funnel_stage in ('comment_only', 'private_sent', False, None):
+                update_vals['sp_funnel_stage'] = 'customer_replied'
             if not connect.partner_id and partner:
                 update_vals['partner_id'] = partner.id
             if social_username and not connect.social_username:
@@ -1028,70 +1104,6 @@ class SendpulseConnect(models.Model):
         "Раді бачити вас знову! 😊 Наш менеджер вже напише вам у повідомленнях — слідкуйте за вхідними 🏕️"
     )
 
-    # ── AI Comment Filter ─────────────────────────────────────────────────
-    _AI_COMMENT_FILTER_PROMPT = (
-        "You are a content moderator for CampScout, a children's summer camp company.\n"
-        "Classify the following social media comment into exactly one category:\n"
-        "- REPLY — normal question, interest, or positive comment that deserves a reply\n"
-        "- SKIP — hate speech, trolling, political provocation, spam, irrelevant, "
-        "or offensive content that should NOT get a reply\n\n"
-        "Comment: \"{comment}\"\n\n"
-        "Respond with ONLY one word: REPLY or SKIP"
-    )
-
-    def _ai_classify_comment(self, comment_text):
-        """
-        Classify comment via LLM: REPLY (respond) or SKIP (ignore).
-        Returns 'reply' or 'skip'. Defaults to 'reply' on any error.
-        """
-        ICP = self.env['ir.config_parameter'].sudo()
-        if ICP.get_param('odoo_chatwoot_connector.ai_filter_enabled', 'True') != 'True':
-            return 'reply'
-
-        api_key = ICP.get_param('odoo_chatwoot_connector.ai_api_key', '')
-        if not api_key:
-            _logger.warning('AI comment filter: API key not configured, defaulting to reply')
-            return 'reply'
-
-        base_url = (ICP.get_param('odoo_chatwoot_connector.ai_base_url', '')
-                    or 'https://api.openai.com/v1').strip().rstrip('/')
-        model = (ICP.get_param('odoo_chatwoot_connector.ai_model', '')
-                 or 'gpt-4o-mini').strip()
-
-        prompt = self._AI_COMMENT_FILTER_PROMPT.format(
-            comment=comment_text[:300].replace('"', "'"),
-        )
-        try:
-            resp = requests.post(
-                '%s/chat/completions' % base_url,
-                headers={
-                    'Authorization': 'Bearer %s' % api_key,
-                    'Content-Type': 'application/json',
-                },
-                json={
-                    'model': model,
-                    'messages': [{'role': 'user', 'content': prompt}],
-                    'max_tokens': 200,
-                    'temperature': 0,
-                },
-                timeout=10,
-            )
-            if resp.status_code != 200:
-                _logger.warning('AI comment filter: API error %s, defaulting to reply', resp.status_code)
-                return 'reply'
-            answer = (resp.json()
-                      .get('choices', [{}])[0]
-                      .get('message', {})
-                      .get('content', '')
-                      .strip().upper())
-            if 'SKIP' in answer:
-                _logger.info('AI comment filter: SKIP for "%s"', comment_text[:80])
-                return 'skip'
-            return 'reply'
-        except Exception as e:
-            _logger.warning('AI comment filter error: %s, defaulting to reply', e)
-            return 'reply'
-
     @api.model
     def _process_comment_event(self, data, contact, bot, service, channel_data_msg):
         """
@@ -1134,6 +1146,19 @@ class SendpulseConnect(models.Model):
             _logger.info('SendPulse Odo: comment autoreply disabled, skipping %s', comment_id)
             return None
 
+        # Self-loop guard: не відповідаємо на коментарі від самої Сторінки / IG Business акаунта.
+        # Без цього наша публічна відповідь → webhook → нова відповідь → нескінченний цикл.
+        from_id = str((channel_data_msg.get('from') or {}).get('id') or '')
+        page_id_from_payload = str(channel_data_msg.get('page_id') or '')
+        ig_user_id = ICP.get_param('odoo_chatwoot_connector.ig_user_id', '')
+        own_ids = {x for x in [page_id_from_payload, ig_user_id] if x}
+        if from_id and from_id in own_ids:
+            _logger.info(
+                'SendPulse Odo: self-comment detected (from=%s == own), skipping %s',
+                from_id, comment_id,
+            )
+            return None
+
         # Дедуплікація: той самий comment_id вже оброблявся
         if comment_id:
             existing = self.search([('sp_comment_id', '=', comment_id)], limit=1)
@@ -1165,6 +1190,7 @@ class SendpulseConnect(models.Model):
                 'sp_post_url': post_url,
                 'last_message_preview': f'💬 Коментар: {comment_text[:80]}' if comment_text else '💬 Коментар',
                 'last_message_date': now,
+                'sp_funnel_stage': 'comment_only',
             })
         else:
             connect.write({
@@ -1178,6 +1204,11 @@ class SendpulseConnect(models.Model):
 
         if not connect.channel_id:
             connect._create_discuss_channel()
+
+        # LLM-класифікація коментаря (якщо увімкнено)
+        category = self._classify_comment(comment_text, service)
+        connect.write({'sp_comment_category': category})
+        _logger.info('SendPulse Odo: comment %s classified as "%s"', comment_id, category)
 
         # Визначаємо чи надсилати приватне (тільки перший раз для цього контакту)
         already_private = self.search([
@@ -1199,13 +1230,40 @@ class SendpulseConnect(models.Model):
             ICP.get_param('odoo_chatwoot_connector.sp_comment_public_enabled', 'True') == 'True'
         )
 
-        # AI фільтр: перевіряємо чи коментар не є хейтом/спамом
-        ai_verdict = connect._ai_classify_comment(comment_text)
-        if ai_verdict == 'skip':
+        # Маршрутизація за категорією (якщо класифікатор увімкнено і дав результат != 'other'):
+        # - thanks / spam: не відповідаємо взагалі (автовідповідь на подяку виглядає бот-подібно)
+        # - complaint: не автовідповідь, лише нотатка оператору з мітою 🚨 (ескалація)
+        # - question_*: поточна логіка (публічна + приватна) — без змін
+        if category in ('thanks', 'spam'):
+            _logger.info('SendPulse Odo: category=%s → skip auto-reply for %s', category, comment_id)
             send_public = False
             send_private = False
-            _logger.info('SendPulse Odo: AI filter SKIP for comment %s: "%s"',
-                         comment_id, comment_text[:80])
+            # Для spam — приховуємо коментар через Graph API (якщо увімкнено)
+            if category == 'spam' and ICP.get_param(
+                'odoo_chatwoot_connector.sp_comment_hide_spam_enabled', 'True'
+            ) == 'True' and comment_id:
+                hide_ok, hide_err = connect._hide_comment(comment_id, service)
+                if hide_ok:
+                    _logger.info('SendPulse Odo: spam comment %s hidden', comment_id)
+                    self._notify_telegram(
+                        f'🚫 <b>Спам приховано</b>\n'
+                        f'Клієнт: {contact_name}\n'
+                        f'Текст: <i>{(comment_text or "")[:200]}</i>\n'
+                        f'{post_url}',
+                        silent=True,
+                    )
+                else:
+                    _logger.warning('SendPulse Odo: failed to hide spam %s: %s', comment_id, hide_err)
+        elif category == 'complaint':
+            _logger.warning('SendPulse Odo: complaint detected → escalation, no auto-reply for %s', comment_id)
+            send_public = False
+            send_private = False
+            self._notify_telegram(
+                f'🚨 <b>СКАРГА під постом</b> — потрібна увага!\n\n'
+                f'👤 Клієнт: <b>{contact_name}</b>\n'
+                f'📝 Текст: <i>{(comment_text or "")[:500]}</i>\n\n'
+                f'🔗 Допис: {post_url or "—"}'
+            )
 
         # Тексти з підстановкою URL
         landing_url = ICP.get_param('odoo_chatwoot_connector.sp_comment_landing_url', 'https://lato2026.campscout.eu')
@@ -1215,8 +1273,17 @@ class SendpulseConnect(models.Model):
         public_ok = False
         public_error = None
         if send_public and comment_id:
-            # Ротація по кількості наявних comment-розмов
-            count = self.search_count([('sp_is_comment', '=', True)])
+            # Ротація шаблонів: рахуємо кількість вже опублікованих публічних відповідей
+            # ПІД ТИМ САМИМ ПОСТОМ (не глобально). Інакше під одним постом з 20 коментарями
+            # всі бачили б той самий шаблон після 5-го повторення циклу.
+            if post_id:
+                count = self.search_count([
+                    ('sp_is_comment', '=', True),
+                    ('sp_post_id', '=', post_id),
+                    ('sp_replied_public', '=', True),
+                ])
+            else:
+                count = self.search_count([('sp_is_comment', '=', True)])
             # Якщо вже є приватне від цього контакту — використовуємо repeat шаблон
             if bool(already_private):
                 public_text = self._COMMENT_PUBLIC_REPEAT_TEMPLATE
@@ -1259,27 +1326,233 @@ class SendpulseConnect(models.Model):
             )
             private_ok, private_error = connect._send_comment_private_reply(comment_id, private_text, service)
             if private_ok:
-                connect.write({'sp_replied_private': True})
+                connect.write({
+                    'sp_replied_private': True,
+                    'sp_messenger_window_expires_at': fields.Datetime.now() + timedelta(hours=24),
+                    'sp_window_alert_sent': False,
+                    'sp_funnel_stage': 'private_sent',
+                })
 
         # Нотатка оператору
         connect._notify_operator_comment(
             contact_name=contact_name,
             comment_text=comment_text,
-            ai_skipped=(ai_verdict == 'skip'),
             post_url=post_url,
             sent_public=public_ok,
             sent_private=private_ok,
             public_error=public_error,
             private_error=private_error,
+            category=category,
         )
 
         return connect
 
+    _COMMENT_CATEGORIES = (
+        'question_price', 'question_dates', 'question_age', 'question_general',
+        'thanks', 'complaint', 'spam', 'other',
+    )
+
+    def _classify_comment(self, text, service='facebook'):
+        """
+        Класифікує коментар через Anthropic Claude API.
+        Повертає одну з _COMMENT_CATEGORIES. Фолбек 'other' якщо LLM вимкнено/помилка.
+        """
+        if not text or not text.strip():
+            return 'other'
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param('odoo_chatwoot_connector.llm_classifier_enabled', 'False') != 'True':
+            return 'other'
+        api_key = ICP.get_param('odoo_chatwoot_connector.anthropic_api_key', '')
+        if not api_key:
+            return 'other'
+        model = ICP.get_param('odoo_chatwoot_connector.llm_model', 'claude-haiku-4-5')
+
+        prompt = (
+            "Класифікуй коментар під постом літнього дитячого табору CampScout в одну з категорій:\n"
+            "- question_price (питання про ціну, вартість, знижки)\n"
+            "- question_dates (питання про терміни, дати заїздів, коли)\n"
+            "- question_age (питання про вік дітей, з якого віку)\n"
+            "- question_general (інше питання: програма, харчування, безпека, місце, документи)\n"
+            "- thanks (подяка, позитивні емодзі без питання, лайк)\n"
+            "- complaint (скарга, негатив, претензія)\n"
+            "- spam (спам, реклама, шкідливе посилання, провокація)\n"
+            "- other (не вдалось класифікувати)\n\n"
+            f"Коментар: \"{text[:400]}\"\n\n"
+            "Відповідай ОДНИМ СЛОВОМ — назвою категорії без пояснень."
+        )
+        try:
+            resp = requests.post(
+                'https://api.anthropic.com/v1/messages',
+                headers={
+                    'x-api-key': api_key,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
+                },
+                json={
+                    'model': model,
+                    'max_tokens': 20,
+                    'messages': [{'role': 'user', 'content': prompt}],
+                },
+                timeout=10,
+            )
+            if resp.status_code != 200:
+                _logger.warning(
+                    'SendPulse Odo: LLM classifier HTTP %d — %s',
+                    resp.status_code, resp.text[:200],
+                )
+                return 'other'
+            data = resp.json()
+            raw = (data.get('content') or [{}])[0].get('text', '').strip().lower()
+            for valid in self._COMMENT_CATEGORIES:
+                if valid in raw:
+                    return valid
+            _logger.info('SendPulse Odo: LLM returned unknown category "%s"', raw)
+            return 'other'
+        except Exception as e:
+            _logger.warning('SendPulse Odo: LLM classifier exception — %s', e)
+            return 'other'
+
+    def _log_fb_audit(self, label, url, payload, status_code, response_text, attempts_used=1):
+        """
+        Зберігає запис про FB/IG API виклик у ir.logging для аудиту і дебагу.
+        Токен з payload редактується (замінюється на '***REDACTED***').
+        """
+        try:
+            redacted = {k: ('***REDACTED***' if k == 'access_token' else v) for k, v in (payload or {}).items()}
+            level = 'INFO' if status_code == 200 else 'WARNING'
+            short_resp = (response_text or '')[:500]
+            msg = (
+                f'[{label}] {status_code} attempts={attempts_used}\n'
+                f'URL: {url}\n'
+                f'Payload: {redacted}\n'
+                f'Response: {short_resp}'
+            )
+            self.env['ir.logging'].sudo().create({
+                'name': 'odoo_chatwoot_connector.fb_api',
+                'type': 'server',
+                'level': level,
+                'dbname': self.env.cr.dbname,
+                'message': msg,
+                'path': 'sendpulse_connect._fb_post_with_retry',
+                'func': label,
+                'line': '0',
+            })
+        except Exception as e:
+            # Аудит-лог не повинен ламати основний флоу
+            _logger.warning('SendPulse Odo: audit log write failed — %s', e)
+
+    def _fb_post_with_retry(self, url, payload, label='fb-call', attempts=3, base_delay=1):
+        """
+        POST на Graph API з exponential backoff (1s, 3s, 9s).
+        Retry на: мережеві помилки, 5xx, 429 (rate limited).
+        Не retry на: 4xx (крім 429) — це permanent errors (invalid token, blocked user, etc.).
+        Повертає (success: bool, error: str|None, response_json: dict|None).
+        """
+        last_err = None
+        last_status = 0
+        last_text = ''
+        for attempt in range(attempts):
+            try:
+                resp = requests.post(url, json=payload, timeout=15)
+                last_status = resp.status_code
+                last_text = resp.text or ''
+                if resp.status_code == 200:
+                    self._log_fb_audit(label, url, payload, 200, last_text, attempt + 1)
+                    try:
+                        return True, None, resp.json()
+                    except Exception:
+                        return True, None, {}
+                if resp.status_code == 429 or 500 <= resp.status_code < 600:
+                    last_err = self._parse_fb_error(resp)
+                    _logger.warning(
+                        'SendPulse Odo %s attempt %d/%d → HTTP %d (%s) — retrying',
+                        label, attempt + 1, attempts, resp.status_code, last_err,
+                    )
+                else:
+                    err = self._parse_fb_error(resp)
+                    _logger.warning('SendPulse Odo %s failed (no retry) — %s', label, err)
+                    self._log_fb_audit(label, url, payload, resp.status_code, last_text, attempt + 1)
+                    return False, err, None
+            except (requests.ConnectionError, requests.Timeout) as e:
+                last_err = str(e)
+                last_text = f'network error: {e}'
+                _logger.warning(
+                    'SendPulse Odo %s attempt %d/%d → network error (%s) — retrying',
+                    label, attempt + 1, attempts, e,
+                )
+            except Exception as e:
+                _logger.error('SendPulse Odo %s exception — %s', label, e)
+                self._log_fb_audit(label, url, payload, 0, f'exception: {e}', attempt + 1)
+                return False, str(e), None
+            if attempt < attempts - 1:
+                time.sleep(base_delay * (3 ** attempt))
+        _logger.error('SendPulse Odo %s — all %d retries exhausted: %s', label, attempts, last_err)
+        self._log_fb_audit(label, url, payload, last_status, last_text, attempts)
+        return False, f'retries exhausted: {last_err}', None
+
+    @api.model
+    def _notify_telegram(self, text, silent=False):
+        """
+        Надсилає повідомлення у Telegram-групу менеджерів через Bot API.
+        Конфіг: telegram_bot_token + telegram_chat_id + telegram_alerts_enabled.
+        `silent=True` — без звукового сповіщення (для менш критичних алертів).
+        Повертає True якщо надіслано успішно.
+        """
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param('odoo_chatwoot_connector.telegram_alerts_enabled', 'False') != 'True':
+            return False
+        token = ICP.get_param('odoo_chatwoot_connector.telegram_bot_token', '')
+        chat_id = ICP.get_param('odoo_chatwoot_connector.telegram_chat_id', '')
+        if not (token and chat_id and text):
+            return False
+        try:
+            resp = requests.post(
+                f'https://api.telegram.org/bot{token}/sendMessage',
+                json={
+                    'chat_id': chat_id,
+                    'text': text[:4000],
+                    'parse_mode': 'HTML',
+                    'disable_notification': silent,
+                    'disable_web_page_preview': True,
+                },
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                return True
+            _logger.warning('SendPulse Odo: Telegram alert failed HTTP %d — %s', resp.status_code, resp.text[:200])
+            return False
+        except Exception as e:
+            _logger.warning('SendPulse Odo: Telegram alert exception — %s', e)
+            return False
+
+    def _hide_comment(self, comment_id, service='facebook'):
+        """
+        Приховує коментар через Graph API.
+        FB: POST /{comment_id} body={'is_hidden': true}
+        IG: POST /{comment_id} body={'hide': true}
+        Повертає (success: bool, error: str|None).
+        """
+        token = self._get_fb_page_token()
+        if not token or not comment_id:
+            return False, 'token або comment_id відсутні'
+        url = f'https://graph.facebook.com/v25.0/{comment_id}'
+        payload = (
+            {'hide': True, 'access_token': token}
+            if service == 'instagram'
+            else {'is_hidden': True, 'access_token': token}
+        )
+        ok, err, _resp = self._fb_post_with_retry(
+            url, payload, label=f'hide-comment {comment_id} ({service})',
+        )
+        if ok:
+            _logger.info('SendPulse Odo: comment %s hidden (%s)', comment_id, service)
+        return ok, err
+
     def _send_comment_public_reply(self, comment_id, service, text):
         """
         Публікує публічну відповідь під коментарем через Facebook Graph API.
-        Facebook: POST /v19.0/{comment_id}/comments
-        Instagram: POST /v19.0/{comment_id}/replies
+        Facebook: POST /v25.0/{comment_id}/comments
+        Instagram: POST /v25.0/{comment_id}/replies
         Повертає (success: bool, error: str|None)
         """
         token = self._get_fb_page_token()
@@ -1287,18 +1560,14 @@ class SendpulseConnect(models.Model):
             return False, 'Page Access Token не налаштований (Налаштування → SendPulse → Facebook Page Access Token)'
 
         endpoint = 'replies' if service == 'instagram' else 'comments'
-        url = f'https://graph.facebook.com/v19.0/{comment_id}/{endpoint}'
-        try:
-            resp = requests.post(url, json={'message': text, 'access_token': token}, timeout=15)
-            if resp.status_code == 200:
-                _logger.info('SendPulse Odo: public reply posted for comment %s', comment_id)
-                return True, None
-            err = self._parse_fb_error(resp)
-            _logger.warning('SendPulse Odo: public reply failed for %s: %s', comment_id, err)
-            return False, err
-        except Exception as e:
-            _logger.error('SendPulse Odo: public reply exception for %s: %s', comment_id, e)
-            return False, str(e)
+        url = f'https://graph.facebook.com/v25.0/{comment_id}/{endpoint}'
+        ok, err, _resp = self._fb_post_with_retry(
+            url, {'message': text, 'access_token': token},
+            label=f'public-reply {comment_id}',
+        )
+        if ok:
+            _logger.info('SendPulse Odo: public reply posted for comment %s', comment_id)
+        return ok, err
 
     def _send_comment_private_reply(self, comment_id, text, service='facebook'):
         """
@@ -1311,39 +1580,150 @@ class SendpulseConnect(models.Model):
         if not token:
             return False, 'Page Access Token не налаштований'
 
-        try:
-            if service == 'instagram':
-                ig_user_id = self.env['ir.config_parameter'].sudo().get_param(
-                    'odoo_chatwoot_connector.ig_user_id', ''
-                )
-                if not ig_user_id:
-                    return False, 'Instagram User ID не налаштований (odoo_chatwoot_connector.ig_user_id)'
-                url = f'https://graph.facebook.com/v19.0/{ig_user_id}/messages'
-                payload = {
-                    'recipient': {'comment_id': comment_id},
-                    'message': {'text': text},
-                    'access_token': token,
-                }
-            else:
-                url = f'https://graph.facebook.com/v19.0/{comment_id}/private_replies'
-                payload = {'message': text, 'access_token': token}
+        if service == 'instagram':
+            ig_user_id = self.env['ir.config_parameter'].sudo().get_param(
+                'odoo_chatwoot_connector.ig_user_id', ''
+            )
+            if not ig_user_id:
+                return False, 'Instagram User ID не налаштований (odoo_chatwoot_connector.ig_user_id)'
+            url = f'https://graph.facebook.com/v25.0/{ig_user_id}/messages'
+            payload = {
+                'recipient': {'comment_id': comment_id},
+                'message': {'text': text},
+                'access_token': token,
+            }
+        else:
+            url = f'https://graph.facebook.com/v25.0/{comment_id}/private_replies'
+            payload = {'message': text, 'access_token': token}
 
-            resp = requests.post(url, json=payload, timeout=15)
-            if resp.status_code == 200:
-                _logger.info('SendPulse Odo: private reply sent for comment %s (%s)', comment_id, service)
-                return True, None
-            err = self._parse_fb_error(resp)
-            _logger.warning('SendPulse Odo: private reply failed for %s: %s', comment_id, err)
-            return False, err
-        except Exception as e:
-            _logger.error('SendPulse Odo: private reply exception for %s: %s', comment_id, e)
-            return False, str(e)
+        ok, err, _resp = self._fb_post_with_retry(
+            url, payload, label=f'private-reply {comment_id} ({service})',
+        )
+        if ok:
+            _logger.info('SendPulse Odo: private reply sent for comment %s (%s)', comment_id, service)
+        return ok, err
 
     def _get_fb_page_token(self):
         """Повертає Facebook Page Access Token з ir.config_parameter."""
         return self.env['ir.config_parameter'].sudo().get_param(
             'odoo_chatwoot_connector.fb_page_access_token', ''
         ) or ''
+
+    @api.model
+    def cron_check_messenger_windows(self):
+        """
+        Шукає розмови де Messenger 24h-вікно закривається менш ніж за 2 години.
+        Надсилає Telegram-алерт + нотатку у Discuss-канал, позначає sp_window_alert_sent=True
+        щоб не повторювати сповіщення.
+        """
+        now = fields.Datetime.now()
+        threshold = now + timedelta(hours=2)
+        records = self.search([
+            ('sp_messenger_window_expires_at', '!=', False),
+            ('sp_messenger_window_expires_at', '<=', threshold),
+            ('sp_messenger_window_expires_at', '>', now),
+            ('sp_window_alert_sent', '=', False),
+            ('stage', '!=', 'close'),
+        ])
+        for rec in records:
+            minutes_left = int((rec.sp_messenger_window_expires_at - now).total_seconds() / 60)
+            _logger.info(
+                'SendPulse Odo: window closing in %d min for connect %s (%s)',
+                minutes_left, rec.id, rec.name,
+            )
+            self._notify_telegram(
+                f'⏳ <b>Вікно 24h скоро закриється</b>\n\n'
+                f'👤 {rec.name} ({rec._get_service_label()})\n'
+                f'⏱ Залишилось: <b>{minutes_left} хв</b>\n\n'
+                f'Після цього не зможемо писати клієнту поки він не напише сам.',
+                silent=True,
+            )
+            if rec.channel_id:
+                rec.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
+                    body=Markup(
+                        f'⏳ <b>Вікно 24h закривається за {minutes_left} хв.</b> '
+                        f'Якщо потрібно — напишіть клієнту зараз.'
+                    ),
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_note',
+                    author_id=self.env.ref('base.partner_root').id,
+                )
+            rec.write({'sp_window_alert_sent': True})
+
+    @api.model
+    def cron_check_fb_token_expiry(self):
+        """
+        Щотижнева перевірка терміну дії Facebook Page Access Token.
+        - /me → перевіряє валідність
+        - /debug_token → точний expires_at (якщо є app_id+app_secret)
+        Результат → ir.config_parameter (fb_token_status, fb_token_last_check, fb_token_expires_at).
+        """
+        ICP = self.env['ir.config_parameter'].sudo()
+        token = ICP.get_param('odoo_chatwoot_connector.fb_page_access_token', '')
+        ICP.set_param('odoo_chatwoot_connector.fb_token_last_check', fields.Datetime.now().isoformat())
+        if not token:
+            ICP.set_param('odoo_chatwoot_connector.fb_token_status', 'not_configured')
+            return
+
+        try:
+            resp = requests.get(
+                'https://graph.facebook.com/v25.0/me',
+                params={'access_token': token, 'fields': 'id,name'},
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                err = self._parse_fb_error(resp)
+                ICP.set_param('odoo_chatwoot_connector.fb_token_status', f'invalid: {err}')
+                _logger.error('SendPulse Odo: FB Page Token invalid — %s', err)
+                self._notify_telegram(
+                    f'⚠️ <b>Facebook Page Token НЕДІЙСНИЙ</b>\n\n'
+                    f'Причина: {err}\n\n'
+                    f'Автовідповіді і приватні повідомлення не працюють. '
+                    f'Потрібно згенерувати новий токен у Business Manager.'
+                )
+                return
+        except Exception as e:
+            ICP.set_param('odoo_chatwoot_connector.fb_token_status', f'check_failed: {e}')
+            _logger.error('SendPulse Odo: FB Page Token check failed — %s', e)
+            return
+
+        app_id = ICP.get_param('odoo_chatwoot_connector.fb_app_id', '')
+        app_secret = ICP.get_param('odoo_chatwoot_connector.fb_app_secret', '')
+        if not (app_id and app_secret):
+            ICP.set_param('odoo_chatwoot_connector.fb_token_status', 'valid (set fb_app_id/secret for expiry tracking)')
+            return
+
+        try:
+            resp = requests.get(
+                'https://graph.facebook.com/v25.0/debug_token',
+                params={'input_token': token, 'access_token': f'{app_id}|{app_secret}'},
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                ICP.set_param('odoo_chatwoot_connector.fb_token_status', 'valid (debug_token failed)')
+                return
+            data = resp.json().get('data', {})
+            expires_at = data.get('expires_at', 0)
+            if expires_at == 0:
+                ICP.set_param('odoo_chatwoot_connector.fb_token_status', 'valid: never expires')
+                ICP.set_param('odoo_chatwoot_connector.fb_token_expires_at', '0')
+                return
+            exp_dt = datetime.utcfromtimestamp(expires_at)
+            ICP.set_param('odoo_chatwoot_connector.fb_token_expires_at', exp_dt.isoformat())
+            days_left = (exp_dt - datetime.utcnow()).days
+            if days_left < 7:
+                _logger.error('SendPulse Odo: FB Page Token expires in %d days!', days_left)
+                ICP.set_param('odoo_chatwoot_connector.fb_token_status', f'expires_soon: {days_left}d')
+                self._notify_telegram(
+                    f'⚠️ <b>FB Page Token скоро помре</b>\n\n'
+                    f'Залишилось днів: <b>{days_left}</b>\n'
+                    f'Треба згенерувати новий у Business Manager → System Users → Generate Token.'
+                )
+            else:
+                ICP.set_param('odoo_chatwoot_connector.fb_token_status', f'valid: {days_left}d left')
+        except Exception as e:
+            _logger.warning('SendPulse Odo: debug_token exception — %s', e)
+            ICP.set_param('odoo_chatwoot_connector.fb_token_status', 'valid (debug_token error)')
 
     @staticmethod
     def _parse_fb_error(resp):
@@ -1359,9 +1739,20 @@ class SendpulseConnect(models.Model):
         except Exception:
             return resp.text[:200] if resp.text else f'HTTP {resp.status_code}'
 
+    _CATEGORY_LABELS = {
+        'question_price': '💰 Питання про ціну',
+        'question_dates': '📅 Питання про терміни',
+        'question_age': '👶 Питання про вік',
+        'question_general': '❓ Загальне питання',
+        'thanks': '🙏 Подяка / позитив',
+        'complaint': '🚨 СКАРГА — потрібна увага оператора',
+        'spam': '🚫 Спам',
+        'other': '🔸 Інше',
+    }
+
     def _notify_operator_comment(self, contact_name, comment_text, post_url,
                                   sent_public, sent_private, public_error, private_error,
-                                  ai_skipped=False):
+                                  category=None):
         """Надсилає системну нотатку від OdooBot у Discuss-канал розмови."""
         if not self.channel_id:
             return
@@ -1370,14 +1761,11 @@ class SendpulseConnect(models.Model):
         lines.append(f'👤 Клієнт: {contact_name}')
         if comment_text:
             lines.append(f'📝 Коментар: "{comment_text}"')
+        if category and category != 'other':
+            lines.append(f'🏷️ Категорія: {self._CATEGORY_LABELS.get(category, category)}')
         if post_url:
             lines.append(f'🔗 Допис: {post_url}')
         lines.append('')
-
-        if ai_skipped:
-            lines.append('🤖 AI-фільтр: коментар класифіковано як хейт/спам — автовідповідь НЕ надіслана')
-            lines.append('👉 Якщо це помилка — відповідайте вручну')
-            lines.append('')
 
         if sent_public:
             lines.append('✅ Публічна відповідь опублікована під коментарем')
@@ -2069,6 +2457,12 @@ class SendpulseConnect(models.Model):
 
             resp.raise_for_status()
             _logger.info('SendPulse Odo: повідомлення відправлено контакту %s', self.sendpulse_contact_id)
+            # Метрики: фіксуємо першу відповідь оператора
+            if not self.sp_first_reply_at:
+                update_metrics = {'sp_first_reply_at': fields.Datetime.now()}
+                if self.sp_funnel_stage in ('comment_only', 'private_sent', 'customer_replied', False, None):
+                    update_metrics['sp_funnel_stage'] = 'operator_engaged'
+                self.sudo().write(update_metrics)
             return True
         except Exception as e:
             _logger.error('SendPulse Odo: помилка відправки: %s', e)

@@ -4,6 +4,243 @@
 
 ---
 
+## [2026-04-20] — v17.0.3.6.2
+
+### Settings UI
+
+Додано поля у форму Налаштування → SendPulse Odo для фіч, які з'явилися у попередніх 3.2.x–3.6.1 релізах але залишилися без UI (конфігурувалися лише через `ir.config_parameter`):
+
+- **Instagram**: `ig_user_id` (для private_reply на IG-коментарі)
+- **Facebook App**: `fb_app_id`, `fb_app_secret` (для /debug_token експіри-треку), readonly `fb_token_status`, `fb_token_last_check`
+- **LLM-класифікатор**: `llm_classifier_enabled`, `anthropic_api_key`, `llm_model`, `sp_comment_hide_spam_enabled`
+- **Telegram-алерти**: `telegram_alerts_enabled`, `telegram_bot_token`, `telegram_chat_id`
+
+Усі секретні поля з `password="True"`. Залежні поля ховаються через `invisible="not <toggle>"` — якщо LLM/Telegram вимкнені, API-ключі не показуються взагалі.
+
+### Архітектура — conflict resolution
+
+Під час інтеграції попередніх стеш-змін (v17.0.3.2.x–3.6.1) знято комміт [`cbd428b`](https://github.com/faynadigital/sendpulse-odoo/commit/cbd428b) (`_ai_classify_comment` через Gemini 2.5 Flash, OpenAI-compatible API) — замінено на `_classify_comment` через Anthropic Claude Haiku з 8 категоріями. Причина: Anthropic-версія повертає не binary `reply/skip`, а структуроване `thanks/spam/complaint/question_*` — це дозволяє різну маршрутизацію (thanks не потребує відповіді, spam ховається, complaint ескалюється у Telegram).
+
+Старі config-ключі `ai_filter_enabled`, `ai_api_key`, `ai_base_url`, `ai_model` більше не використовуються (залишаються у БД, але ігноруються).
+
+---
+
+## [2026-04-19] — v17.0.3.6.1
+
+### Надійність
+
+**Audit log для FB/IG Graph API викликів (#12 з roadmap)**
+
+Новий метод `_log_fb_audit(label, url, payload, status, response, attempts)` пише у `ir.logging` з `name='odoo_chatwoot_connector.fb_api'`. Інтегровано в `_fb_post_with_retry`: кожен виклик (успіх, 4xx без retry, всі retries exhausted, exception) створює запис з:
+- URL і тілом запиту (з редагованим `access_token`)
+- HTTP-кодом і тілом відповіді (перші 500 символів)
+- Кількістю спроб
+
+**Що це дає**:
+- Пошук у Technical → Logging за фільтром `name=odoo_chatwoot_connector.fb_api` показує всі API-виклики
+- Коли щось ламається — одразу видно точний request+response замість здогадок
+- Статистика (скільки спам-приховувань на день, скільки private_replies впало з 24h-вікном)
+- Доказ для Meta App Review аудиту — що саме робив токен
+
+Безпечно: записи аудиту не ламають основний флоу (try/except навколо write).
+
+---
+
+## [2026-04-19] — v17.0.3.6.0
+
+### Нові можливості
+
+**Метрики воронки конверсії (#9 з roadmap)**
+
+Нові поля на `sendpulse.connect`:
+- `sp_funnel_stage` (Selection, index) — стадія воронки:
+  - `comment_only` — коментар під постом, ніякої відповіді
+  - `private_sent` — автовідповідь надіслана в приват
+  - `customer_replied` — клієнт відписав у приват (перетворення!)
+  - `operator_engaged` — оператор підключився до розмови
+  - `lead_created` — створено CRM-лід
+  - `closed_won` — конверсія в замовлення
+  - `closed_lost` — втрата
+- `sp_first_inbound_at` — дата першого повідомлення клієнта
+- `sp_first_reply_at` — дата першої відповіді оператора
+- `sp_first_reply_time_sec` (computed, stored) — швидкість реакції в секундах
+- `sp_lead_id` (M2O crm.lead) — зв'язок з лідом
+
+**Переходи стадій (автоматично)**:
+- Створення коментаря → `comment_only`
+- Успішний `private_reply` → `private_sent`
+- Inbound message від клієнта → `customer_replied` + `sp_first_inbound_at`
+- Успішний `send_message_to_sendpulse` (оператор написав) → `operator_engaged` + `sp_first_reply_at`
+
+Подальші стадії (`lead_created`, `closed_won/lost`) — поки ручні або через майбутню інтеграцію з CRM.
+
+Користь: у list view `sendpulse.connect` з фільтром по `sp_funnel_stage` керівник бачить воронку: скільки коментарів → скільки приватних → скільки відповіли → скільки в обробці → конверсії. `sp_first_reply_time_sec` показує SLA операторів.
+
+---
+
+## [2026-04-19] — v17.0.3.5.0
+
+### Нові можливості
+
+**Messenger 24-годинне вікно — tracking + алерт (#8 з roadmap)**
+
+Meta дозволяє Page писати клієнту в Messenger/IG Direct лише 24 години після його останньої активності (повідомлення, реакції, коментаря). Після — лише з `MESSAGE_TAG` або `HUMAN_AGENT` label. Раніше оператори не знали коли вікно закривається — просто не могли надіслати повідомлення.
+
+**Зміни**:
+- Нові поля на `sendpulse.connect`: `sp_messenger_window_expires_at`, `sp_window_alert_sent`
+- Після успішного `private_reply` → вікно = `now + 24h`, `alert_sent = False`
+- При inbound message → вікно продовжується на 24h, alert-прапорець скидається
+- Новий cron `cron_check_messenger_windows()` кожні 30 хвилин:
+  - Шукає розмови де вікно закривається у найближчі 2 години
+  - Алерт у Telegram (silent): *"⏳ Вікно 24h скоро закриється — залишилось X хв"*
+  - Нотатка у відповідний Discuss-канал
+  - Позначає `alert_sent=True` щоб не дублювати
+
+Причина: втрачали клієнтів тихо — оператор хотів уточнити/нагадати через день, не міг. Тепер є ранній сигнал за 2 години щоб прийняти рішення.
+
+---
+
+## [2026-04-19] — v17.0.3.4.1
+
+### Покращення
+
+**Ротація шаблонів публічної відповіді — per-post (#7 з roadmap)**
+
+Було: `count = search_count([('sp_is_comment', '=', True)])` — глобальний лічильник усіх comment-розмов. Під вірусним постом з 20+ коментарями кожні 5 людей бачили однаковий шаблон, що робило відповіді бот-подібними.
+
+Стало: лічильник обмежений до `sp_post_id` + `sp_replied_public=True`. Під одним постом гарантується унікальність кожного з 5 шаблонів, потім цикл починається заново — але природно, бо 6-й коментатор і 1-й не бачать один одного у стрічці коментарів.
+
+Fallback на глобальний count якщо `post_id` пустий (старі записи без post_id).
+
+---
+
+## [2026-04-19] — v17.0.3.4.0
+
+### Нові можливості
+
+**Telegram-алерти менеджерам (ескалація)**
+
+Новий метод `_notify_telegram(text, silent)` — HTTP POST на `api.telegram.org/bot{token}/sendMessage` з HTML parse mode. Інтегровано у 4 сценарії:
+
+- 🚨 **Скарга** (LLM `category=complaint`) — гучне сповіщення з іменем клієнта, текстом, посиланням на пост
+- 🚫 **Спам приховано** (після `_hide_comment`) — тихе сповіщення (`disable_notification=True`), щоб не будити менеджерів
+- ⚠️ **FB Token недійсний** — критичний алерт (автовідповіді перестали працювати)
+- ⚠️ **FB Token expires_soon** (<7 днів, з `cron_check_fb_token_expiry`) — попередження щоб встигнути регенерувати
+
+Нові поля в Settings:
+- `telegram_alerts_enabled` (checkbox, default OFF)
+- `telegram_bot_token` (write-only, як API keys)
+- `telegram_chat_id` (Chat ID групи — від'ємне число для груп)
+
+Якщо `telegram_alerts_enabled=False` або токен не налаштовано — метод тихо повертає `False`, нічого не ламає.
+
+---
+
+## [2026-04-19] — v17.0.3.3.1
+
+### Нові можливості
+
+**Автоматичне приховування спам-коментарів (#6 з roadmap)**
+
+Новий метод `_hide_comment(comment_id, service)`:
+- FB: `POST /v25.0/{comment_id}` body `{is_hidden: true}`
+- IG: `POST /v25.0/{comment_id}` body `{hide: true}`
+
+**Логіка**: якщо LLM-класифікатор (#5) повернув `category=spam` + увімкнено `sp_comment_hide_spam_enabled` (default `True`) → коментар приховується. Хостить через retry-wrapper `_fb_post_with_retry`, тому transient errors не критичні.
+
+Причина: без автоприховування операторам доводилось вручну модерувати спам під кожним рекламним постом. Тепер LLM → hide → тиша.
+
+Нове поле в Settings: `sp_comment_hide_spam_enabled` (checkbox, default ON).
+
+---
+
+## [2026-04-19] — v17.0.3.3.0
+
+### Нові можливості
+
+**LLM-класифікатор коментарів (#5 з roadmap)**
+
+Автоматична класифікація коментарів FB/IG через Anthropic Claude у 8 категорій:
+`question_price`, `question_dates`, `question_age`, `question_general`, `thanks`, `complaint`, `spam`, `other`.
+
+**Маршрутизація за категорією**:
+- `thanks`, `spam` → автовідповідь НЕ надсилається (публічний шаблон на подяку виглядає як бот)
+- `complaint` → автовідповідь НЕ надсилається, оператор отримує нотатку `🚨 СКАРГА` для ручної обробки
+- `question_*` / `other` → поточна логіка (public + private)
+
+**Нові поля**:
+- `sendpulse.connect.sp_comment_category` — selection з категорією
+- Settings: `llm_classifier_enabled`, `anthropic_api_key`, `llm_model` (default `claude-haiku-4-5`)
+- Нотатка оператору тепер містить мітку категорії
+
+**Вартість**: Claude Haiku ~$0.80/M tok input → ~$0.20/1000 коментарів. Якщо вимкнено → `other` (поточна поведінка, без API-викликів).
+
+---
+
+## [2026-04-19] — v17.0.3.2.2
+
+### Безпека
+
+**Self-loop guard для коментарів FB/IG (#4 з roadmap)**
+
+У `_process_comment_event` додано перевірку перед публічною/приватною відповіддю: якщо `from.id` коментаря збігається з власним `page_id` (з payload) або `ig_user_id` (з config) — коментар пропускається з логом.
+
+Причина: без захисту наша публічна відповідь генерує новий коментар з новим `comment_id` → FB/IG надсилає webhook на той коментар → Odoo "бачить новий коментар" → відповідає → нескінченний цикл. Dedup по `sp_comment_id` не ловив це (новий коментар = новий ID).
+
+---
+
+## [2026-04-19] — v17.0.3.2.1
+
+### Надійність
+
+**Retry з exponential backoff для FB Graph API (#2 з roadmap)**
+
+Новий хелпер `_fb_post_with_retry(url, payload, label)` — 3 спроби з затримкою 1s/3s/9s. Rozфактор: обидва колбеки (`_send_comment_public_reply`, `_send_comment_private_reply`) тепер ідуть через нього.
+
+Політика retry:
+- **Повторюємо**: мережеві помилки (ConnectionError, Timeout), HTTP 5xx, HTTP 429 (rate limited)
+- **Не повторюємо**: HTTP 4xx крім 429 (bad request, invalid token, blocked user — permanent errors, retry марний)
+
+Причина: до цього фіксу network glitch або тимчасовий 5xx від Meta = втрата коментаря (оператор бачив помилку, клієнт — нічого). Тепер прозоре відновлення з логами по кожній спробі.
+
+---
+
+## [2026-04-18] — v17.0.3.2.0
+
+### Нові можливості
+
+**Автоперевірка терміну дії Facebook Page Access Token (#1 з roadmap)**
+
+Новий cron `SendPulse Odo: Перевірка FB Page Access Token` (раз на 7 днів):
+- `GET /v25.0/me` → перевіряє валідність токена
+- `GET /v25.0/debug_token` → точний `expires_at` (якщо є `fb_app_id` + `fb_app_secret`)
+- Статус зберігається у `ir.config_parameter`: `fb_token_status`, `fb_token_last_check`, `fb_token_expires_at`
+- Якщо залишилось <7 днів або токен невалідний → `_logger.error` + статус `expires_soon: Nd` / `invalid: <reason>`
+
+Нові поля в Settings:
+- `fb_app_id`, `fb_app_secret` — для debug_token (без них показуємо лише валідність, без дат)
+- `fb_token_status` (readonly) — поточний стан
+- `fb_token_last_check` (readonly) — дата останньої перевірки
+
+Причина: System User Page Token може стихати (60 днів за замовчуванням). Без моніторингу — тихий збій автовідповідей.
+
+---
+
+## [2026-04-18] — v17.0.3.1.1
+
+### Оновлення
+
+**Facebook Graph API v19.0 → v25.0**
+
+Усі 3 виклики FB/IG Graph API підняті з v19.0 (реліз Jan 2024) до v25.0:
+- `_send_comment_public_reply` → POST `/v25.0/{comment_id}/comments` (або `/replies` для IG)
+- `_send_comment_private_reply` (FB) → POST `/v25.0/{comment_id}/private_replies`
+- `_send_comment_private_reply` (IG) → POST `/v25.0/{ig_user_id}/messages`
+
+Причина: v19.0 біля двох років → зона deprecation (Meta знімає версії після 2 років). v25.0 — поточна стабільна, покриває EU DMA compliance + актуальні error codes + нові поля conversations API.
+
+---
+
 ## [2026-04-12] — v17.0.3.1.0
 
 ### Виправлення

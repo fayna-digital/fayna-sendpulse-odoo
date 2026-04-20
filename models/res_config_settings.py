@@ -69,6 +69,29 @@ class ResConfigSettings(models.TransientModel):
     fb_page_token_is_set = fields.Boolean(
         compute='_compute_fb_page_token_is_set',
     )
+    fb_app_id = fields.Char(
+        string='Facebook App ID',
+        config_parameter='odoo_chatwoot_connector.fb_app_id',
+        help='App ID з Meta Developer Portal. Потрібен для перевірки терміну дії токена (/debug_token).',
+    )
+    fb_app_secret = fields.Char(
+        string='Facebook App Secret',
+        help='App Secret з Meta Developer Portal. Потрібен для /debug_token. Залиште порожнім щоб не змінювати.',
+    )
+    fb_app_secret_is_set = fields.Boolean(
+        compute='_compute_fb_app_secret_is_set',
+    )
+    fb_token_status = fields.Char(
+        string='Статус Page Token',
+        compute='_compute_fb_token_status',
+        readonly=True,
+        help='Стан валідності і термін дії. Оновлюється щотижнево через cron.',
+    )
+    fb_token_last_check = fields.Char(
+        string='Остання перевірка',
+        compute='_compute_fb_token_status',
+        readonly=True,
+    )
     ig_user_id = fields.Char(
         string='Instagram Business Account ID',
         help='Числовий ID Instagram Business Account (~15 цифр). '
@@ -103,6 +126,54 @@ class ResConfigSettings(models.TransientModel):
              'Залиште порожнім щоб використовувати дефолтний текст.',
     )
 
+    # ── LLM-класифікатор коментарів ─────────────────────────────────────
+    llm_classifier_enabled = fields.Boolean(
+        string='LLM-класифікатор коментарів',
+        config_parameter='odoo_chatwoot_connector.llm_classifier_enabled',
+        default=False,
+        help='Класифікує коментарі (питання/подяка/скарга/спам) через Anthropic Claude. '
+             'На подяки і спам автовідповідь не надсилаємо, скарги ескалуємо оператору.',
+    )
+    anthropic_api_key = fields.Char(
+        string='Anthropic API Key',
+        help='API-ключ з console.anthropic.com для LLM-класифікації. Залиште порожнім щоб не змінювати.',
+    )
+    anthropic_api_key_is_set = fields.Boolean(
+        compute='_compute_anthropic_api_key_is_set',
+    )
+    llm_model = fields.Char(
+        string='LLM Model',
+        config_parameter='odoo_chatwoot_connector.llm_model',
+        default='claude-haiku-4-5',
+        help='Ідентифікатор моделі Anthropic. За замовчуванням claude-haiku-4-5 (найдешевша, ~$0.20/1000 коментарів).',
+    )
+    sp_comment_hide_spam_enabled = fields.Boolean(
+        string='Автоматично приховувати спам-коментарі',
+        config_parameter='odoo_chatwoot_connector.sp_comment_hide_spam_enabled',
+        default=True,
+        help='Якщо LLM-класифікатор позначив коментар як spam — автоматично ховаємо через Graph API (is_hidden=true).',
+    )
+
+    # ── Telegram-алерти менеджерам ──────────────────────────────────────
+    telegram_alerts_enabled = fields.Boolean(
+        string='Telegram-алерти менеджерам',
+        config_parameter='odoo_chatwoot_connector.telegram_alerts_enabled',
+        default=False,
+        help='Надсилати критичні сповіщення у Telegram-групу менеджерів: скарги, прихований спам, проблеми з токеном.',
+    )
+    telegram_bot_token = fields.Char(
+        string='Telegram Bot Token',
+        help='Токен з @BotFather (формат: 7123456789:AAEr...). Залиште порожнім щоб не змінювати.',
+    )
+    telegram_bot_token_is_set = fields.Boolean(
+        compute='_compute_telegram_bot_token_is_set',
+    )
+    telegram_chat_id = fields.Char(
+        string='Telegram Chat ID',
+        config_parameter='odoo_chatwoot_connector.telegram_chat_id',
+        help="ID групи куди бот пише. Для груп — від'ємне число (-1001234567890). Отримати через /getUpdates після додавання бота в групу.",
+    )
+
     @api.depends('fb_page_access_token')
     def _compute_fb_page_token_is_set(self):
         token = self.env['ir.config_parameter'].sudo().get_param(
@@ -118,6 +189,39 @@ class ResConfigSettings(models.TransientModel):
         )
         for rec in self:
             rec.ig_user_id_is_set = bool(val)
+
+    @api.depends('fb_app_secret')
+    def _compute_fb_app_secret_is_set(self):
+        val = self.env['ir.config_parameter'].sudo().get_param(
+            'odoo_chatwoot_connector.fb_app_secret', ''
+        )
+        for rec in self:
+            rec.fb_app_secret_is_set = bool(val)
+
+    @api.depends('fb_page_access_token')
+    def _compute_fb_token_status(self):
+        ICP = self.env['ir.config_parameter'].sudo()
+        status = ICP.get_param('odoo_chatwoot_connector.fb_token_status', 'not_checked')
+        last = ICP.get_param('odoo_chatwoot_connector.fb_token_last_check', '')
+        for rec in self:
+            rec.fb_token_status = status
+            rec.fb_token_last_check = last
+
+    @api.depends('anthropic_api_key')
+    def _compute_anthropic_api_key_is_set(self):
+        val = self.env['ir.config_parameter'].sudo().get_param(
+            'odoo_chatwoot_connector.anthropic_api_key', ''
+        )
+        for rec in self:
+            rec.anthropic_api_key_is_set = bool(val)
+
+    @api.depends('telegram_bot_token')
+    def _compute_telegram_bot_token_is_set(self):
+        val = self.env['ir.config_parameter'].sudo().get_param(
+            'odoo_chatwoot_connector.telegram_bot_token', ''
+        )
+        for rec in self:
+            rec.telegram_bot_token_is_set = bool(val)
 
     def get_values(self):
         # sendpulse_client_secret навмисно не повертається:
@@ -141,4 +245,19 @@ class ResConfigSettings(models.TransientModel):
             self.env['ir.config_parameter'].sudo().set_param(
                 'odoo_chatwoot_connector.ig_user_id',
                 self.ig_user_id,
+            )
+        if self.fb_app_secret:
+            self.env['ir.config_parameter'].sudo().set_param(
+                'odoo_chatwoot_connector.fb_app_secret',
+                self.fb_app_secret,
+            )
+        if self.anthropic_api_key:
+            self.env['ir.config_parameter'].sudo().set_param(
+                'odoo_chatwoot_connector.anthropic_api_key',
+                self.anthropic_api_key,
+            )
+        if self.telegram_bot_token:
+            self.env['ir.config_parameter'].sudo().set_param(
+                'odoo_chatwoot_connector.telegram_bot_token',
+                self.telegram_bot_token,
             )

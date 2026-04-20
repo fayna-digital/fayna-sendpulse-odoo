@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from . import res_config_settings
 from . import sendpulse_message
+from . import sendpulse_facebook_page
 from . import sendpulse_connect
 from . import sendpulse_identify_wizard
 from . import mail_channel
