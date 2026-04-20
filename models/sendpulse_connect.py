@@ -1028,6 +1028,70 @@ class SendpulseConnect(models.Model):
         "Раді бачити вас знову! 😊 Наш менеджер вже напише вам у повідомленнях — слідкуйте за вхідними 🏕️"
     )
 
+    # ── AI Comment Filter ─────────────────────────────────────────────────
+    _AI_COMMENT_FILTER_PROMPT = (
+        "You are a content moderator for CampScout, a children's summer camp company.\n"
+        "Classify the following social media comment into exactly one category:\n"
+        "- REPLY — normal question, interest, or positive comment that deserves a reply\n"
+        "- SKIP — hate speech, trolling, political provocation, spam, irrelevant, "
+        "or offensive content that should NOT get a reply\n\n"
+        "Comment: \"{comment}\"\n\n"
+        "Respond with ONLY one word: REPLY or SKIP"
+    )
+
+    def _ai_classify_comment(self, comment_text):
+        """
+        Classify comment via LLM: REPLY (respond) or SKIP (ignore).
+        Returns 'reply' or 'skip'. Defaults to 'reply' on any error.
+        """
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param('odoo_chatwoot_connector.ai_filter_enabled', 'True') != 'True':
+            return 'reply'
+
+        api_key = ICP.get_param('odoo_chatwoot_connector.ai_api_key', '')
+        if not api_key:
+            _logger.warning('AI comment filter: API key not configured, defaulting to reply')
+            return 'reply'
+
+        base_url = (ICP.get_param('odoo_chatwoot_connector.ai_base_url', '')
+                    or 'https://api.openai.com/v1').strip().rstrip('/')
+        model = (ICP.get_param('odoo_chatwoot_connector.ai_model', '')
+                 or 'gpt-4o-mini').strip()
+
+        prompt = self._AI_COMMENT_FILTER_PROMPT.format(
+            comment=comment_text[:300].replace('"', "'"),
+        )
+        try:
+            resp = requests.post(
+                '%s/chat/completions' % base_url,
+                headers={
+                    'Authorization': 'Bearer %s' % api_key,
+                    'Content-Type': 'application/json',
+                },
+                json={
+                    'model': model,
+                    'messages': [{'role': 'user', 'content': prompt}],
+                    'max_tokens': 200,
+                    'temperature': 0,
+                },
+                timeout=10,
+            )
+            if resp.status_code != 200:
+                _logger.warning('AI comment filter: API error %s, defaulting to reply', resp.status_code)
+                return 'reply'
+            answer = (resp.json()
+                      .get('choices', [{}])[0]
+                      .get('message', {})
+                      .get('content', '')
+                      .strip().upper())
+            if 'SKIP' in answer:
+                _logger.info('AI comment filter: SKIP for "%s"', comment_text[:80])
+                return 'skip'
+            return 'reply'
+        except Exception as e:
+            _logger.warning('AI comment filter error: %s, defaulting to reply', e)
+            return 'reply'
+
     @api.model
     def _process_comment_event(self, data, contact, bot, service, channel_data_msg):
         """
@@ -1135,6 +1199,14 @@ class SendpulseConnect(models.Model):
             ICP.get_param('odoo_chatwoot_connector.sp_comment_public_enabled', 'True') == 'True'
         )
 
+        # AI фільтр: перевіряємо чи коментар не є хейтом/спамом
+        ai_verdict = connect._ai_classify_comment(comment_text)
+        if ai_verdict == 'skip':
+            send_public = False
+            send_private = False
+            _logger.info('SendPulse Odo: AI filter SKIP for comment %s: "%s"',
+                         comment_id, comment_text[:80])
+
         # Тексти з підстановкою URL
         landing_url = ICP.get_param('odoo_chatwoot_connector.sp_comment_landing_url', 'https://lato2026.campscout.eu')
         tg_url = ICP.get_param('odoo_chatwoot_connector.sp_comment_tg_url', 'https://t.me/campscouting')
@@ -1193,6 +1265,7 @@ class SendpulseConnect(models.Model):
         connect._notify_operator_comment(
             contact_name=contact_name,
             comment_text=comment_text,
+            ai_skipped=(ai_verdict == 'skip'),
             post_url=post_url,
             sent_public=public_ok,
             sent_private=private_ok,
@@ -1287,7 +1360,8 @@ class SendpulseConnect(models.Model):
             return resp.text[:200] if resp.text else f'HTTP {resp.status_code}'
 
     def _notify_operator_comment(self, contact_name, comment_text, post_url,
-                                  sent_public, sent_private, public_error, private_error):
+                                  sent_public, sent_private, public_error, private_error,
+                                  ai_skipped=False):
         """Надсилає системну нотатку від OdooBot у Discuss-канал розмови."""
         if not self.channel_id:
             return
@@ -1299,6 +1373,11 @@ class SendpulseConnect(models.Model):
         if post_url:
             lines.append(f'🔗 Допис: {post_url}')
         lines.append('')
+
+        if ai_skipped:
+            lines.append('🤖 AI-фільтр: коментар класифіковано як хейт/спам — автовідповідь НЕ надіслана')
+            lines.append('👉 Якщо це помилка — відповідайте вручну')
+            lines.append('')
 
         if sent_public:
             lines.append('✅ Публічна відповідь опублікована під коментарем')
