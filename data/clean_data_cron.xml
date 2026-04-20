@@ -59,7 +59,53 @@
             <field name="active">True</field>
             <field name="nextcall">2026-04-19 10:00:00</field>
         </record>
+
+        <record id="ir_cron_sendpulse_auto_close_inactive" model="ir.cron">
+            <field name="name">SendPulse Odo: Авто-закриття неактивних розмов (V2 F5)</field>
+            <field name="model_id" ref="model_sendpulse_connect"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_auto_close_inactive()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+            <field name="nextcall">2026-04-21 04:00:00</field>
+        </record>
+
+        <record id="ir_cron_sendpulse_archive_old_comments" model="ir.cron">
+            <field name="name">SendPulse Odo: Архівація старих коментарних записів (V2 F7)</field>
+            <field name="model_id" ref="model_sendpulse_connect"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_archive_old_comment_records()</field>
+            <field name="interval_number">30</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+            <field name="nextcall">2026-05-01 04:30:00</field>
+        </record>
+
+        <record id="ir_cron_sendpulse_weekly_report" model="ir.cron">
+            <field name="name">SendPulse Odo: Щотижневий Telegram-звіт (V2 F8)</field>
+            <field name="model_id" ref="model_sendpulse_connect"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_weekly_telegram_report()</field>
+            <field name="interval_number">7</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+            <field name="nextcall">2026-04-27 09:00:00</field>
+        </record>
+
+        <record id="ir_cron_sendpulse_refresh_tokens" model="ir.cron">
+            <field name="name">SendPulse Odo: Long-lived FB token refresh (V2 F6)</field>
+            <field name="model_id" ref="model_sendpulse_connect"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_refresh_fb_tokens()</field>
+            <field name="interval_number">7</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+            <field name="nextcall">2026-04-26 05:00:00</field>
+        </record>
     </data>
 </odoo>
-
-<!-- APPEND BEFORE </data></odoo> — insert manually -->

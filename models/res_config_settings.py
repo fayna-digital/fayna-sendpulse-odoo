@@ -196,6 +196,82 @@ class ResConfigSettings(models.TransientModel):
             },
         }
 
+    # ── Auto-archive old comments (V2 F7) ────────────────────────────────
+    auto_archive_comments_enabled = fields.Boolean(
+        string='Авто-архівація старих коментарів',
+        config_parameter='odoo_chatwoot_connector.auto_archive_comments_enabled',
+        default=False,
+        help='Soft-archive (active=False) для закритих comment-розмов старших '
+             'за N днів. Запис залишається у БД, але ховається з default views.',
+    )
+    auto_archive_comments_days = fields.Integer(
+        string='Дні до архівації',
+        config_parameter='odoo_chatwoot_connector.auto_archive_comments_days',
+        default=30,
+        help='Скільки днів має пройти з write_date щоб закритий коментарний запис був архівований.',
+    )
+
+    # ── Auto-refresh FB tokens (V2 F6) ───────────────────────────────────
+    auto_refresh_tokens_enabled = fields.Boolean(
+        string='Авто-refresh FB Page tokens',
+        config_parameter='odoo_chatwoot_connector.auto_refresh_tokens_enabled',
+        default=False,
+        help='Коли Page Token помирає < N днів — exchange на long-lived через '
+             '/oauth/access_token?grant_type=fb_exchange_token. Потребує app_id + app_secret.',
+    )
+    token_refresh_threshold_days = fields.Integer(
+        string='Поріг refresh (днів)',
+        config_parameter='odoo_chatwoot_connector.token_refresh_threshold_days',
+        default=14,
+        help='Refresh токен якщо залишилось менше N днів. Дефолт 14.',
+    )
+
+    # ── Weekly Telegram report (V2 F8) ───────────────────────────────────
+    weekly_report_enabled = fields.Boolean(
+        string='Щотижневий Telegram-звіт',
+        config_parameter='odoo_chatwoot_connector.weekly_report_enabled',
+        default=False,
+        help='Понеділок 09:00 UTC → у telegram-групу зводка за минулий тиждень: '
+             'webhook-и по типах, категорії коментарів, funnel-конверсія, SLA, алерти.',
+    )
+
+    # ── Auto-close inactive (V2 F5) ──────────────────────────────────────
+    auto_close_inactive_enabled = fields.Boolean(
+        string='Авто-закриття неактивних розмов',
+        config_parameter='odoo_chatwoot_connector.auto_close_inactive_enabled',
+        default=False,
+        help='Закриває розмови у stage in_progress/new_message якщо клієнт '
+             'не писав X днів. Cron 1 раз/добу.',
+    )
+    auto_close_inactive_days = fields.Integer(
+        string='Дні до авто-закриття',
+        config_parameter='odoo_chatwoot_connector.auto_close_inactive_days',
+        default=7,
+        help='Скільки днів бездіяльності перш ніж закрити. Дефолт 7.',
+    )
+    auto_close_goodbye_text = fields.Char(
+        string='Прощальне повідомлення (опц.)',
+        config_parameter='odoo_chatwoot_connector.auto_close_goodbye_text',
+        help='Якщо задано і 24h-вікно Meta відкрите — надсилається клієнту '
+             'при авто-закритті. Залиште порожнім щоб не надсилати.',
+    )
+
+    # ── Auto-create CRM leads (V2 F4) ────────────────────────────────────
+    auto_create_lead_enabled = fields.Boolean(
+        string='Автоматично створювати ліди',
+        config_parameter='odoo_chatwoot_connector.auto_create_lead_enabled',
+        default=False,
+        help='Коли клієнт відповів у приват (funnel_stage=customer_replied) — '
+             'автоматично створюється crm.lead зі знайденим партнером і прив\'язується '
+             'до розмови через sp_lead_id. Ідемпотентно — якщо лід уже є, не створює другий.',
+    )
+    auto_create_lead_team_id = fields.Many2one(
+        'crm.team',
+        string='Sales team для авто-лідів',
+        config_parameter='odoo_chatwoot_connector.auto_create_lead_team_id',
+        help='Якщо не задано — використовується default команда із CRM.',
+    )
+
     # ── Telegram-алерти менеджерам ──────────────────────────────────────
     telegram_alerts_enabled = fields.Boolean(
         string='Telegram-алерти менеджерам',
