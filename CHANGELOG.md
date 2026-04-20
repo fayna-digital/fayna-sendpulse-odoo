@@ -4,6 +4,48 @@
 
 ---
 
+## [2026-04-20] — v17.0.3.7.0
+
+### Multi-page FB/IG — повний refactor
+
+**Що змінилось у flow обробки коментарів:**
+- `_process_comment_event` тепер резолвить `sendpulse.facebook.page` запис за `page_id` з webhook (метод `find_by_page_id`) — на початку обробки, ще до self-loop guard.
+- На `sendpulse.connect` додано поле **`sp_page_id`** (indexed Char) — зберігає Page ID з webhook, щоб наступні операції знали з якої Сторінки відповідати.
+- **Self-loop guard** тепер збирає власні ID з усіх активних Page-ів (не тільки legacy `ig_user_id`) — захист від циклу для всіх 11 сторінок.
+- **Per-page URL overrides**: шаблони публічних/приватних відповідей підставляють `page.landing_url / tg_url / yt_url` якщо заданий, інакше глобальний ICP.
+
+**API-caller-и**: `_hide_comment`, `_send_comment_public_reply`, `_send_comment_private_reply` тепер приймають `page=None`. Через `_get_fb_page_token(page=page)` токен резолвиться з пріоритетом:
+1. `page.access_token` (якщо передано)
+2. Page за `self.sp_page_id` (для повторних операцій у тій самій розмові)
+3. Default Page (`is_default=True`)
+4. Legacy `ir.config_parameter.fb_page_access_token`
+
+Для IG private_reply — `ig_user_id` береться з `page.ig_business_id` замість глобального.
+
+**Cron токен-перевірки**: `cron_check_fb_token_expiry` тепер ітерує всі активні `sendpulse.facebook.page` записи + окремо legacy токен. Для кожного запускається `_check_single_fb_token(token, label)` — записує `token_status` і `last_checked_at` безпосередньо на Page record. Telegram-алерт з міткою сторінки (`[CampScout]`, `[Raid Camp]` тощо). Дублі уникаються — якщо legacy токен = токен якоїсь Page, legacy просто мітиться як `valid (mirrored by Page "...")`.
+
+### Settings UI — секція Multi-page
+
+Додано секцію у Settings form:
+- `fb_pages_count` (readonly) — скільки активних Page-записів
+- `fb_sync_user_token` (password input, не зберігається) — User Access Token з Graph API Explorer
+- Кнопка **"Синхронізувати з Meta /me/accounts"** → викликає `sync_from_meta(user_token)` → створює/оновлює записи Pages з їхніми безстроковими токенами і IG Business ID
+- Linkи на Graph API Explorer + довідка про обмеження
+
+### Sendpulse Pages menu
+
+Доступне через Налаштування → Технічне → SendPulse → Facebook Pages (action `action_sendpulse_facebook_page`). Tree + form, кнопка "Перевірити токен" у form-view.
+
+### Backward compatibility
+
+Legacy `ir.config_parameter.fb_page_access_token` + `ig_user_id` продовжують працювати як fallback якщо в `sendpulse.facebook.page` немає записів АБО webhook не приніс `page_id`. Існуючі розмови продовжують відповідати через CampScout Page Token — нічого не ламається.
+
+### Пам'ятай
+
+Коли новий User Token сгенерується → у Settings треба натиснути "Синхронізувати з Meta" — це створить 11 Page-записів (CampScout + 10 інших) з їхніми безстроковими Page Tokens. Модуль автоматично маршрутизує відповіді на правильну сторінку за `page_id` з webhook.
+
+---
+
 ## [2026-04-20] — v17.0.3.6.2
 
 ### Settings UI
