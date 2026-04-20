@@ -287,19 +287,17 @@
                         <group string="Anthropic">
                             <field name="llm_classifier_enabled"/>
                             <field name="anthropic_api_key" password="True"
-                                   placeholder="sk-ant-api03-..."
-                                   invisible="not llm_classifier_enabled"/>
+                                   placeholder="sk-ant-api03-..."/>
                             <field name="anthropic_api_key_is_set" invisible="1"/>
-                            <div colspan="2" invisible="not llm_classifier_enabled">
+                            <div colspan="2">
                                 <small class="text-success" invisible="not anthropic_api_key_is_set">✓ API key збережено</small>
                                 <small class="text-warning" invisible="anthropic_api_key_is_set">⚠ API key не налаштовано</small>
                             </div>
-                            <field name="llm_model" invisible="not llm_classifier_enabled"/>
+                            <field name="llm_model"/>
                         </group>
                         <group string="Поведінка">
-                            <field name="sp_comment_hide_spam_enabled"
-                                   invisible="not llm_classifier_enabled"/>
-                            <div colspan="2" invisible="not llm_classifier_enabled">
+                            <field name="sp_comment_hide_spam_enabled"/>
+                            <div colspan="2">
                                 <small class="text-muted">
                                     Класифікує коментарі на 8 категорій (ціна/дати/вік/загальне/подяка/скарга/спам/інше).
                                     На подяку/спам не відповідаємо; спам приховуємо; скарга → Telegram оператору.
@@ -313,18 +311,16 @@
                         <group string="Bot">
                             <field name="telegram_alerts_enabled"/>
                             <field name="telegram_bot_token" password="True"
-                                   placeholder="7123456789:AAEr..."
-                                   invisible="not telegram_alerts_enabled"/>
+                                   placeholder="7123456789:AAEr..."/>
                             <field name="telegram_bot_token_is_set" invisible="1"/>
-                            <div colspan="2" invisible="not telegram_alerts_enabled">
+                            <div colspan="2">
                                 <small class="text-success" invisible="not telegram_bot_token_is_set">✓ Bot token збережено</small>
                                 <small class="text-warning" invisible="telegram_bot_token_is_set">⚠ Token не налаштовано</small>
                             </div>
                             <field name="telegram_chat_id"
-                                   placeholder="-1001234567890"
-                                   invisible="not telegram_alerts_enabled"/>
+                                   placeholder="-1001234567890"/>
                         </group>
-                        <group string="Події" invisible="not telegram_alerts_enabled">
+                        <group string="Події">
                             <div colspan="2">
                                 <small class="text-muted">
                                     Що надсилається у групу:<br/>
