@@ -306,6 +306,22 @@
                         </group>
                     </group>
 
+                    <h2>V2 Automation — Sprint 2</h2>
+                    <group>
+                        <group string="RAG FAQ auto-answer (F1)">
+                            <field name="rag_auto_answer_enabled"/>
+                            <field name="rag_auto_confidence_threshold"/>
+                            <div colspan="2">
+                                <small class="text-muted">
+                                    Клієнт питає у DM → Claude шукає match у FAQ →
+                                    якщо confidence ≥ threshold, автоматично відповідає.
+                                    <br/>FAQ записи керуються у меню <b>SendPulse → FAQ Entries</b>.
+                                    <br/>Потребує увімкнутий Anthropic API key.
+                                </small>
+                            </div>
+                        </group>
+                    </group>
+
                     <h2>V2 Automation — Sprint 1</h2>
                     <group>
                         <group string="Auto-create lead (F4)">
@@ -464,5 +480,12 @@
               action="action_sendpulse_webhook_data"
               sequence="90"
               groups="odoo_chatwoot_connector.group_sendpulse_admin"/>
+
+    <menuitem id="menu_sendpulse_faq_entry"
+              name="FAQ Entries (RAG)"
+              parent="menu_sendpulse_root"
+              action="action_sendpulse_faq_entry"
+              sequence="70"
+              groups="odoo_chatwoot_connector.group_sendpulse_officer"/>
 
 </odoo>

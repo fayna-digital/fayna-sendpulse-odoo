@@ -4,6 +4,68 @@
 
 ---
 
+## [2026-04-20] — v17.0.5.0
+
+### Sprint 2 TZ v2.0 — F1 RAG FAQ auto-answer
+
+Найбільша фіча V2. Коли клієнт пише питання у приват (не comment), модуль через Anthropic Claude автоматично шукає match у FAQ базі і відповідає персоналізовано — без втягування оператора.
+
+**Модель `sendpulse.faq.entry`** (нова):
+- Поля: `name`, `question`, `answer`, `tags`, `priority`, `active`, `hit_count`, `last_used_at`
+- Tree/form/search views у menu «**SendPulse → FAQ Entries (RAG)**»
+- Access: officer може CRUD (додати/редагувати FAQ), admin — повний
+- Ordering: priority desc → hit_count desc
+- Дія «Тест match» на формі (stub, TODO wizard)
+
+**Seed data (10 стартових FAQ):**
+- Ціна табору, Дати заїздів, З якого віку беруть дітей
+- Що брати у табір, Харчування, Безпека
+- Де знаходиться, Телефони дітям, Туга за домом, Як забронювати
+
+**Метод `_rag_answer_question(question_text, contact_name)`** на `sendpulse.connect`:
+- Бере всі активні FAQ → формує prompt для Claude
+- Claude обирає best match (або NO_MATCH), генерує персоналізовану відповідь, дає confidence 0-1
+- Повертає dict `{matched, faq_id, confidence, answer, reason}`
+- Auto-increment `hit_count` + `last_used_at` при використанні FAQ
+- In-context retrieval — НЕ embedding-based (простіше, достатньо для <100 FAQ)
+- Один API call замість embed+retrieve+generate
+- Cost: ~$0.001/питання на Claude Haiku (1000 input + 200 output токенів)
+
+**Helper `_try_rag_auto_answer(question_text)`** gating logic:
+- Перевіряє `rag_auto_answer_enabled` + `rag_auto_confidence_threshold`
+- Rate-limit: не відповідає автоматично частіше ніж 1 раз/годину для тієї ж розмови
+- При match + high confidence → `send_message_to_sendpulse` + системна нотатка у Discuss з маркером 🤖
+- Зберігає `rag_auto_answered_at` + `rag_last_faq_id` на connect
+- Transparent fallback — оператор бачить у Discuss що саме було автоматично відповідено
+
+**Інтеграція у `_process_inbound`:**
+- Тригер: `last_message` не порожній, `sp_is_comment=False`, існуючий connect
+- Викликається після `connect.write(update_vals)`, перед notification операторів
+- Silent fallback: якщо RAG не знаходить match → flow продовжується як раніше (operator queue)
+
+**Settings:**
+- `rag_auto_answer_enabled` (default False, safe rollout)
+- `rag_auto_confidence_threshold` (default 0.85)
+
+**Нові поля на `sendpulse.connect`:**
+- `rag_auto_answered_at` (Datetime)
+- `rag_last_faq_id` (M2O sendpulse.faq.entry)
+
+**Нові поля у ir.config_parameter:**
+- `odoo_chatwoot_connector.rag_auto_answer_enabled`
+- `odoo_chatwoot_connector.rag_auto_confidence_threshold`
+
+**Security:**
+- 2 нові ACL rows для `sendpulse.faq.entry`
+
+**Як активувати:**
+1. Settings → SendPulse → V2 Automation Sprint 2 → ☑ RAG FAQ auto-answer
+2. (Опційно) понизити threshold з 0.85 до 0.75 для тестування
+3. Додати FAQ у меню **SendPulse → FAQ Entries** (10 seed вже є)
+4. Написати на прод-бот типове питання → перевірити що 🤖 відповідь пройшла
+
+---
+
 ## [2026-04-20] — v17.0.4.0
 
 ### Sprint 1 TZ v2.0 — 5 automation features

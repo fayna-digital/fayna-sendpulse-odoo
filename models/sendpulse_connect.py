@@ -238,6 +238,17 @@ class SendpulseConnect(models.Model):
         help='CRM-лід створений з цієї розмови',
     )
 
+    # V2 F1 RAG auto-answer tracking
+    rag_auto_answered_at = fields.Datetime(
+        string='Auto-answered (RAG) at',
+        help='Коли модуль востаннє автоматично відповів через FAQ RAG.',
+    )
+    rag_last_faq_id = fields.Many2one(
+        'sendpulse.faq.entry',
+        string='Останній match FAQ',
+        help='Яка FAQ-запис була останньою використана для авто-відповіді.',
+    )
+
     @api.depends('sp_first_inbound_at', 'sp_first_reply_at')
     def _compute_first_reply_time(self):
         for rec in self:
@@ -1005,6 +1016,12 @@ class SendpulseConnect(models.Model):
             # вже є sp_lead_id → skip. No-op якщо auto_create_lead_enabled=False.
             if update_vals.get('sp_funnel_stage') == 'customer_replied':
                 connect._auto_create_crm_lead()
+
+            # V2 F1: RAG FAQ auto-answer — якщо клієнт написав питання
+            # і ми маємо високий confidence на FAQ match → відповідаємо автоматично.
+            # Умови: не comment-розмова, клієнт написав текст, не оператор.
+            if last_message and not connect.sp_is_comment:
+                connect._try_rag_auto_answer(last_message)
 
         # Ensure incoming Discuss messages always have a customer author,
         # never fallback to OdooBot (it breaks identity/avatar in chat UI).
@@ -1935,6 +1952,201 @@ class SendpulseConnect(models.Model):
                 lines.append(f'  • {p.name}: {p.token_status or "?"}')
 
         return '\n'.join(lines)[:4000]
+
+    # ── V2 F1: RAG FAQ auto-answer ────────────────────────────────────────
+    def _rag_answer_question(self, question_text, contact_name=''):
+        """
+        Через Anthropic Claude підбирає найкращу FAQ відповідь на питання клієнта
+        і персоналізує її. Модель читає список всіх активних FAQ у контексті
+        (не embedding-based, а in-context retrieval — простіше і достатньо для <100 FAQ).
+
+        Повертає dict:
+        {
+            'matched': bool,
+            'faq_id': int or None,
+            'confidence': float (0..1),
+            'answer': str,
+            'reason': str (для debug),
+        }
+
+        No-op повертає {'matched': False, ...} якщо RAG вимкнений або API key відсутній.
+        """
+        empty = {
+            'matched': False, 'faq_id': None, 'confidence': 0.0,
+            'answer': '', 'reason': 'not_configured',
+        }
+        if not question_text or not question_text.strip():
+            return empty
+
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param('odoo_chatwoot_connector.rag_auto_answer_enabled', 'False') != 'True':
+            return empty
+        api_key = ICP.get_param('odoo_chatwoot_connector.anthropic_api_key', '')
+        if not api_key:
+            return {**empty, 'reason': 'no_api_key'}
+
+        Faq = self.env['sendpulse.faq.entry'].sudo()
+        faqs = Faq.get_active_faq_for_prompt()
+        if not faqs:
+            return {**empty, 'reason': 'no_faqs'}
+
+        model = ICP.get_param('odoo_chatwoot_connector.llm_model', 'claude-haiku-4-5')
+
+        # Будуємо prompt з переліком FAQ у компактному форматі
+        faq_block = '\n'.join([
+            f"FAQ_{f['id']}: Q: {f['question']}\n   A: {f['answer']}"
+            for f in faqs
+        ])
+        contact_hint = f' Клієнт: {contact_name}.' if contact_name else ''
+        prompt = (
+            f"Ти — AI-асистент CampScout (літні дитячі табори у Польщі).\n"
+            f"Клієнт написав у приват:\n"
+            f"\"\"\"\n{question_text[:500]}\n\"\"\"\n\n"
+            f"{contact_hint}\n\n"
+            f"Ось база FAQ з canonical відповідями:\n\n"
+            f"{faq_block}\n\n"
+            f"Завдання:\n"
+            f"1. Якщо питання клієнта близьке до одного з FAQ (навіть перефразованого) — обери найкращий match.\n"
+            f"2. Якщо НЕМА близького match-у (клієнт питає щось специфічне що потребує людини) — верни NO_MATCH.\n"
+            f"3. Якщо match знайдено — перепиши canonical answer у natural reply до клієнта:\n"
+            f"   - Говори у другій особі (\"ви\"), доброзичливо, коротко (2-4 речення).\n"
+            f"   - Збережи ключову інфо (URL, цифри) з canonical answer.\n"
+            f"   - Додай емодзі помірно (1-2 максимум).\n"
+            f"   - Не починай з \"Дякую за питання\" і подібних клішe.\n"
+            f"4. Оціни confidence 0.0-1.0 наскільки ти впевнений що це саме цей FAQ.\n\n"
+            f"Формат відповіді — STRICT JSON:\n"
+            f'{{"faq_id": 42 або null, "confidence": 0.9, "answer": "text"}}\n'
+            f"Якщо NO_MATCH: {{\"faq_id\": null, \"confidence\": 0.0, \"answer\": \"\"}}\n"
+            f"Поверни ЛИШЕ JSON без будь-яких додаткових пояснень."
+        )
+
+        try:
+            resp = requests.post(
+                'https://api.anthropic.com/v1/messages',
+                headers={
+                    'x-api-key': api_key,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
+                },
+                json={
+                    'model': model,
+                    'max_tokens': 500,
+                    'messages': [{'role': 'user', 'content': prompt}],
+                },
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                _logger.warning(
+                    'SendPulse Odo: RAG HTTP %d — %s',
+                    resp.status_code, resp.text[:200],
+                )
+                return {**empty, 'reason': f'http_{resp.status_code}'}
+
+            raw = (resp.json().get('content') or [{}])[0].get('text', '').strip()
+            # Claude іноді обрамляє у ```json ... ```; зрізаємо
+            import json as _json
+            import re as _re
+            m = _re.search(r'\{[\s\S]*?\}', raw)
+            if not m:
+                _logger.warning('SendPulse Odo: RAG no JSON in response — %s', raw[:200])
+                return {**empty, 'reason': 'no_json'}
+            data = _json.loads(m.group(0))
+            faq_id = data.get('faq_id')
+            confidence = float(data.get('confidence') or 0.0)
+            answer = (data.get('answer') or '').strip()
+
+            if not faq_id or not answer:
+                return {
+                    'matched': False, 'faq_id': None,
+                    'confidence': confidence, 'answer': '', 'reason': 'no_match',
+                }
+
+            # Increment hit count + last_used_at
+            faq = Faq.browse(int(faq_id)).exists()
+            if faq:
+                faq.sudo().write({
+                    'hit_count': faq.hit_count + 1,
+                    'last_used_at': fields.Datetime.now(),
+                })
+
+            return {
+                'matched': True, 'faq_id': faq_id,
+                'confidence': confidence, 'answer': answer, 'reason': 'ok',
+            }
+        except Exception as e:
+            _logger.error('SendPulse Odo: RAG exception — %s', e)
+            return {**empty, 'reason': f'exception: {str(e)[:100]}'}
+
+    def _try_rag_auto_answer(self, question_text):
+        """
+        Helper: якщо RAG дав match з достатнім confidence — надсилає автовідповідь
+        клієнту через SendPulse + постить у Discuss-канал з 🤖 маркером.
+
+        Гейт: respects `rag_auto_confidence_threshold` (default 0.85).
+        Ідемпотентний — rag_auto_answered_at не дозволяє спамити автовідповіді частіше ніж раз/годину.
+        """
+        self.ensure_one()
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param('odoo_chatwoot_connector.rag_auto_answer_enabled', 'False') != 'True':
+            return
+        try:
+            threshold = float(ICP.get_param(
+                'odoo_chatwoot_connector.rag_auto_confidence_threshold', '0.85'
+            ))
+        except (ValueError, TypeError):
+            threshold = 0.85
+
+        # Rate-limit: якщо нещодавно (< 1h) вже відповіли автоматично — skip
+        now = fields.Datetime.now()
+        if self.rag_auto_answered_at and (now - self.rag_auto_answered_at) < timedelta(hours=1):
+            return
+
+        result = self._rag_answer_question(question_text, contact_name=self.name or '')
+        if not result.get('matched'):
+            return
+        if result.get('confidence', 0.0) < threshold:
+            _logger.info(
+                'SendPulse Odo: RAG match below threshold for connect %s (conf=%.2f < %.2f)',
+                self.id, result.get('confidence'), threshold,
+            )
+            return
+
+        answer = result['answer']
+        faq_id = result['faq_id']
+        try:
+            # Шлемо через SendPulse API
+            sent = self.send_message_to_sendpulse(answer, attachment_url=None)
+            if not sent:
+                _logger.warning('SendPulse Odo: RAG auto-answer send failed for connect %s', self.id)
+                return
+            # Мітимо розмову
+            self.write({
+                'rag_auto_answered_at': now,
+                'rag_last_faq_id': faq_id,
+            })
+            # Нотатка у Discuss-канал з маркером
+            if self.channel_id:
+                self.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
+                    body=Markup(
+                        '🤖 <b>Auto-answered (RAG FAQ #{faq_id}, confidence {conf:.0%})</b><br/>'
+                        '<i>Питання клієнта:</i> {q}<br/>'
+                        '<i>Відповідь:</i> {a}'
+                    ).format(
+                        faq_id=faq_id,
+                        conf=result.get('confidence', 0.0),
+                        q=escape(question_text[:200]),
+                        a=escape(answer),
+                    ),
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_note',
+                    author_id=self.env.ref('base.partner_root').id,
+                )
+            _logger.info(
+                'SendPulse Odo: RAG auto-answered connect %s from FAQ #%s (conf=%.2f)',
+                self.id, faq_id, result.get('confidence', 0.0),
+            )
+        except Exception as e:
+            _logger.error('SendPulse Odo: RAG auto-answer exception for connect %s: %s', self.id, e)
 
     # ── V2 F6: Long-lived token auto-refresh ──────────────────────────────
     @api.model

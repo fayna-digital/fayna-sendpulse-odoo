@@ -226,6 +226,23 @@ class ResConfigSettings(models.TransientModel):
         help='Refresh токен якщо залишилось менше N днів. Дефолт 14.',
     )
 
+    # ── RAG FAQ auto-answer (V2 F1) ──────────────────────────────────────
+    rag_auto_answer_enabled = fields.Boolean(
+        string='RAG FAQ авто-відповідь',
+        config_parameter='odoo_chatwoot_connector.rag_auto_answer_enabled',
+        default=False,
+        help='Коли клієнт пише питання у приват — модуль шукає match у FAQ '
+             'через Claude. Якщо confidence > threshold — шле автоматичну відповідь. '
+             'Потребує anthropic_api_key + FAQ записи у меню SendPulse → FAQ Entries.',
+    )
+    rag_auto_confidence_threshold = fields.Float(
+        string='Поріг confidence',
+        config_parameter='odoo_chatwoot_connector.rag_auto_confidence_threshold',
+        default=0.85,
+        help='0.0-1.0. Нижче цього значення — модуль НЕ відповідає автоматично, '
+             'передає оператору. Високий threshold (0.85+) = мало false positives.',
+    )
+
     # ── Weekly Telegram report (V2 F8) ───────────────────────────────────
     weekly_report_enabled = fields.Boolean(
         string='Щотижневий Telegram-звіт',
