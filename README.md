@@ -299,7 +299,8 @@ sendpulse-odoo/
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Усі налаштування (Settings UI + `ir.config_parameter`) |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Install / upgrade / rollback procedures |
 | [docs/TZ.md](docs/TZ.md) | Umbrella технічне завдання + roadmap |
-| [docs/TZ_COMMENT_AUTOREPLY.md](docs/TZ_COMMENT_AUTOREPLY.md) | ТЗ на автовідповіді на коменти (v1.4) |
+| [docs/TZ_COMMENT_AUTOREPLY.md](docs/TZ_COMMENT_AUTOREPLY.md) | ТЗ v1.4 на автовідповіді на коменти ✅ **виконано** |
+| [docs/TZ_V2_AUTOMATION.md](docs/TZ_V2_AUTOMATION.md) | ТЗ v2.0 — proactive automation (11 фіч у 3 sprints) 📝 **draft** |
 | [CHANGELOG.md](CHANGELOG.md) | Релізний журнал (semver patch-rev) |
 
 ### Правила межі модуля

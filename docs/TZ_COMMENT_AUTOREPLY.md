@@ -1,9 +1,13 @@
 # ТЗ: Автовідповідь на коментарі Facebook та Instagram
 
-**Модуль:** `odoo_chatwoot_connector` (SendPulse Odo, поточна v17.0.3.6.1)
-**Версія ТЗ:** 1.4
-**Дата:** 2026-04-19
-**Статус:** 🟡 Реалізовано і працює частково — заблоковано на Meta App Review
+**Модуль:** `odoo_chatwoot_connector` (SendPulse Odo)
+**Версія ТЗ:** 1.4 (final)
+**Дата:** 2026-04-19 (drafted) · 2026-04-20 (closed)
+**Статус:** ✅ **ВИКОНАНО** у модулі v17.0.3.7.1
+
+> **Closing note (2026-04-20):** Meta App Review approved. 11 FB Pages синхронізовано з безстроковими Page Tokens. LLM-класифікатор (Claude Haiku) + Telegram-алерти + Multi-page routing активні на проді. Всі 10/10 пунктів Definition of Done виконані. Єдине задокументоване обмеження — **Meta не підтримує `/private_replies` під FB Reels** (code 100/33), це Meta-side і не наш баг.
+>
+> **Наступний TZ:** [TZ_V2_AUTOMATION.md](TZ_V2_AUTOMATION.md) — proactive automation (RAG FAQ, drip-кампанії, auto-lead, weekly reports).
 
 ---
 

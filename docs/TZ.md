@@ -111,9 +111,20 @@ Umbrella технічне завдання. Поточний стан модул
 
 | TZ | Файл | Статус |
 |---|---|---|
-| Відповіді на коменти FB/IG | [TZ_COMMENT_AUTOREPLY.md](TZ_COMMENT_AUTOREPLY.md) | v1.4 — 8/10 done, 2 чекають Advanced Access |
+| V1.4 Відповіді на коменти FB/IG | [TZ_COMMENT_AUTOREPLY.md](TZ_COMMENT_AUTOREPLY.md) | ✅ **ВИКОНАНО** (v17.0.3.7.1, 2026-04-20) |
+| V2.0 SendPulse Odo Automation | [TZ_V2_AUTOMATION.md](TZ_V2_AUTOMATION.md) | 📝 **Draft** — 11 фіч у 3 sprints |
 
 Нові TZ додаються сюди у таблицю при початку роботи над фічею.
+
+### 3.1 V2.0 scope (анонс)
+
+Проактивна автоматизація що зніме 50-70% ручної роботи менеджерів. Розподілено на 3 sprints:
+
+- **Sprint 1 (tizak wins, ~2 дні):** F4 auto-create lead, F5 auto-close inactive, F6 long-lived token refresh, F7 archive old comments, F8 weekly Telegram report
+- **Sprint 2 (customer-facing, ~4 дні):** F1 RAG FAQ auto-answer, F3 bot-wizard identification
+- **Sprint 3 (operator UX, ~5 днів):** F10 suggested reply, F2 drip-кампанії, F9 A/B templates, F11 auto-translate
+
+Детально — див. [TZ_V2_AUTOMATION.md](TZ_V2_AUTOMATION.md).
 
 ---
 
