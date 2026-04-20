@@ -306,6 +306,59 @@
                         </group>
                     </group>
 
+                    <h2>V2 Automation — Sprint 1</h2>
+                    <group>
+                        <group string="Auto-create lead (F4)">
+                            <field name="auto_create_lead_enabled"/>
+                            <field name="auto_create_lead_team_id"
+                                   options="{'no_create': True, 'no_open': False}"/>
+                            <div colspan="2">
+                                <small class="text-muted">
+                                    Коли клієнт відповідає у приват (funnel_stage → customer_replied) —
+                                    автоматично створюється <b>crm.lead</b> з контактом, описом
+                                    і лінком у Discuss. Якщо sales team не задано — береться дефолтна.
+                                </small>
+                            </div>
+                        </group>
+                        <group string="Auto-close inactive (F5)">
+                            <field name="auto_close_inactive_enabled"/>
+                            <field name="auto_close_inactive_days"/>
+                            <field name="auto_close_goodbye_text"/>
+                            <div colspan="2">
+                                <small class="text-muted">
+                                    Cron 1 раз/добу закриває розмови де клієнт не писав N днів.
+                                    Розмови з активним opportunity у CRM — пропускаються.
+                                    Goodbye — шлеться тільки якщо вікно Meta 24h ще відкрите.
+                                </small>
+                            </div>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Token refresh (F6)">
+                            <field name="auto_refresh_tokens_enabled"/>
+                            <field name="token_refresh_threshold_days"/>
+                            <div colspan="2">
+                                <small class="text-muted">
+                                    Weekly cron: якщо Page Token помирає &lt; N днів →
+                                    автоматично exchange на long-lived через Graph API.
+                                    Потребує заповнених <code>fb_app_id</code> + <code>fb_app_secret</code>.
+                                </small>
+                            </div>
+                        </group>
+                        <group string="Archive + Reports (F7/F8)">
+                            <field name="auto_archive_comments_enabled"/>
+                            <field name="auto_archive_comments_days"/>
+                            <field name="weekly_report_enabled"/>
+                            <div colspan="2">
+                                <small class="text-muted">
+                                    <b>F7:</b> soft-archive (active=False) старих закритих comment-записів.<br/>
+                                    <b>F8:</b> понеділок 09:00 UTC → зводка у Telegram-групу.
+                                    Потребує увімкнутих Telegram-алертів.
+                                </small>
+                            </div>
+                        </group>
+                    </group>
+
                     <h2>Telegram-алерти менеджерам</h2>
                     <group>
                         <group string="Bot">

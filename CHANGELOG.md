@@ -4,6 +4,81 @@
 
 ---
 
+## [2026-04-20] — v17.0.4.0
+
+### Sprint 1 TZ v2.0 — 5 automation features
+
+**F4. Auto-create `crm.lead` on funnel transition**
+
+Коли клієнт вперше відповідає у приват (`sp_funnel_stage` → `customer_replied`), модуль автоматично створює `crm.lead`:
+- Зв'язок через `sp_lead_id` (M2O вже існував)
+- Ідемпотентно — повторний виклик повертає існуючий лід
+- Routing sales team з Settings (`auto_create_lead_team_id`) або дефолтна команда компанії
+- Lead name: `[Service] Contact name — Category`
+- Description: контекст розмови + останні 5 повідомлень + bot-змінні
+- Системна нотатка у Discuss-канал з клікабельним лінком на лід
+
+Settings: `auto_create_lead_enabled` (default False, safe opt-in), `auto_create_lead_team_id`.
+
+**F5. Auto-close inactive conversations**
+
+Щоденний cron закриває розмови де клієнт не писав N днів:
+- Фільтри: `stage ∈ {in_progress, new_message}`, `last_message_date < threshold`
+- Не чіпає розмови з активним opportunity у CRM (не валідний `sp_lead_id`)
+- Опційний goodbye message — шлеться тільки якщо Meta 24h-вікно відкрите і не comment-розмова
+
+Settings: `auto_close_inactive_enabled`, `auto_close_inactive_days` (default 7), `auto_close_goodbye_text`.
+
+**F6. Long-lived FB token auto-refresh**
+
+Weekly cron обмінює short-lived Page Tokens на long-lived через `/oauth/access_token?grant_type=fb_exchange_token`:
+- Тригер: `days_left < token_refresh_threshold_days`
+- Потребує `fb_app_id` + `fb_app_secret` у Settings
+- При успіху — оновлює `access_token` у `sendpulse.facebook.page` + Telegram silent alert
+- При невдачі — loud Telegram alert з вимогою ручної регенерації
+- Фоллбек для Pages без days_left (коли debug_token не доступний) — skip
+
+Settings: `auto_refresh_tokens_enabled`, `token_refresh_threshold_days` (default 14).
+
+**F7. Bulk-archive old comment records**
+
+Monthly cron soft-archive (`active=False`) для `sp_is_comment=True` записів у stage=close старших за N днів:
+- Запис залишається у БД для аудиту, але ховається з default views
+- Нове поле `active` (default True, indexed) додано на `sendpulse.connect`
+
+Settings: `auto_archive_comments_enabled` (default False), `auto_archive_comments_days` (default 30).
+
+**F8. Weekly Telegram funnel report**
+
+Понеділок 09:00 UTC — зводка за минулий тиждень у Telegram-групу менеджерів:
+- Всього розмов: direct vs comments
+- Розподіл категорій коментарів (LLM-класифікація)
+- Funnel: comment_only → private_sent → customer_replied → operator_engaged → lead_created → closed_won/lost
+- SLA: медіана часу до першої відповіді (хв)
+- Кількість CRM лідів створено
+- ⚠️ Alerts: Page Tokens з проблемним статусом
+
+Settings: `weekly_report_enabled`. Потребує увімкнених Telegram-алертів.
+
+### Нові cron
+
+| ID | Interval | Метод |
+|---|---|---|
+| `ir_cron_sendpulse_auto_close_inactive` | 1d | `cron_auto_close_inactive` |
+| `ir_cron_sendpulse_archive_old_comments` | 30d | `cron_archive_old_comment_records` |
+| `ir_cron_sendpulse_weekly_report` | 7d | `cron_weekly_telegram_report` |
+| `ir_cron_sendpulse_refresh_tokens` | 7d | `cron_refresh_fb_tokens` |
+
+### Нова колонка БД
+
+- `sendpulse_connect.active` — Boolean, default True, indexed
+
+### Settings UI
+
+Додана секція «V2 Automation — Sprint 1» з 8 новими полями. Всі features — behind toggle, default False (safe rollout).
+
+---
+
 ## [2026-04-20] — v17.0.3.7.1
 
 ### Race condition fix — дублікати `sendpulse.connect` при конкурентних webhook-ах

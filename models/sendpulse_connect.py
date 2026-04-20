@@ -64,6 +64,11 @@ class SendpulseConnect(models.Model):
     _order = 'stage_sort asc, last_message_date desc'
 
     # ── Основні поля ────────────────────────────────────────────────────
+    active = fields.Boolean(
+        string='Активна', default=True, index=True,
+        help='Знімається для soft-archive — запис ховається з default views '
+             'але зберігається у БД для історії.',
+    )
     name = fields.Char(string='Ім\'я контакту', required=True, index=True)
     partner_id = fields.Many2one(
         'res.partner', string='Клієнт', index=True, ondelete='set null',
@@ -995,6 +1000,12 @@ class SendpulseConnect(models.Model):
                 update_vals['sp_booking_email'] = sp_booking_email
             connect.write(update_vals)
 
+            # V2 F4: Auto-create crm.lead коли клієнт вперше відповідає у приват
+            # (comment_only / private_sent → customer_replied). Ідемпотентно:
+            # вже є sp_lead_id → skip. No-op якщо auto_create_lead_enabled=False.
+            if update_vals.get('sp_funnel_stage') == 'customer_replied':
+                connect._auto_create_crm_lead()
+
         # Ensure incoming Discuss messages always have a customer author,
         # never fallback to OdooBot (it breaks identity/avatar in chat UI).
         author_partner = connect.partner_id
@@ -1580,6 +1591,450 @@ class SendpulseConnect(models.Model):
         except Exception as e:
             _logger.warning('SendPulse Odo: Telegram alert exception — %s', e)
             return False
+
+    # ── V2 F4: Auto-create CRM leads ─────────────────────────────────────
+    def _auto_create_crm_lead(self):
+        """
+        Створює crm.lead з цієї розмови, якщо:
+        1. auto_create_lead_enabled=True
+        2. sp_lead_id ще порожній
+        3. Є мінімум ідентифікатор клієнта (partner або email/phone)
+
+        Ідемпотентний — повторний виклик поверне існуючий лід.
+        Повертає crm.lead record (або empty recordset якщо не створено).
+        """
+        self.ensure_one()
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param('odoo_chatwoot_connector.auto_create_lead_enabled', 'False') != 'True':
+            return self.env['crm.lead']
+        if self.sp_lead_id:
+            return self.sp_lead_id
+        # Мінімум: партнер, або email/phone
+        has_contact = bool(
+            self.partner_id
+            or self.unidentified_email
+            or self.unidentified_phone
+            or self.social_username
+        )
+        if not has_contact:
+            _logger.info(
+                'SendPulse Odo: skip auto_create_lead for connect %s — no contact info',
+                self.id,
+            )
+            return self.env['crm.lead']
+
+        # Sales team: з settings або дефолт
+        team_id_raw = ICP.get_param('odoo_chatwoot_connector.auto_create_lead_team_id', '')
+        team = False
+        if team_id_raw:
+            try:
+                team = self.env['crm.team'].browse(int(team_id_raw)).exists()
+            except (ValueError, TypeError):
+                team = False
+        if not team:
+            team = self.env['crm.team'].search([('company_id', '=', self.env.company.id)], limit=1)
+
+        # Description: останні 5 повідомлень + контекст
+        recent_messages = self.message_ids.sorted('date', reverse=True)[:5]
+        msg_lines = []
+        for m in reversed(list(recent_messages)):
+            direction = '👤 Клієнт' if m.direction == 'incoming' else '🧑 Оператор'
+            msg_lines.append(f'{direction} [{m.date:%Y-%m-%d %H:%M}]: {(m.text_message or "")[:200]}')
+        description_parts = [
+            f'Джерело: {self._get_service_label()} через SendPulse',
+            f'Бот: {self.bot_name or self.bot_id or "—"}',
+            f'SendPulse Contact ID: {self.sendpulse_contact_id or "—"}',
+        ]
+        if self.social_username:
+            description_parts.append(f'Username: {self.social_username}')
+        if self.sp_child_name:
+            description_parts.append(f"Ім'я дитини: {self.sp_child_name}")
+        if self.sp_booking_email:
+            description_parts.append(f'Booking email (з бота): {self.sp_booking_email}')
+        if msg_lines:
+            description_parts.append('')
+            description_parts.append('Останні повідомлення:')
+            description_parts.extend(msg_lines)
+        description = '\n'.join(description_parts)
+
+        # Lead title — короткий, з сервісом + іменем
+        lead_name = f'[{self._get_service_label()}] {self.name}'
+        if self.sp_comment_category and self.sp_comment_category != 'other':
+            lead_name += f' — {self._CATEGORY_LABELS.get(self.sp_comment_category, self.sp_comment_category)}'
+
+        lead_vals = {
+            'name': lead_name[:255],
+            'type': 'lead',
+            'description': description,
+            'source_id': self.source_id.id if self.source_id else False,
+            'team_id': team.id if team else False,
+            'user_id': team.user_id.id if team and team.user_id else False,
+        }
+        if self.partner_id:
+            lead_vals.update({
+                'partner_id': self.partner_id.id,
+                'contact_name': self.partner_id.name,
+                'email_from': self.partner_id.email or False,
+                'phone': self.partner_id.phone or self.partner_id.mobile or False,
+            })
+        else:
+            lead_vals.update({
+                'contact_name': self.name,
+                'email_from': self.unidentified_email or False,
+                'phone': self.unidentified_phone or False,
+            })
+
+        try:
+            lead = self.env['crm.lead'].sudo().create(lead_vals)
+            self.write({
+                'sp_lead_id': lead.id,
+                'sp_funnel_stage': 'lead_created',
+            })
+            _logger.info(
+                'SendPulse Odo: auto-created crm.lead %s from connect %s',
+                lead.id, self.id,
+            )
+            # Системна нотатка у Discuss-канал
+            if self.channel_id:
+                self.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
+                    body=Markup(
+                        '📇 <b>CRM лід створено автоматично</b>: '
+                        '<a href="#action=crm.crm_lead_action_pipeline&id={id}&model=crm.lead">'
+                        '#{id} {name}</a>'
+                    ).format(id=lead.id, name=escape(lead_name)),
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_note',
+                    author_id=self.env.ref('base.partner_root').id,
+                )
+            return lead
+        except Exception as e:
+            _logger.error('SendPulse Odo: auto_create_lead failed for connect %s: %s', self.id, e)
+            return self.env['crm.lead']
+
+    # ── V2 F5: Auto-close inactive conversations ──────────────────────────
+    @api.model
+    def cron_auto_close_inactive(self):
+        """
+        Щоденний cron. Закриває розмови з stage in_progress/new_message
+        якщо клієнт не писав auto_close_inactive_days днів.
+        Не чіпає розмови з активним crm.lead у non-cold стадіях.
+        Опційно — шле goodbye message якщо 24h-вікно Meta відкрите.
+        """
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param('odoo_chatwoot_connector.auto_close_inactive_enabled', 'False') != 'True':
+            return
+        try:
+            days = int(ICP.get_param('odoo_chatwoot_connector.auto_close_inactive_days', '7'))
+        except (ValueError, TypeError):
+            days = 7
+        goodbye = ICP.get_param('odoo_chatwoot_connector.auto_close_goodbye_text', '') or ''
+        threshold = fields.Datetime.now() - timedelta(days=days)
+
+        candidates = self.search([
+            ('stage', 'in', ['in_progress', 'new_message']),
+            ('last_message_date', '<', threshold),
+            ('sp_first_inbound_at', '<', threshold),
+        ])
+        closed_count = 0
+        goodbye_sent = 0
+        for rec in candidates:
+            # Не чіпаємо якщо є активний (не won/lost) лід — sales team ще працює
+            if rec.sp_lead_id and rec.sp_lead_id.type == 'opportunity' and rec.sp_lead_id.active:
+                continue
+            # Goodbye повідомлення (якщо є шаблон + 24h вікно відкрите)
+            now = fields.Datetime.now()
+            window_open = (
+                not rec.sp_messenger_window_expires_at
+                or rec.sp_messenger_window_expires_at > now
+            )
+            if goodbye and window_open and not rec.sp_is_comment:
+                try:
+                    rec.send_message_to_sendpulse(goodbye, attachment_url=None)
+                    goodbye_sent += 1
+                except Exception as e:
+                    _logger.warning(
+                        'SendPulse Odo: goodbye send failed for connect %s: %s', rec.id, e
+                    )
+            rec.write({'stage': 'close'})
+            closed_count += 1
+        _logger.info(
+            'SendPulse Odo: cron_auto_close_inactive — closed %d, goodbye sent %d',
+            closed_count, goodbye_sent,
+        )
+
+    # ── V2 F7: Bulk-archive old closed comment records ────────────────────
+    @api.model
+    def cron_archive_old_comment_records(self):
+        """
+        Раз/місяць. Soft-archive (active=False) для sp_is_comment=True записів
+        у stage=close старших за auto_archive_comments_days днів. Залишає у БД
+        для історії, але прибирає з default views.
+        """
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param('odoo_chatwoot_connector.auto_archive_comments_enabled', 'False') != 'True':
+            return
+        try:
+            days = int(ICP.get_param('odoo_chatwoot_connector.auto_archive_comments_days', '30'))
+        except (ValueError, TypeError):
+            days = 30
+        threshold = fields.Datetime.now() - timedelta(days=days)
+        candidates = self.search([
+            ('sp_is_comment', '=', True),
+            ('stage', '=', 'close'),
+            ('active', '=', True),
+            ('write_date', '<', threshold),
+        ])
+        if candidates:
+            candidates.write({'active': False})
+        _logger.info(
+            'SendPulse Odo: cron_archive_old_comment_records — archived %d',
+            len(candidates),
+        )
+
+    # ── V2 F8: Weekly Telegram funnel report ──────────────────────────────
+    @api.model
+    def cron_weekly_telegram_report(self):
+        """
+        Понеділок 09:00 UTC — зводка за минулий тиждень у Telegram-групу.
+        No-op якщо weekly_report_enabled=False або Telegram не налаштований.
+        """
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param('odoo_chatwoot_connector.weekly_report_enabled', 'False') != 'True':
+            return
+        if ICP.get_param('odoo_chatwoot_connector.telegram_alerts_enabled', 'False') != 'True':
+            _logger.info('SendPulse Odo: weekly report skipped — Telegram disabled')
+            return
+
+        now = fields.Datetime.now()
+        week_start = now - timedelta(days=7)
+        stats = self._calculate_weekly_stats(week_start, now)
+        message = self._format_weekly_report(stats, week_start, now)
+        self._notify_telegram(message, silent=False)
+        _logger.info('SendPulse Odo: weekly report sent (%d chars)', len(message))
+
+    @api.model
+    def _calculate_weekly_stats(self, period_start, period_end):
+        """Збирає метрики за період для tygodniowego report-а."""
+        Connect = self.sudo()
+        domain_period = [
+            ('create_date', '>=', period_start),
+            ('create_date', '<', period_end),
+        ]
+        total = Connect.search_count(domain_period)
+        comments = Connect.search_count(domain_period + [('sp_is_comment', '=', True)])
+        direct = total - comments
+
+        # Комент-категорії
+        cat_counts = {}
+        for cat in ('question_price', 'question_dates', 'question_age',
+                    'question_general', 'thanks', 'complaint', 'spam', 'other'):
+            cat_counts[cat] = Connect.search_count(
+                domain_period + [('sp_is_comment', '=', True), ('sp_comment_category', '=', cat)]
+            )
+
+        # Funnel — скільки перейшло до кожної стадії (за період створення)
+        funnel = {}
+        for stage in ('comment_only', 'private_sent', 'customer_replied',
+                      'operator_engaged', 'lead_created', 'closed_won', 'closed_lost'):
+            funnel[stage] = Connect.search_count(
+                domain_period + [('sp_funnel_stage', '=', stage)]
+            )
+
+        # SLA — медіана часу до першої відповіді
+        with_sla = Connect.search(
+            domain_period + [('sp_first_reply_time_sec', '>', 0)]
+        )
+        sla_values = sorted(with_sla.mapped('sp_first_reply_time_sec'))
+        sla_median_sec = sla_values[len(sla_values) // 2] if sla_values else 0
+        sla_median_min = sla_median_sec // 60 if sla_median_sec else 0
+
+        # Auto-hide spam за період
+        spam_hidden = Connect.search_count(
+            domain_period + [
+                ('sp_comment_category', '=', 'spam'),
+                ('sp_replied_public', '=', False),
+            ]
+        )
+
+        # Leads створені
+        Lead = self.env['crm.lead'].sudo()
+        leads_created = Lead.search_count([
+            ('create_date', '>=', period_start),
+            ('create_date', '<', period_end),
+            ('id', 'in', Connect.search(domain_period).mapped('sp_lead_id').ids),
+        ])
+
+        # Token статуси
+        Page = self.env['sendpulse.facebook.page'].sudo()
+        bad_tokens = Page.search([
+            ('active', '=', True),
+            '|',
+            ('token_status', 'ilike', 'invalid%'),
+            ('token_status', 'ilike', 'expires_soon%'),
+        ])
+
+        return {
+            'total': total,
+            'direct': direct,
+            'comments': comments,
+            'cat_counts': cat_counts,
+            'funnel': funnel,
+            'sla_median_min': sla_median_min,
+            'spam_hidden': spam_hidden,
+            'leads_created': leads_created,
+            'bad_tokens': bad_tokens,
+        }
+
+    @api.model
+    def _format_weekly_report(self, stats, period_start, period_end):
+        """HTML-форматований звіт для Telegram."""
+        lines = [
+            f'📊 <b>Звіт за тиждень {period_start:%d.%m} – {period_end:%d.%m}</b>',
+            '',
+            f'Нові розмови: <b>{stats["total"]}</b>',
+            f'  ├─ Direct DM: {stats["direct"]}',
+            f'  └─ Comments: {stats["comments"]}',
+            '',
+        ]
+        if stats['comments']:
+            cat = stats['cat_counts']
+            lines.append('<b>Категорії коментарів:</b>')
+            if cat['question_price']: lines.append(f'  💰 Ціна: {cat["question_price"]}')
+            if cat['question_dates']: lines.append(f'  📅 Терміни: {cat["question_dates"]}')
+            if cat['question_age']:   lines.append(f'  👶 Вік: {cat["question_age"]}')
+            if cat['question_general']: lines.append(f'  ❓ Загальне: {cat["question_general"]}')
+            if cat['thanks']:   lines.append(f'  🙏 Подяки: {cat["thanks"]}')
+            if cat['complaint']: lines.append(f'  🚨 Скарги: {cat["complaint"]} (ескаловано)')
+            if cat['spam']:     lines.append(f'  🚫 Спам: {cat["spam"]} (приховано: {stats["spam_hidden"]})')
+            if cat['other']:    lines.append(f'  🔸 Інше: {cat["other"]}')
+            lines.append('')
+
+        f = stats['funnel']
+        funnel_total = sum(f.values())
+        if funnel_total:
+            lines.append('<b>Funnel:</b>')
+            lines.append(f'  Comment only: {f["comment_only"]}')
+            lines.append(f'  Private sent: {f["private_sent"]}')
+            lines.append(f'  Customer replied: {f["customer_replied"]}')
+            lines.append(f'  Operator engaged: {f["operator_engaged"]}')
+            lines.append(f'  Lead created: {f["lead_created"]}')
+            if f['closed_won'] or f['closed_lost']:
+                lines.append(f'  Closed: won={f["closed_won"]}, lost={f["closed_lost"]}')
+            lines.append('')
+
+        if stats['leads_created']:
+            lines.append(f'💼 CRM лідів створено: <b>{stats["leads_created"]}</b>')
+
+        if stats['sla_median_min']:
+            lines.append(f'⏱ Медіана часу до першої відповіді: <b>{stats["sla_median_min"]} хв</b>')
+
+        if stats['bad_tokens']:
+            lines.append('')
+            lines.append('⚠️ <b>Проблеми з токенами:</b>')
+            for p in stats['bad_tokens']:
+                lines.append(f'  • {p.name}: {p.token_status or "?"}')
+
+        return '\n'.join(lines)[:4000]
+
+    # ── V2 F6: Long-lived token auto-refresh ──────────────────────────────
+    @api.model
+    def _exchange_token_for_long_lived(self, short_lived_token):
+        """
+        Обмінює токен на long-lived через Meta Graph /oauth/access_token.
+        Повертає (new_token, expires_in) або (None, None) на помилку.
+        Потребує fb_app_id + fb_app_secret у ir.config_parameter.
+        """
+        ICP = self.env['ir.config_parameter'].sudo()
+        app_id = ICP.get_param('odoo_chatwoot_connector.fb_app_id', '')
+        app_secret = ICP.get_param('odoo_chatwoot_connector.fb_app_secret', '')
+        if not (app_id and app_secret and short_lived_token):
+            return None, None
+        try:
+            resp = requests.get(
+                'https://graph.facebook.com/v25.0/oauth/access_token',
+                params={
+                    'grant_type': 'fb_exchange_token',
+                    'client_id': app_id,
+                    'client_secret': app_secret,
+                    'fb_exchange_token': short_lived_token,
+                },
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                err = self._parse_fb_error(resp)
+                _logger.error('SendPulse Odo: token exchange HTTP %d — %s', resp.status_code, err)
+                return None, None
+            data = resp.json()
+            new_token = data.get('access_token') or ''
+            expires_in = data.get('expires_in')  # seconds, або null для безстрокового
+            return new_token or None, expires_in
+        except Exception as e:
+            _logger.error('SendPulse Odo: token exchange exception — %s', e)
+            return None, None
+
+    @api.model
+    def cron_refresh_fb_tokens(self):
+        """
+        Weekly. Для кожного Page де токен помирає < token_refresh_threshold_days днів —
+        exchange на long-lived.
+        No-op якщо auto_refresh_tokens_enabled=False або app credentials не налаштовані.
+        """
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param('odoo_chatwoot_connector.auto_refresh_tokens_enabled', 'False') != 'True':
+            return
+        app_id = ICP.get_param('odoo_chatwoot_connector.fb_app_id', '')
+        app_secret = ICP.get_param('odoo_chatwoot_connector.fb_app_secret', '')
+        if not (app_id and app_secret):
+            _logger.info('SendPulse Odo: token refresh skipped — no app_id/secret')
+            return
+        try:
+            threshold_days = int(ICP.get_param(
+                'odoo_chatwoot_connector.token_refresh_threshold_days', '14'
+            ))
+        except (ValueError, TypeError):
+            threshold_days = 14
+
+        Page = self.env['sendpulse.facebook.page'].sudo()
+        refreshed = 0
+        failed = 0
+        for page in Page.search([('active', '=', True)]):
+            if not page.access_token:
+                continue
+            result = self._check_single_fb_token(page.access_token, page.name or page.page_id)
+            days_left = result.get('days_left')
+            # Exchange тільки якщо знаємо скільки лишилось і мало
+            if days_left is None or days_left >= threshold_days:
+                continue
+            _logger.info(
+                'SendPulse Odo: refreshing token for %s (%d days left)',
+                page.name, days_left,
+            )
+            new_token, expires_in = self._exchange_token_for_long_lived(page.access_token)
+            if new_token:
+                page.write({
+                    'access_token': new_token,
+                    'last_checked_at': fields.Datetime.now(),
+                })
+                # Одразу перевіряємо новий токен щоб оновити token_status
+                new_result = self._check_single_fb_token(new_token, page.name)
+                page.write({'token_status': new_result.get('status', 'refreshed')})
+                refreshed += 1
+                self._notify_telegram(
+                    f'🔄 <b>FB Page Token refreshed</b> [{page.name}]\n'
+                    f'Новий статус: {new_result.get("status", "valid")}',
+                    silent=True,
+                )
+            else:
+                failed += 1
+                self._notify_telegram(
+                    f'❌ <b>FB Page Token refresh FAILED</b> [{page.name}]\n'
+                    f'Потрібна ручна регенерація — токен помре за {days_left}д.',
+                    silent=False,
+                )
+        _logger.info(
+            'SendPulse Odo: cron_refresh_fb_tokens — refreshed %d, failed %d',
+            refreshed, failed,
+        )
 
     def _hide_comment(self, comment_id, service='facebook', page=None):
         """
