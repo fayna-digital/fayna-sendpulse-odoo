@@ -1,9 +1,75 @@
 # ТЗ: Автовідповідь на коментарі Facebook та Instagram
 
-**Модуль:** `odoo_chatwoot_connector` (SendPulse Odo)
-**Версія:** 1.3
-**Дата:** 2026-04-11
-**Статус:** ✅ Затверджено — готово до реалізації
+**Модуль:** `odoo_chatwoot_connector` (SendPulse Odo, поточна v17.0.3.6.1)
+**Версія ТЗ:** 1.4
+**Дата:** 2026-04-19
+**Статус:** 🟡 Реалізовано і працює частково — заблоковано на Meta App Review
+
+---
+
+## 0. Статус реалізації (на 2026-04-19)
+
+### Що вже зроблено ✅
+
+| # | Що | Деталі | Версія модуля |
+|---|----|--------|---------------|
+| F1 | Розпізнавання коментаря | FB (`item == 'comment'`) + IG (через `media.media_product_type == FEED`) | v17.0.3.0.0 + фікс v17.0.3.x |
+| F2 | Поля коментаря на `sendpulse.connect` | `sp_is_comment`, `sp_comment_id`, `sp_comment_text`, `sp_post_id`, `sp_post_url`, `sp_replied_public/private` | v17.0.3.0.0 |
+| F3 | Публічна відповідь | Працює для FB і IG (POST `/comments` / `/replies`) | v17.0.3.0.0 |
+| F4 | Приватне повідомлення | Код є, але блокується на permissions (див. нижче) | v17.0.3.0.0 |
+| F5 | Дедуплікація | По `sp_comment_id` + `already_private` per contact | v17.0.3.0.0 |
+| F6 | Сповіщення оператора у Discuss | Системна нотатка від OdooBot | v17.0.3.0.0 |
+| F7 | Налаштування у Settings | Усі toggles/тексти/URL у `ir.config_parameter` | v17.0.3.0.0 |
+| + | **Аудит-лог Graph API** (понад ТЗ) | `_log_fb_audit` → `ir.logging` з `name='odoo_chatwoot_connector.fb_api'` (доказ для Meta) | v17.0.3.6.1 |
+| + | **Метрики воронки конверсії** (понад ТЗ) | `sp_funnel_stage` (comment_only → private_sent → customer_replied → operator_engaged → lead) + SLA | v17.0.3.6.0 |
+| + | **Retry-механізм** для FB API | `_fb_post_with_retry` з audit-log на кожен виклик | v17.0.3.6.1 |
+| + | **Telegram-алерти менеджерам** | `@csodooalerts_bot` у CampScout.team — токен expiry, помилки автовідповідей, спам | v17.0.3.4.0 |
+
+### Поточний стан Page Access Token (на 2026-04-12)
+
+- Отримано **безстроковий** Page Access Token для сторінки CampScout (id `106771868966309`)
+- App: **Campscout_odoo** (id `2471909913241204`)
+- Активні scopes (Standard Access): `instagram_manage_comments`, `instagram_manage_messages`, `pages_read_engagement`, `pages_messaging`
+- Збережено в Odoo: Налаштування → SendPulse Odo → Facebook Page Access Token
+- ⚠️ **Відсутній `pages_manage_engagement`** → FB-коментарі не отримують публічну відповідь (працює тільки IG)
+- ⚠️ Приватне повідомлення: повертає **код 100/33** для частини користувачів — Graph API rate limit на Standard Access
+
+### Поточний блокер 🔴 — Meta App Review
+
+**Що блокує**: без **Advanced Access** на дозволи нижче — Page Access Token обмежений у production-обсязі викликів і не дає `POST /{comment_id}/comments` для FB.
+
+**Стан Meta App Review (станом на 2026-04-19):**
+- App **Campscout_odoo** → App Review → submission **"Review in progress"** (Submit клацнуто 19.04)
+- Сабмічено 9 дозволів:
+  - `pages_read_user_content`
+  - `pages_manage_engagement` (FB публічні відповіді)
+  - `pages_messaging` (FB private_replies)
+  - `pages_show_list`
+  - `pages_manage_metadata`
+  - `business_management`
+  - `instagram_business_basic` (раніше `instagram_basic`)
+  - `instagram_manage_comments`
+  - `instagram_business_manage_messages` (раніше `instagram_manage_messages`)
+- Очікувана тривалість ревʼю: **до 10 днів** (типово 3-7)
+
+### Наступні кроки після approval
+
+1. **Регенерувати Page Access Token** через Business Manager → System User → Generate Token (нові scopes тягнуться автоматично)
+2. **Замінити токен** в Odoo (Налаштування → SendPulse Odo → Facebook Page Access Token)
+3. **Smoke-тест:**
+   - Залишити коментар під FB-постом CampScout → перевірити що зʼявляється публічна відповідь з ротацією текстів §4.1
+   - Перевірити що в Messenger клієнта приходить private_reply (§4.2 Варіант A)
+   - Те саме під IG-постом
+   - Перевірити нотатку OdooBot у Discuss-каналі розмови
+4. **Перевірити аудит-лог**: Technical → Logging → filter `name=odoo_chatwoot_connector.fb_api` — повинні бути 200-ки на всі виклики
+5. **Простежити воронку** через `sp_funnel_stage` — перші конверсії `comment_only → private_sent → customer_replied`
+
+### Якщо Meta поверне на доопрацювання
+
+Можливі правки за досвідом з reference (`reference_meta_app_review_flow.md`):
+- Додати/переробити screencast (Meta часто просить більш чітку демо API-виклику)
+- Уточнити Reviewer Instructions: ще раз підкреслити, що додаток **НЕ використовує Facebook Login**, токен — Page Access Token via System User, всі assets власні (CampScout Page + IG Business)
+- Перезапустити test calls якщо Meta попросить — 24h-індексація знову
 
 ---
 
@@ -158,7 +224,7 @@ sp_replied_public      = fields.Boolean('Публічна відповідь н�
 
 **Facebook:**
 ```http
-POST https://graph.facebook.com/v19.0/{comment_id}/comments
+POST https://graph.facebook.com/v25.0/{comment_id}/comments
 Content-Type: application/json
 
 {
@@ -169,7 +235,7 @@ Content-Type: application/json
 
 **Instagram:**
 ```http
-POST https://graph.facebook.com/v19.0/{comment_id}/replies
+POST https://graph.facebook.com/v25.0/{comment_id}/replies
 Content-Type: application/json
 
 {
@@ -184,7 +250,7 @@ Content-Type: application/json
 
 **Facebook Messenger і Instagram Direct — однаковий endpoint:**
 ```http
-POST https://graph.facebook.com/v19.0/{comment_id}/private_replies
+POST https://graph.facebook.com/v25.0/{comment_id}/private_replies
 Content-Type: application/json
 
 {
@@ -382,7 +448,7 @@ instagram_manage_messages   ← для Instagram private_replies
 Стандартний токен живе **1 годину**. Для продакшн потрібен **довгостроковий (60 днів)**:
 
 ```bash
-curl -X GET "https://graph.facebook.com/v19.0/oauth/access_token
+curl -X GET "https://graph.facebook.com/v25.0/oauth/access_token
   ?grant_type=fb_exchange_token
   &client_id={app_id}
   &client_secret={app_secret}
@@ -391,7 +457,7 @@ curl -X GET "https://graph.facebook.com/v19.0/oauth/access_token
 
 ### Крок 5 — Page Token з довгострокового User Token
 ```bash
-curl -X GET "https://graph.facebook.com/v19.0/me/accounts
+curl -X GET "https://graph.facebook.com/v25.0/me/accounts
   ?access_token={long_lived_user_token}"
 ```
 → У відповіді знайти об'єкт з `name: "CampScout"` → взяти його `access_token`.
@@ -491,16 +557,16 @@ _process_comment_event()   _process_incoming_event() (існуючий)
 
 ## 8. Критерії прийняття (Definition of Done)
 
-- [ ] Коментар під постом FB → публічна відповідь з'являється під тим самим коментарем (видно всім)
-- [ ] Коментар → приватне повідомлення приходить у Messenger клієнту (навіть якщо не підписник бота)
-- [ ] Коментар Instagram → ті самі дії через Instagram API
-- [ ] У Odoo Discuss: нотатка з текстом коментаря + URL поста + що зроблено
-- [ ] Повторний коментар від того самого клієнта → тільки публічна, без повторного приватного
-- [ ] Помилка Graph API (токен прострочений, >7 днів) → чітке повідомлення оператору в Discuss
-- [ ] Тексти відповідей редагуються через Налаштування без змін коду
-- [ ] Page Access Token зберігається у `ir.config_parameter` (не у коді, не у репо)
-- [ ] CHANGELOG.md оновлено → версія 17.0.3.0.0
-- [ ] Коміт з описом згідно `repo-deploy-server-gate.mdc`
+- [ ] Коментар під постом FB → публічна відповідь з'являється під тим самим коментарем (видно всім) — 🔴 чекає `pages_manage_engagement` Advanced Access
+- [ ] Коментар → приватне повідомлення приходить у Messenger клієнту — 🟡 код працює, але ловить 100/33 на Standard Access (чекає `pages_messaging` Advanced)
+- [x] Коментар Instagram → ті самі дії через Instagram API ✅ (публічна відповідь працює)
+- [x] У Odoo Discuss: нотатка з текстом коментаря + URL поста + що зроблено ✅
+- [x] Повторний коментар від того самого клієнта → тільки публічна, без повторного приватного ✅ (`already_private` check)
+- [x] Помилка Graph API (токен прострочений, >7 днів) → чітке повідомлення оператору в Discuss ✅
+- [x] Тексти відповідей редагуються через Налаштування без змін коду ✅
+- [x] Page Access Token зберігається у `ir.config_parameter` (не у коді, не у репо) ✅
+- [x] CHANGELOG.md оновлено → версія 17.0.3.0.0 ✅ (поточна v17.0.3.6.1)
+- [x] Коміт з описом згідно `repo-deploy-server-gate.mdc` ✅
 
 ---
 

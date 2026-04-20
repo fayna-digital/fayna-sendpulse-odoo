@@ -230,6 +230,82 @@
                             <field name="sp_comment_private_text" string="Текст (порожньо = дефолт)" nolabel="1" class="o_field_char"/>
                         </group>
                     </group>
+                    <group>
+                        <group string="Instagram">
+                            <field name="ig_user_id" placeholder="17841457668400063"/>
+                            <field name="ig_user_id_is_set" invisible="1"/>
+                            <div colspan="2">
+                                <small class="text-success" invisible="not ig_user_id_is_set">✓ IG ID збережено</small>
+                                <small class="text-warning" invisible="ig_user_id_is_set">⚠ Потрібен для private_reply на IG-коментарі</small>
+                            </div>
+                        </group>
+                        <group string="Facebook App (для /debug_token)">
+                            <field name="fb_app_id" placeholder="2471909913241204"/>
+                            <field name="fb_app_secret" password="True" placeholder="App Secret"/>
+                            <field name="fb_app_secret_is_set" invisible="1"/>
+                            <div colspan="2">
+                                <small class="text-success" invisible="not fb_app_secret_is_set">✓ Secret збережено</small>
+                                <small class="text-muted" invisible="fb_app_secret_is_set">Потрібно для відстеження терміну дії токена</small>
+                            </div>
+                            <field name="fb_token_status" readonly="1"/>
+                            <field name="fb_token_last_check" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <h2>LLM-класифікатор коментарів</h2>
+                    <group>
+                        <group string="Anthropic">
+                            <field name="llm_classifier_enabled"/>
+                            <field name="anthropic_api_key" password="True"
+                                   placeholder="sk-ant-api03-..."
+                                   invisible="not llm_classifier_enabled"/>
+                            <field name="anthropic_api_key_is_set" invisible="1"/>
+                            <div colspan="2" invisible="not llm_classifier_enabled">
+                                <small class="text-success" invisible="not anthropic_api_key_is_set">✓ API key збережено</small>
+                                <small class="text-warning" invisible="anthropic_api_key_is_set">⚠ API key не налаштовано</small>
+                            </div>
+                            <field name="llm_model" invisible="not llm_classifier_enabled"/>
+                        </group>
+                        <group string="Поведінка">
+                            <field name="sp_comment_hide_spam_enabled"
+                                   invisible="not llm_classifier_enabled"/>
+                            <div colspan="2" invisible="not llm_classifier_enabled">
+                                <small class="text-muted">
+                                    Класифікує коментарі на 8 категорій (ціна/дати/вік/загальне/подяка/скарга/спам/інше).
+                                    На подяку/спам не відповідаємо; спам приховуємо; скарга → Telegram оператору.
+                                </small>
+                            </div>
+                        </group>
+                    </group>
+
+                    <h2>Telegram-алерти менеджерам</h2>
+                    <group>
+                        <group string="Bot">
+                            <field name="telegram_alerts_enabled"/>
+                            <field name="telegram_bot_token" password="True"
+                                   placeholder="7123456789:AAEr..."
+                                   invisible="not telegram_alerts_enabled"/>
+                            <field name="telegram_bot_token_is_set" invisible="1"/>
+                            <div colspan="2" invisible="not telegram_alerts_enabled">
+                                <small class="text-success" invisible="not telegram_bot_token_is_set">✓ Bot token збережено</small>
+                                <small class="text-warning" invisible="telegram_bot_token_is_set">⚠ Token не налаштовано</small>
+                            </div>
+                            <field name="telegram_chat_id"
+                                   placeholder="-1001234567890"
+                                   invisible="not telegram_alerts_enabled"/>
+                        </group>
+                        <group string="Події" invisible="not telegram_alerts_enabled">
+                            <div colspan="2">
+                                <small class="text-muted">
+                                    Що надсилається у групу:<br/>
+                                    🚨 Скарги під постами (LLM-класифікатор)<br/>
+                                    🚫 Прихований спам (silent)<br/>
+                                    ⏳ Закриття 24h-вікна за 2h (silent)<br/>
+                                    ⚠️ FB Page Token недійсний / термін ≤ 7д
+                                </small>
+                            </div>
+                        </group>
+                    </group>
                 </sheet>
             </form>
         </field>

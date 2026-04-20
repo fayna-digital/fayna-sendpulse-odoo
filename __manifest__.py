@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Fayna SendPulse Odo',
-    'version': '17.0.3.1.0',
+    'version': '17.0.3.6.2',
     'summary': 'Fayna Digital — інтеграція SendPulse з Odoo, переписка з клієнтами прямо в Discuss',
     'description': """
         Двостороння інтеграція між Odoo і SendPulse (чат-боти месенджерів).
@@ -36,6 +36,7 @@
         'data/clean_data_cron.xml',
         'views/sendpulse_connect_views.xml',
         'views/sendpulse_identify_wizard_views.xml',
+        'views/sendpulse_facebook_page_views.xml',
         'views/res_partner_views.xml',
     ],
     'assets': {
