@@ -91,4 +91,11 @@
         </field>
     </record>
 
+    <menuitem id="menu_sendpulse_faq_entry"
+              name="FAQ Entries (RAG)"
+              parent="odoo_chatwoot_connector.menu_sendpulse_root"
+              action="action_sendpulse_faq_entry"
+              sequence="70"
+              groups="odoo_chatwoot_connector.group_sendpulse_officer"/>
+
 </odoo>

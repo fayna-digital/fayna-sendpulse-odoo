@@ -481,11 +481,6 @@
               sequence="90"
               groups="odoo_chatwoot_connector.group_sendpulse_admin"/>
 
-    <menuitem id="menu_sendpulse_faq_entry"
-              name="FAQ Entries (RAG)"
-              parent="menu_sendpulse_root"
-              action="action_sendpulse_faq_entry"
-              sequence="70"
-              groups="odoo_chatwoot_connector.group_sendpulse_officer"/>
+    <!-- Menu for FAQ Entries — defined у sendpulse_faq_entry_views.xml -->
 
 </odoo>
