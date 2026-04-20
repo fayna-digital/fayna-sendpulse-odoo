@@ -320,6 +320,20 @@
                                 </small>
                             </div>
                         </group>
+                        <group string="Bot-wizard ідентифікації (F3)">
+                            <field name="bot_identification_enabled"/>
+                            <field name="bot_identification_max_attempts"/>
+                            <div colspan="2">
+                                <small class="text-muted">
+                                    Новий контакт без партнера → бот запитує email →
+                                    парсить з наступного inbound → створює
+                                    <code>res.partner</code> автоматично.
+                                    <br/>Працює для telegram, instagram, messenger, whatsapp, viber
+                                    (сервіси без обмежень першого повідомлення).
+                                    <br/>Після N невдалих спроб — передача оператору.
+                                </small>
+                            </div>
+                        </group>
                     </group>
 
                     <h2>V2 Automation — Sprint 1</h2>

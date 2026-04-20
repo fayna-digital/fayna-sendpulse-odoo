@@ -226,6 +226,22 @@ class ResConfigSettings(models.TransientModel):
         help='Refresh токен якщо залишилось менше N днів. Дефолт 14.',
     )
 
+    # ── Bot-wizard ідентифікації (V2 F3) ─────────────────────────────────
+    bot_identification_enabled = fields.Boolean(
+        string='Bot auto-ідентифікація',
+        config_parameter='odoo_chatwoot_connector.bot_identification_enabled',
+        default=False,
+        help='Коли прийшло повідомлення від невідомого контакту — бот автоматично '
+             'питає email. На наступний inbound парсить email з тексту і створює '
+             'res.partner. Якщо клієнт не надає email за N спроб — передача оператору.',
+    )
+    bot_identification_max_attempts = fields.Integer(
+        string='Max спроб email',
+        config_parameter='odoo_chatwoot_connector.bot_identification_max_attempts',
+        default=3,
+        help='Скільки разів бот просить email перш ніж передати оператору.',
+    )
+
     # ── RAG FAQ auto-answer (V2 F1) ──────────────────────────────────────
     rag_auto_answer_enabled = fields.Boolean(
         string='RAG FAQ авто-відповідь',

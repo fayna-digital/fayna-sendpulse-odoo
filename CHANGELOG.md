@@ -4,6 +4,56 @@
 
 ---
 
+## [2026-04-20] — v17.0.5.1
+
+### Sprint 2 F3 — Bot-wizard ідентифікації клієнтів
+
+**Що робить:** коли прийшов webhook від невідомого контакту (без `res.partner`) — бот автоматично запитує email через SendPulse → на наступний inbound парсить email regex-ом → створює партнера → переводить у нормальний queue.
+
+**Нова stage:** `identifying` (між `new` і `in_progress` у state machine).
+
+**Нові поля `sendpulse.connect`:**
+- `id_step` (Selection: `ask_email` / `ask_email_retry` / `done` / `gave_up`)
+- `id_attempts` (Integer)
+
+**Методи:**
+- `_try_start_identification()` — викликається для brand-new connect з `partner=None`:
+  - Перевіряє `bot_identification_enabled` + service в allowed list
+  - Надсилає `_ID_ASK_EMAIL_FIRST` через `send_message_to_sendpulse`
+  - Виставляє `stage='identifying'`, `id_step='ask_email'`, `id_attempts=1`
+  - Повертає True → caller skip-ає normal flow (no auto-greeting, no operator notify)
+- `_try_advance_identification(inbound_text)` — на наступний inbound коли `stage=identifying`:
+  - Regex extract email з тексту
+  - Match → create/link `res.partner`, send `_ID_THANKS`, `stage=new_message`, `id_step=done`
+  - Нема → send `_ID_ASK_EMAIL_RETRY`, `id_attempts+=1`
+  - Attempts > max → send `_ID_GAVE_UP`, `stage=new_message`, `id_step=gave_up` (до оператора)
+
+**Еlig-сервіси:** telegram, instagram, messenger, whatsapp, viber (ті де бот може вільно писати без 24h обмежень при першому звернутті).
+
+**Settings:**
+- `bot_identification_enabled` (default False)
+- `bot_identification_max_attempts` (default 3)
+
+**Flow приклад:**
+```
+Client (Telegram): "Яка ціна?"
+  [partner=None, bot_id_enabled=True, service=telegram → start flow]
+Bot: "Вітаємо! 👋 Підкажіть email — надішлемо деталі 🏕️"
+  [stage='identifying', id_step='ask_email']
+
+Client: "mama@gmail.com"
+  [email regex match → create res.partner]
+Bot: "Дякуємо! 🙂 Записали. Менеджер зв'яжеться."
+  [partner_id set, stage='new_message', id_step='done']
+  [оператор бачить розмову у черзі як нормально]
+```
+
+**Fallback:**
+- Якщо клієнт пише щось не-email 3 рази → `_ID_GAVE_UP` + передача оператору
+- RAG FAQ auto-answer (F1) **вимкнено** поки `stage=identifying` — не плутаємо клієнта
+
+---
+
 ## [2026-04-20] — v17.0.5.0
 
 ### Sprint 2 TZ v2.0 — F1 RAG FAQ auto-answer
