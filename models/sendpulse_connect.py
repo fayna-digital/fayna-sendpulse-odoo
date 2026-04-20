@@ -157,6 +157,11 @@ class SendpulseConnect(models.Model):
     )
     sp_post_id = fields.Char(string='Post ID')
     sp_post_url = fields.Char(string='URL допису')
+    sp_page_id = fields.Char(
+        string='FB Page ID',
+        index=True,
+        help='ID сторінки з webhook — для multi-page маршрутизації на sendpulse.facebook.page.',
+    )
     sp_replied_public = fields.Boolean(
         string='Публічна відповідь надіслана', default=False,
         help='True якщо публічна відповідь під коментарем успішно опублікована',
@@ -1146,12 +1151,24 @@ class SendpulseConnect(models.Model):
             _logger.info('SendPulse Odo: comment autoreply disabled, skipping %s', comment_id)
             return None
 
+        # Multi-page: резолвимо Facebook Page запис з webhook page_id
+        page_id_from_payload = str(channel_data_msg.get('page_id') or '')
+        Page = self.env['sendpulse.facebook.page'].sudo()
+        page = Page.find_by_page_id(page_id_from_payload) if page_id_from_payload else Page.browse()
+
         # Self-loop guard: не відповідаємо на коментарі від самої Сторінки / IG Business акаунта.
         # Без цього наша публічна відповідь → webhook → нова відповідь → нескінченний цикл.
         from_id = str((channel_data_msg.get('from') or {}).get('id') or '')
-        page_id_from_payload = str(channel_data_msg.get('page_id') or '')
-        ig_user_id = ICP.get_param('odoo_chatwoot_connector.ig_user_id', '')
-        own_ids = {x for x in [page_id_from_payload, ig_user_id] if x}
+        # Збираємо всі свої ID: з webhook + legacy ig_user_id + з усіх активних Page-ів
+        own_ids = {x for x in [page_id_from_payload] if x}
+        legacy_ig = ICP.get_param('odoo_chatwoot_connector.ig_user_id', '')
+        if legacy_ig:
+            own_ids.add(legacy_ig)
+        for p in Page.search([('active', '=', True)]):
+            if p.page_id:
+                own_ids.add(p.page_id)
+            if p.ig_business_id:
+                own_ids.add(p.ig_business_id)
         if from_id and from_id in own_ids:
             _logger.info(
                 'SendPulse Odo: self-comment detected (from=%s == own), skipping %s',
@@ -1188,6 +1205,7 @@ class SendpulseConnect(models.Model):
                 'sp_comment_text': comment_text[:500] if comment_text else '',
                 'sp_post_id': post_id,
                 'sp_post_url': post_url,
+                'sp_page_id': page_id_from_payload or (page.page_id if page else ''),
                 'last_message_preview': f'💬 Коментар: {comment_text[:80]}' if comment_text else '💬 Коментар',
                 'last_message_date': now,
                 'sp_funnel_stage': 'comment_only',
@@ -1198,6 +1216,7 @@ class SendpulseConnect(models.Model):
                 'sp_comment_text': comment_text[:500] if comment_text else '',
                 'sp_post_id': post_id,
                 'sp_post_url': post_url,
+                'sp_page_id': page_id_from_payload or connect.sp_page_id,
                 'last_message_preview': f'💬 Коментар: {comment_text[:80]}' if comment_text else '💬 Коментар',
                 'last_message_date': now,
             })
@@ -1242,7 +1261,7 @@ class SendpulseConnect(models.Model):
             if category == 'spam' and ICP.get_param(
                 'odoo_chatwoot_connector.sp_comment_hide_spam_enabled', 'True'
             ) == 'True' and comment_id:
-                hide_ok, hide_err = connect._hide_comment(comment_id, service)
+                hide_ok, hide_err = connect._hide_comment(comment_id, service, page=page)
                 if hide_ok:
                     _logger.info('SendPulse Odo: spam comment %s hidden', comment_id)
                     self._notify_telegram(
@@ -1265,9 +1284,15 @@ class SendpulseConnect(models.Model):
                 f'🔗 Допис: {post_url or "—"}'
             )
 
-        # Тексти з підстановкою URL
-        landing_url = ICP.get_param('odoo_chatwoot_connector.sp_comment_landing_url', 'https://lato2026.campscout.eu')
-        tg_url = ICP.get_param('odoo_chatwoot_connector.sp_comment_tg_url', 'https://t.me/campscouting')
+        # Тексти з підстановкою URL (per-page override → глобальний ICP → дефолт)
+        landing_url = (
+            (page.landing_url if page else '')
+            or ICP.get_param('odoo_chatwoot_connector.sp_comment_landing_url', 'https://lato2026.campscout.eu')
+        )
+        tg_url = (
+            (page.tg_url if page else '')
+            or ICP.get_param('odoo_chatwoot_connector.sp_comment_tg_url', 'https://t.me/campscouting')
+        )
 
         # Публічна відповідь
         public_ok = False
@@ -1293,7 +1318,7 @@ class SendpulseConnect(models.Model):
                     landing_url=landing_url or 'https://lato2026.campscout.eu',
                     tg_url=tg_url or 'https://t.me/campscouting',
                 )
-            public_ok, public_error = connect._send_comment_public_reply(comment_id, service, public_text)
+            public_ok, public_error = connect._send_comment_public_reply(comment_id, service, public_text, page=page)
             if public_ok:
                 connect.write({'sp_replied_public': True})
 
@@ -1324,7 +1349,7 @@ class SendpulseConnect(models.Model):
                 tg_url=tg_url or 'https://t.me/campscouting',
                 yt_url=yt_url or 'https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV',
             )
-            private_ok, private_error = connect._send_comment_private_reply(comment_id, private_text, service)
+            private_ok, private_error = connect._send_comment_private_reply(comment_id, private_text, service, page=page)
             if private_ok:
                 connect.write({
                     'sp_replied_private': True,
@@ -1525,14 +1550,14 @@ class SendpulseConnect(models.Model):
             _logger.warning('SendPulse Odo: Telegram alert exception — %s', e)
             return False
 
-    def _hide_comment(self, comment_id, service='facebook'):
+    def _hide_comment(self, comment_id, service='facebook', page=None):
         """
         Приховує коментар через Graph API.
         FB: POST /{comment_id} body={'is_hidden': true}
         IG: POST /{comment_id} body={'hide': true}
         Повертає (success: bool, error: str|None).
         """
-        token = self._get_fb_page_token()
+        token = self._get_fb_page_token(page=page)
         if not token or not comment_id:
             return False, 'token або comment_id відсутні'
         url = f'https://graph.facebook.com/v25.0/{comment_id}'
@@ -1548,16 +1573,17 @@ class SendpulseConnect(models.Model):
             _logger.info('SendPulse Odo: comment %s hidden (%s)', comment_id, service)
         return ok, err
 
-    def _send_comment_public_reply(self, comment_id, service, text):
+    def _send_comment_public_reply(self, comment_id, service, text, page=None):
         """
         Публікує публічну відповідь під коментарем через Facebook Graph API.
         Facebook: POST /v25.0/{comment_id}/comments
         Instagram: POST /v25.0/{comment_id}/replies
+        page — sendpulse.facebook.page record (опц.). Якщо не задано — fallback на legacy.
         Повертає (success: bool, error: str|None)
         """
-        token = self._get_fb_page_token()
+        token = self._get_fb_page_token(page=page)
         if not token:
-            return False, 'Page Access Token не налаштований (Налаштування → SendPulse → Facebook Page Access Token)'
+            return False, 'Page Access Token не налаштований (Налаштування → SendPulse → Facebook Page Access Token, або створіть запис у Facebook Pages)'
 
         endpoint = 'replies' if service == 'instagram' else 'comments'
         url = f'https://graph.facebook.com/v25.0/{comment_id}/{endpoint}'
@@ -1569,23 +1595,25 @@ class SendpulseConnect(models.Model):
             _logger.info('SendPulse Odo: public reply posted for comment %s', comment_id)
         return ok, err
 
-    def _send_comment_private_reply(self, comment_id, text, service='facebook'):
+    def _send_comment_private_reply(self, comment_id, text, service='facebook', page=None):
         """
         Надсилає приватне повідомлення у відповідь на коментар.
         Facebook: POST /{comment_id}/private_replies
         Instagram: POST /{ig-user-id}/messages з recipient.comment_id
+        page — sendpulse.facebook.page record (опц.). Для IG використовує page.ig_business_id.
         Повертає (success: bool, error: str|None)
         """
-        token = self._get_fb_page_token()
+        token = self._get_fb_page_token(page=page)
         if not token:
             return False, 'Page Access Token не налаштований'
 
         if service == 'instagram':
-            ig_user_id = self.env['ir.config_parameter'].sudo().get_param(
-                'odoo_chatwoot_connector.ig_user_id', ''
-            )
+            # Спочатку пробуємо per-page ig_business_id, потім глобальний fallback
+            ig_user_id = (page.ig_business_id if page else False) or self.env[
+                'ir.config_parameter'
+            ].sudo().get_param('odoo_chatwoot_connector.ig_user_id', '')
             if not ig_user_id:
-                return False, 'Instagram User ID не налаштований (odoo_chatwoot_connector.ig_user_id)'
+                return False, 'Instagram Business Account ID не налаштований (ні на Page, ні в глобальних settings)'
             url = f'https://graph.facebook.com/v25.0/{ig_user_id}/messages'
             payload = {
                 'recipient': {'comment_id': comment_id},
@@ -1603,8 +1631,30 @@ class SendpulseConnect(models.Model):
             _logger.info('SendPulse Odo: private reply sent for comment %s (%s)', comment_id, service)
         return ok, err
 
-    def _get_fb_page_token(self):
-        """Повертає Facebook Page Access Token з ir.config_parameter."""
+    def _get_fb_page_token(self, page=None):
+        """
+        Повертає Facebook Page Access Token.
+
+        Пріоритет:
+        1. page.access_token — якщо передано Page record з токеном
+        2. Page за sp_page_id цієї розмови (self) — для multi-page webhook-ів
+        3. Default Page у sendpulse.facebook.page (is_default=True, active=True)
+        4. Legacy fallback — `ir.config_parameter.fb_page_access_token`
+        """
+        if page and page.access_token:
+            return page.access_token
+        # Якщо self — sendpulse.connect запис з sp_page_id, спробуємо знайти Page
+        if self and hasattr(self, 'sp_page_id') and self.sp_page_id:
+            Page = self.env['sendpulse.facebook.page'].sudo()
+            found = Page.find_by_page_id(self.sp_page_id)
+            if found and found.access_token:
+                return found.access_token
+        # Default Page
+        Page = self.env['sendpulse.facebook.page'].sudo()
+        default = Page.search([('is_default', '=', True), ('active', '=', True)], limit=1)
+        if default and default.access_token:
+            return default.access_token
+        # Legacy fallback
         return self.env['ir.config_parameter'].sudo().get_param(
             'odoo_chatwoot_connector.fb_page_access_token', ''
         ) or ''
@@ -1651,20 +1701,14 @@ class SendpulseConnect(models.Model):
             rec.write({'sp_window_alert_sent': True})
 
     @api.model
-    def cron_check_fb_token_expiry(self):
+    def _check_single_fb_token(self, token, label):
         """
-        Щотижнева перевірка терміну дії Facebook Page Access Token.
-        - /me → перевіряє валідність
-        - /debug_token → точний expires_at (якщо є app_id+app_secret)
-        Результат → ir.config_parameter (fb_token_status, fb_token_last_check, fb_token_expires_at).
+        Перевіряє один Facebook Page Access Token.
+        Повертає dict: {valid: bool, status: str, days_left: int|None, error: str|None}.
+        При `invalid` — надсилає Telegram-алерт з міткою label (напр. "CampScout" або "legacy").
         """
-        ICP = self.env['ir.config_parameter'].sudo()
-        token = ICP.get_param('odoo_chatwoot_connector.fb_page_access_token', '')
-        ICP.set_param('odoo_chatwoot_connector.fb_token_last_check', fields.Datetime.now().isoformat())
         if not token:
-            ICP.set_param('odoo_chatwoot_connector.fb_token_status', 'not_configured')
-            return
-
+            return {'valid': False, 'status': 'not_configured', 'days_left': None, 'error': None}
         try:
             resp = requests.get(
                 'https://graph.facebook.com/v25.0/me',
@@ -1673,26 +1717,24 @@ class SendpulseConnect(models.Model):
             )
             if resp.status_code != 200:
                 err = self._parse_fb_error(resp)
-                ICP.set_param('odoo_chatwoot_connector.fb_token_status', f'invalid: {err}')
-                _logger.error('SendPulse Odo: FB Page Token invalid — %s', err)
+                _logger.error('SendPulse Odo [%s]: FB token invalid — %s', label, err)
                 self._notify_telegram(
-                    f'⚠️ <b>Facebook Page Token НЕДІЙСНИЙ</b>\n\n'
+                    f'⚠️ <b>FB Page Token НЕДІЙСНИЙ</b> [{label}]\n\n'
                     f'Причина: {err}\n\n'
-                    f'Автовідповіді і приватні повідомлення не працюють. '
-                    f'Потрібно згенерувати новий токен у Business Manager.'
+                    f'Автовідповіді і приватні повідомлення для цієї Page не працюють. '
+                    f'Потрібно згенерувати новий токен.'
                 )
-                return
+                return {'valid': False, 'status': f'invalid: {err[:100]}', 'days_left': None, 'error': err}
         except Exception as e:
-            ICP.set_param('odoo_chatwoot_connector.fb_token_status', f'check_failed: {e}')
-            _logger.error('SendPulse Odo: FB Page Token check failed — %s', e)
-            return
+            _logger.error('SendPulse Odo [%s]: FB token check failed — %s', label, e)
+            return {'valid': False, 'status': f'check_failed: {str(e)[:100]}', 'days_left': None, 'error': str(e)}
 
+        # /debug_token (якщо є app credentials)
+        ICP = self.env['ir.config_parameter'].sudo()
         app_id = ICP.get_param('odoo_chatwoot_connector.fb_app_id', '')
         app_secret = ICP.get_param('odoo_chatwoot_connector.fb_app_secret', '')
         if not (app_id and app_secret):
-            ICP.set_param('odoo_chatwoot_connector.fb_token_status', 'valid (set fb_app_id/secret for expiry tracking)')
-            return
-
+            return {'valid': True, 'status': 'valid (no app_id/secret for expiry)', 'days_left': None, 'error': None}
         try:
             resp = requests.get(
                 'https://graph.facebook.com/v25.0/debug_token',
@@ -1700,30 +1742,63 @@ class SendpulseConnect(models.Model):
                 timeout=15,
             )
             if resp.status_code != 200:
-                ICP.set_param('odoo_chatwoot_connector.fb_token_status', 'valid (debug_token failed)')
-                return
+                return {'valid': True, 'status': 'valid (debug_token failed)', 'days_left': None, 'error': None}
             data = resp.json().get('data', {})
             expires_at = data.get('expires_at', 0)
             if expires_at == 0:
-                ICP.set_param('odoo_chatwoot_connector.fb_token_status', 'valid: never expires')
-                ICP.set_param('odoo_chatwoot_connector.fb_token_expires_at', '0')
-                return
+                return {'valid': True, 'status': 'valid: never expires', 'days_left': None, 'error': None}
             exp_dt = datetime.utcfromtimestamp(expires_at)
-            ICP.set_param('odoo_chatwoot_connector.fb_token_expires_at', exp_dt.isoformat())
             days_left = (exp_dt - datetime.utcnow()).days
             if days_left < 7:
-                _logger.error('SendPulse Odo: FB Page Token expires in %d days!', days_left)
-                ICP.set_param('odoo_chatwoot_connector.fb_token_status', f'expires_soon: {days_left}d')
+                _logger.error('SendPulse Odo [%s]: FB token expires in %d days!', label, days_left)
                 self._notify_telegram(
-                    f'⚠️ <b>FB Page Token скоро помре</b>\n\n'
+                    f'⚠️ <b>FB Page Token скоро помре</b> [{label}]\n\n'
                     f'Залишилось днів: <b>{days_left}</b>\n'
                     f'Треба згенерувати новий у Business Manager → System Users → Generate Token.'
                 )
-            else:
-                ICP.set_param('odoo_chatwoot_connector.fb_token_status', f'valid: {days_left}d left')
+                return {'valid': True, 'status': f'expires_soon: {days_left}d', 'days_left': days_left, 'error': None}
+            return {'valid': True, 'status': f'valid: {days_left}d left', 'days_left': days_left, 'error': None}
         except Exception as e:
-            _logger.warning('SendPulse Odo: debug_token exception — %s', e)
-            ICP.set_param('odoo_chatwoot_connector.fb_token_status', 'valid (debug_token error)')
+            _logger.warning('SendPulse Odo [%s]: debug_token exception — %s', label, e)
+            return {'valid': True, 'status': 'valid (debug_token error)', 'days_left': None, 'error': None}
+
+    @api.model
+    def cron_check_fb_token_expiry(self):
+        """
+        Щотижнева перевірка токенів. Перевіряє:
+        1. Усі записи sendpulse.facebook.page (active=True)
+        2. Legacy fb_page_access_token (якщо ще використовується)
+        """
+        now_iso = fields.Datetime.now()
+        ICP = self.env['ir.config_parameter'].sudo()
+
+        # 1. Multi-page токени
+        Page = self.env['sendpulse.facebook.page'].sudo()
+        for page in Page.search([('active', '=', True)]):
+            res = self._check_single_fb_token(page.access_token, page.name or page.page_id)
+            page.write({
+                'token_status': res['status'],
+                'last_checked_at': now_iso,
+            })
+
+        # 2. Legacy токен (для обратної сумісності — поки не всі міграли на Page records)
+        legacy_token = ICP.get_param('odoo_chatwoot_connector.fb_page_access_token', '')
+        ICP.set_param('odoo_chatwoot_connector.fb_token_last_check', now_iso.isoformat())
+        if legacy_token:
+            # Перевіряємо тільки якщо legacy не дублює якусь Page (щоб не слати 2 алерти)
+            duplicate = Page.search([('access_token', '=', legacy_token), ('active', '=', True)], limit=1)
+            if not duplicate:
+                res = self._check_single_fb_token(legacy_token, 'legacy fb_page_access_token')
+                ICP.set_param('odoo_chatwoot_connector.fb_token_status', res['status'])
+                if res.get('days_left') is not None:
+                    ICP.set_param(
+                        'odoo_chatwoot_connector.fb_token_expires_at',
+                        (datetime.utcnow() + timedelta(days=res['days_left'])).isoformat(),
+                    )
+            else:
+                ICP.set_param('odoo_chatwoot_connector.fb_token_status', f'valid (mirrored by Page "{duplicate.name}")')
+        else:
+            ICP.set_param('odoo_chatwoot_connector.fb_token_status', 'not_configured')
 
     @staticmethod
     def _parse_fb_error(resp):

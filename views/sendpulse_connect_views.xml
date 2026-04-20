@@ -252,6 +252,36 @@
                         </group>
                     </group>
 
+                    <h2>Multi-page Facebook/Instagram</h2>
+                    <group>
+                        <group string="Синхронізація з Meta">
+                            <field name="fb_pages_count" readonly="1"/>
+                            <field name="fb_sync_user_token" password="True"
+                                   placeholder="EAAjIM... (User Access Token)"/>
+                            <button name="action_sync_fb_pages" type="object"
+                                    string="Синхронізувати з Meta /me/accounts"
+                                    class="btn-primary" icon="fa-refresh"
+                                    invisible="not fb_sync_user_token"/>
+                            <div colspan="2">
+                                <small class="text-muted">
+                                    User Access Token отримується у <a href="https://developers.facebook.com/tools/explorer/" target="_blank">Graph API Explorer</a>
+                                    з permissions <b>pages_show_list</b> + <b>business_management</b>.
+                                    Живе ~2 години. Після sync токен не зберігається.
+                                    Безстрокові Page Tokens для кожної сторінки зберігаються у Facebook Pages.
+                                </small>
+                            </div>
+                        </group>
+                        <group string="Довідка">
+                            <div colspan="2">
+                                <small class="text-muted">
+                                    Меню <b>SendPulse → Facebook Pages</b> — список усіх синхронізованих сторінок.<br/>
+                                    Модуль автоматично резолвить Page за <code>page_id</code> з webhook — відповідає з потрібної сторінки.<br/>
+                                    Legacy <code>fb_page_access_token</code> використовується як fallback якщо Page не знайдена.
+                                </small>
+                            </div>
+                        </group>
+                    </group>
+
                     <h2>LLM-класифікатор коментарів</h2>
                     <group>
                         <group string="Anthropic">

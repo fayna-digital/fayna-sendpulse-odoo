@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import models, fields, api
+from odoo import models, fields, api, _
 
 
 class ResConfigSettings(models.TransientModel):
@@ -153,6 +153,48 @@ class ResConfigSettings(models.TransientModel):
         default=True,
         help='Якщо LLM-класифікатор позначив коментар як spam — автоматично ховаємо через Graph API (is_hidden=true).',
     )
+
+    # ── Sync from Meta (для Multi-page) ─────────────────────────────────
+    fb_sync_user_token = fields.Char(
+        string='User Access Token (тимчасово)',
+        help='Короткоживучий User Token з Graph API Explorer з permissions '
+             'pages_show_list + business_management. Не зберігається — '
+             'використовується тільки для одноразового виклику /me/accounts.',
+    )
+    fb_pages_count = fields.Integer(
+        string='Зареєстрованих Pages',
+        compute='_compute_fb_pages_count',
+    )
+
+    @api.depends('fb_sync_user_token')
+    def _compute_fb_pages_count(self):
+        count = self.env['sendpulse.facebook.page'].sudo().search_count([('active', '=', True)])
+        for rec in self:
+            rec.fb_pages_count = count
+
+    def action_sync_fb_pages(self):
+        """Синхронізує Facebook Pages з Meta через введений User Token."""
+        self.ensure_one()
+        if not self.fb_sync_user_token:
+            from odoo.exceptions import UserError
+            raise UserError(_('Введіть User Access Token перш ніж синхронізувати.'))
+        Page = self.env['sendpulse.facebook.page'].sudo()
+        processed = Page.sync_from_meta(self.fb_sync_user_token)
+        created = sum(1 for _p, action in processed if action == 'created')
+        updated = sum(1 for _p, action in processed if action == 'updated')
+        # Очищаємо поле щоб токен не залишався у формі
+        self.fb_sync_user_token = False
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Синхронізація завершена'),
+                'message': _('Створено: %d, оновлено: %d з %d сторінок') % (created, updated, len(processed)),
+                'type': 'success',
+                'sticky': False,
+                'next': {'type': 'ir.actions.act_window_close'},
+            },
+        }
 
     # ── Telegram-алерти менеджерам ──────────────────────────────────────
     telegram_alerts_enabled = fields.Boolean(
