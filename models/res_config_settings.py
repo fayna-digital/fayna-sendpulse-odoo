@@ -236,6 +236,16 @@ class ResConfigSettings(models.TransientModel):
              '«Використати» → текст вставляється у composer, можна редагувати.',
     )
 
+    # ── Auto-translate (V2 F11) ──────────────────────────────────────────
+    auto_translate_enabled = fields.Boolean(
+        string='Авто-переклад UA↔PL через Claude',
+        config_parameter='odoo_chatwoot_connector.auto_translate_enabled',
+        default=False,
+        help='У SendPulse-панелі Discuss показується секція перекладу. '
+             'Оператор натискає «→ PL» / «→ UK» → останнє повідомлення '
+             'клієнта перекладається через Claude Haiku.',
+    )
+
     # ── Drip campaigns (V2 F2) ───────────────────────────────────────────
     drip_enabled = fields.Boolean(
         string='Drip-кампанії (master switch)',

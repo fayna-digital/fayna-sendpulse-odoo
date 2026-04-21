@@ -4,6 +4,38 @@
 
 ---
 
+## [2026-04-21] — v17.0.8.0
+
+### F11 Auto-translate UA↔PL у Discuss side-panel
+
+Польські оператори бачать текст клієнта українською — раніше копіювали у Google Translate. Тепер — кнопки просто у панелі.
+
+**Backend:**
+
+- `sendpulse.connect._translate_text(text, target_lang)` — виклик Claude Haiku з STRICT JSON `{source_lang, translated}`. Токени: 2000 max, timeout 15с. Підтримка `pl|uk|en|ru`.
+- RPC `translate_last_inbound_for_channel(channel_id, target_lang)` — витягує останнє incoming повідомлення з channel → перекладає → повертає `{translated, source_lang, original, error}`.
+- Robust parser: strip ```json fence, balanced braces, WARNING з raw[:300] при невдачі.
+- Toggle `auto_translate_enabled` у Settings (default False).
+
+**Frontend (OWL):**
+
+Нова секція «🌐 Переклад» у `sendpulse_info_panel`, між client-info і AI-драфтами. Дві кнопки-перемикачі «→ PL» і «→ UK»:
+
+- Клік → RPC → loading spinner → показ перекладу у border-блоці.
+- Клік на переклад → clipboard copy + toast «Переклад скопійовано».
+- Підпис з detected source_lang («З uk · клік — копіювати»).
+- Error-стан з зрозумілими повідомленнями («Переклад вимкнено у Settings», «Немає вхідних повідомлень» тощо).
+
+**Свідомий MVP-scope:**
+
+- Перекладається тільки ОСТАННЄ inbound — не всі повідомлення (економія токенів, 90% use-case).
+- On-demand — не автоматично при відкритті чату.
+- Без patch-у нативного Discuss message renderer (складно/крихко в Odoo 17).
+
+Подальше розширення (не в цьому релізі): inline-button під кожним повідомленням, auto-detect operator_lang з `res.users.lang`, кеш `translation_cache` на `mail.message`, зворотний переклад операторської відповіді перед send.
+
+---
+
 ## [2026-04-21] — v17.0.7.3
 
 ### AI-промпти: звертання на «Ви» + заборона збору даних дитини у чаті
