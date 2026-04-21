@@ -2564,10 +2564,9 @@ class SendpulseConnect(models.Model):
             return {'ok': False, 'error': 'attachment_missing', 'message_id': None}
 
         # Email більше НЕ містить купона — купон окремо через SMS.
-        # Це дозволяє зібрати два незалежних контакти (email + phone) з
-        # окремими маркетинговими згодами для кожного каналу.
-        # Avatar + logo — inline Data URI щоб Gmail/Outlook гарантовано
-        # показали (без auth до /web/image/res.users/6).
+        # Avatar + logo — inline Data URI через post-process (QWeb t-att-src
+        # у mail.template render-і не спрацьовує на ctx; надійніше просто
+        # зробити str.replace після render).
         signer = self.env['res.users'].sudo().browse(6)
         company = self.env.company
         avatar_uri = ''
@@ -2583,16 +2582,28 @@ class SendpulseConnect(models.Model):
         )
         try:
             if tpl:
-                mail_id = tpl.sudo().with_context(
-                    recipient_email=to_email,
-                    user_avatar_uri=avatar_uri,
-                    company_logo_uri=logo_uri,
-                ).send_mail(
+                # Render спочатку тіло + subject щоб зробити post-process
+                rendered = tpl.sudo()._generate_template(
+                    [self.id], ['subject', 'body_html', 'email_from']
+                ).get(self.id, {})
+                body_html = rendered.get('body_html') or ''
+                if avatar_uri:
+                    body_html = body_html.replace(
+                        'https://campscout.eu/web/image/res.users/6/avatar_128',
+                        avatar_uri,
+                    )
+                if logo_uri:
+                    body_html = body_html.replace(
+                        'https://campscout.eu/web/image/res.company/1/logo',
+                        logo_uri,
+                    )
+                mail_id = tpl.sudo().send_mail(
                     self.id,
                     force_send=True,
                     email_values={
                         'email_to': to_email,
                         'attachment_ids': [(4, attachment.id)],
+                        'body_html': body_html,
                     },
                 )
                 mail = self.env['mail.mail'].sudo().browse(mail_id)

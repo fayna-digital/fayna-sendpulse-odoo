@@ -16,7 +16,7 @@
 
     <!-- Header: червона смуга + лого -->
     <div style="padding:24px 32px 16px 32px;border-top:6px solid #952426;">
-      <img t-att-src="ctx.get('company_logo_uri') or 'https://campscout.eu/web/image/res.company/1/logo'" alt="CampScout" style="display:block;max-height:56px;width:auto;max-width:220px;"/>
+      <img src="https://campscout.eu/web/image/res.company/1/logo" alt="CampScout" style="display:block;max-height:56px;width:auto;max-width:220px;"/>
     </div>
 
     <!-- Body -->
