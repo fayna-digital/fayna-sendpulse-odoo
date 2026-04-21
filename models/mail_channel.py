@@ -57,13 +57,23 @@ class DiscussChannel(models.Model):
     )
 
     def _to_store(self, store, **kwargs):
-        """Include sendpulse_connect_id in channel data sent to the frontend Store."""
-        super()._to_store(store, **kwargs)
+        """Odoo 18+ Store API. Безпечний no-op під 17, де _to_store відсутній."""
+        super_fn = getattr(super(), '_to_store', None)
+        if super_fn:
+            super_fn(store, **kwargs)
         for channel in self:
             if channel.sendpulse_connect_id:
                 store.add(channel, {
                     'sendpulse_connect_id': channel.sendpulse_connect_id.id,
                 })
+
+    def _channel_info(self):
+        """Odoo 17: додаємо sendpulse_connect_id в info-dict що йде на фронт у Store."""
+        channel_infos = super()._channel_info()
+        connect_by_channel = {c.id: c.sendpulse_connect_id.id for c in self if c.sendpulse_connect_id}
+        for info in channel_infos:
+            info['sendpulse_connect_id'] = connect_by_channel.get(info.get('id'), False)
+        return channel_infos
 
     @classmethod
     def sendpulse_channel_get(cls, env, partner_ids, connect_id, operator_partner_id):

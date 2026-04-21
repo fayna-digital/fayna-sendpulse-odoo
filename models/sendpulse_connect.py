@@ -2155,11 +2155,39 @@ class SendpulseConnect(models.Model):
             raw = (resp.json().get('content') or [{}])[0].get('text', '').strip()
             import json as _json
             import re as _re
-            m = _re.search(r'\{[\s\S]*?\}', raw)
-            if not m:
+            # Strip ```json / ``` code fences Claude любить додавати
+            cleaned = _re.sub(r'^```(?:json)?\s*|\s*```$', '', raw, flags=_re.MULTILINE).strip()
+            data = None
+            try:
+                data = _json.loads(cleaned)
+            except Exception:
+                # Balanced-brace extraction (не non-greedy, щоб не обривало на вкладених)
+                start = cleaned.find('{')
+                if start >= 0:
+                    depth = 0
+                    for i, ch in enumerate(cleaned[start:], start=start):
+                        if ch == '{':
+                            depth += 1
+                        elif ch == '}':
+                            depth -= 1
+                            if depth == 0:
+                                try:
+                                    data = _json.loads(cleaned[start:i+1])
+                                except Exception:
+                                    pass
+                                break
+            if not isinstance(data, dict):
+                _logger.warning(
+                    'SendPulse Odo: suggested_reply failed to parse JSON. RAW=%s',
+                    raw[:500],
+                )
                 return []
-            data = _json.loads(m.group(0))
             suggestions = data.get('suggestions') or []
+            if not suggestions:
+                _logger.info(
+                    'SendPulse Odo: suggested_reply — LLM повернув 0 варіантів. RAW=%s',
+                    raw[:300],
+                )
             # Filter: only non-empty strings, max N
             return [s.strip() for s in suggestions if isinstance(s, str) and s.strip()][:count]
         except Exception as e:
