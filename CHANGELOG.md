@@ -4,6 +4,53 @@
 
 ---
 
+## [2026-04-21] — v17.0.5.5
+
+### Fix — RAG не втручається у активну розмову з оператором
+
+**Симптом:** під час live-розмови оператора з клієнткою (Марічка Криленко) клієнтка написала коротке повідомлення "20.07-29.07-дякую", і RAG відразу запостив свою відповідь поверх операторського treading.
+
+**Root cause:** `_try_rag_auto_answer` гейтував тільки по confidence threshold + rate-limit. Не перевіряв чи оператор уже у розмові.
+
+**Fix:** додано 3 нові guards перед RAG:
+1. `stage in ('in_progress', 'close', 'identifying')` → skip
+2. `sp_first_reply_at` не порожнє (оператор уже відповідав) → skip
+
+Залишається RAG активним тільки для `stage=new/new_message` БЕЗ operator pickup — тобто саме той кейс коли RAG потрібен (перший автоматичний контакт).
+
+### Fix — Immediate Telegram alert про протухлий FB token
+
+**Симптом:** коли Page Token помер — модуль тихо падав на 400-ках Graph API. Weekly cron `cron_check_fb_token_expiry` не встигав піймати (запускається раз на 7 днів). Без `fb_app_secret` cron взагалі не знає `days_left`, тому не може попередити «скоро помре».
+
+**Fix:** у `_fb_post_with_retry` додано `_maybe_alert_token_expired(err, raw)`:
+- Парсить будь-який 4xx response з Graph API
+- Якщо detect `code=190` / `Session has expired` / `Invalid OAuth access token` → loud Telegram-алерт
+- Rate-limit 1 alert/годину через `ir.config_parameter.fb_token_invalid_last_alert_at` щоб не спамити при DDoS коментарів
+- Текст алерту з інструкцією негайних дій (Graph Explorer → sync) + довгострокових (fb_app_secret + F6 auto-refresh)
+
+### F10 Suggested reply drafts (partial — server-side)
+
+Python-метод готовий, OWL UI ще не інтегрований. Можна викликати з odoo shell:
+
+```python
+connect._generate_reply_suggestions(count=3)
+# → ['Варіант 1', 'Варіант 2', 'Варіант 3']
+```
+
+Або через RPC:
+```python
+env['sendpulse.connect'].suggested_reply_for_channel(channel_id=5317, count=3)
+```
+
+Prompt включає:
+- Профіль клієнта (ім'я, child_name, email, username, service)
+- Історію 10 останніх повідомлень обох сторін
+- Інструкції: коротко, по-людському, 1-2 емодзі, різні підходи (інформативний/запитуючий/емпатичний)
+
+Settings: `suggested_reply_enabled` (default False). OWL sidebar panel — наступний реліз.
+
+---
+
 ## [2026-04-21] — v17.0.5.4
 
 ### Fix — Auto-split довгих повідомлень оператора
