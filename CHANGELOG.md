@@ -4,6 +4,28 @@
 
 ---
 
+## [2026-04-21] — v17.0.10.2
+
+### F13-UI: OWL кнопки «Надіслати PDF» + «Надіслати SMS-купон»
+
+Секція «🎁 Маркетинг (F13)» у `sendpulse_info_panel` (між client-info і 🌐 Перекладом):
+
+- **PDF-каталог** — inline-input з email (prefill з `sp_booking_email` / `partner.email` / `unidentified_email`) + кнопка «Надіслати». Після успіху — alert-success з email і датою, форма ховається.
+- **SMS-купон 5%** — inline-input з phone (prefill з `partner.mobile/phone` / `unidentified_phone`) + кнопка. Після успіху — показує код + залишок купонів.
+
+**Лічильник вільних купонів виводиться автоматично** з `loyalty.card.points` — коли хтось робить замовлення і застосовує код, Odoo знижує points, наступний клієнт отримує SMS з актуальним числом. При 0 — error `coupon_exhausted`.
+
+**Стани:**
+- `pdf_sent_at` truthy → замість input показує alert «PDF надіслано на email» з датою.
+- `coupon_code` truthy → alert «SMS-купон надіслано на phone» з кодом і датою.
+- Error-map: зрозумілі повідомлення для disabled/no_email/attachment_missing тощо.
+
+**Секція прихована** якщо `lead_magnet_enabled=False` у Settings (`state.connect.lead_magnet_enabled`).
+
+**Підключено до `get_connect_for_channel`:** нові поля `pdf_sent_at`, `pdf_sent_to_email`, `coupon_code`, `coupon_sent_at`, `coupon_sent_to_phone`, `prefill_email`, `prefill_phone`, `lead_magnet_enabled`.
+
+---
+
 ## [2026-04-21] — v17.0.10.1
 
 ### Fix: race condition → дублі `sendpulse.connect` на одного контакта

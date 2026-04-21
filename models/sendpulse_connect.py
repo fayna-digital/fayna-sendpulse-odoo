@@ -4148,6 +4148,12 @@ class SendpulseConnect(models.Model):
             'subscription_status': connect.subscription_status or '',
             'subscription_status_label': status_labels.get(connect.subscription_status, ''),
             'partner': False,
+            # F13 tracking
+            'pdf_sent_at': connect.sp_pdf_sent_at and connect.sp_pdf_sent_at.strftime('%Y-%m-%d %H:%M') or '',
+            'pdf_sent_to_email': connect.sp_pdf_sent_to_email or '',
+            'coupon_code': connect.sp_coupon_code or '',
+            'coupon_sent_at': connect.sp_coupon_sent_at and connect.sp_coupon_sent_at.strftime('%Y-%m-%d %H:%M') or '',
+            'coupon_sent_to_phone': connect.sp_coupon_sent_to_phone or '',
         }
         if connect.partner_id:
             p = connect.partner_id
@@ -4157,6 +4163,21 @@ class SendpulseConnect(models.Model):
                 'email': p.email or '',
                 'phone': p.phone or p.mobile or '',
             }
+        # F13: prefill values для кнопок — беремо існуючий email/phone
+        result['prefill_email'] = (
+            connect.sp_booking_email
+            or (connect.partner_id.email if connect.partner_id else '')
+            or connect.unidentified_email or ''
+        )
+        result['prefill_phone'] = (
+            (connect.partner_id.mobile or connect.partner_id.phone if connect.partner_id else '')
+            or connect.unidentified_phone or ''
+        )
+        # F13: чи ввімкнено master-switch lead_magnet
+        ICP = self.env['ir.config_parameter'].sudo()
+        result['lead_magnet_enabled'] = (
+            ICP.get_param('odoo_chatwoot_connector.lead_magnet_enabled', 'False') == 'True'
+        )
         return result
 
     # Ліміти SendPulse API по довжині тексту (chars). Перевищення → 400 (#100).
