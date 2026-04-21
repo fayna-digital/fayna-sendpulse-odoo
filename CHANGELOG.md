@@ -4,6 +4,48 @@
 
 ---
 
+## [2026-04-21] — v17.0.5.4
+
+### Fix — Auto-split довгих повідомлень оператора
+
+**Симптом:** оператор написав ~1400 chars у Discuss (пояснення про Долину Карпа) → SendPulse повернув `400 (#100) Довжина перевищує 1000 символів` → клієнт у Instagram нічого не отримав. В Odoo повідомлення показувалось як надіслане (через `super().message_post()` було вже збережене у chatter), лише маленька нотатка «❌ не доставлено» десь знизу.
+
+**Root cause:** ліміт Instagram у SendPulse — 1000 chars. Інші канали мають свої ліміти. Модуль надсилав сирий текст без перевірки довжини.
+
+**Fix:**
+
+1. **Per-service text limits** (`_SERVICE_TEXT_LIMITS`):
+   - Telegram: 4096
+   - Instagram / TikTok: 1000
+   - Facebook / Messenger: 2000
+   - WhatsApp: 1600
+   - Viber: 7000
+   - LiveChat: 4000
+
+2. **Auto-split через `_split_text_by_limit(text, max_chars)`** — 4-рівневе розбиття:
+   - По абзацах (`\n\n`)
+   - По реченнях (regex `(?<=[.!?…])\s+`)
+   - По словах
+   - Hard cut як останній засіб
+   - Safety margin 20 chars для нумерації `(1/N)`
+
+3. **High-level `send_message_to_sendpulse()`:**
+   - Якщо `len(text) > limit` → `_split_text_by_limit()` → loop через chunks
+   - Між chunks пауза 0.7s (ratelimit-safe)
+   - Перший chunk несе attachment, решта — лише текст
+   - Nump prefix `(i/N) ` у кожному chunk щоб клієнт бачив порядок
+   - Нотатка у Discuss-канал про розбиття з кількістю частин
+   - Повертає True лише якщо ВСІ chunks пройшли
+
+4. **Low-level `_send_single_message()`:**
+   - Без перевірки довжини, без retry для length — просто POST і parse result
+   - Використовується внутрішньо з chunks
+   - Також прямо (backward compat) якщо текст коротший за limit
+
+**Backward compat:** всі існуючі виклики `send_message_to_sendpulse(text)` продовжують працювати — просто короткі тексти проходять прямо через нове high-level до low-level send.
+
+---
+
 ## [2026-04-21] — v17.0.5.3
 
 ### Sprint 3 F2 — Drip campaigns (3 streams)
