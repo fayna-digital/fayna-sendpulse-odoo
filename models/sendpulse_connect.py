@@ -1616,6 +1616,9 @@ class SendpulseConnect(models.Model):
                     err = self._parse_fb_error(resp)
                     _logger.warning('SendPulse Odo %s failed (no retry) — %s', label, err)
                     self._log_fb_audit(label, url, payload, resp.status_code, last_text, attempt + 1)
+                    # V2 immediate alert: якщо токен протух (code 190) — одразу Telegram,
+                    # не чекаємо weekly cron. Rate-limited 1/год щоб не спамити.
+                    self._maybe_alert_token_expired(err, last_text)
                     return False, err, None
             except (requests.ConnectionError, requests.Timeout) as e:
                 last_err = str(e)
@@ -1633,6 +1636,49 @@ class SendpulseConnect(models.Model):
         _logger.error('SendPulse Odo %s — all %d retries exhausted: %s', label, attempts, last_err)
         self._log_fb_audit(label, url, payload, last_status, last_text, attempts)
         return False, f'retries exhausted: {last_err}', None
+
+    @api.model
+    def _maybe_alert_token_expired(self, err_text, raw_response):
+        """
+        Якщо Graph API відповів помилкою з кодом 190 (token issue) — одразу
+        шле loud Telegram-алерт, не чекаючи weekly cron. Rate-limit 1/год
+        щоб під DDoS коментарів не спамило сотнями повідомлень.
+        """
+        combined = f'{err_text or ""} {raw_response or ""}'.lower()
+        # Meta error code 190 = invalid/expired token (також часті rbacs 102/104)
+        is_token_issue = (
+            'код 190' in combined or 'code":190' in combined or 'code": 190' in combined
+            or 'session has expired' in combined or 'invalid oauth' in combined
+            or 'error validating access token' in combined
+        )
+        if not is_token_issue:
+            return
+        ICP = self.env['ir.config_parameter'].sudo()
+        last_alert_iso = ICP.get_param(
+            'odoo_chatwoot_connector.fb_token_invalid_last_alert_at', ''
+        )
+        now = fields.Datetime.now()
+        if last_alert_iso:
+            try:
+                last_alert = fields.Datetime.from_string(last_alert_iso)
+                if last_alert and (now - last_alert) < timedelta(hours=1):
+                    return  # rate-limit
+            except Exception:
+                pass
+        ICP.set_param(
+            'odoo_chatwoot_connector.fb_token_invalid_last_alert_at',
+            fields.Datetime.to_string(now),
+        )
+        self._notify_telegram(
+            f'🚨 <b>FB Page Token НЕДІЙСНИЙ</b>\n\n'
+            f'API миттєво відхиляє запити — автовідповіді на коменти і '
+            f'приватні повідомлення НЕ проходять.\n\n'
+            f'<b>Терміново:</b> отримай новий User Token у Graph API Explorer '
+            f'і натисни «Синхронізувати з Meta» у Settings.\n\n'
+            f'<b>Довготривало:</b> заповни fb_app_id + fb_app_secret у Settings + '
+            f'увімкни Auto-refresh FB Page tokens — токени автоматично стануть long-lived.',
+            silent=False,
+        )
 
     @api.model
     def _notify_telegram(self, text, silent=False):
@@ -2013,6 +2059,104 @@ class SendpulseConnect(models.Model):
 
         return '\n'.join(lines)[:4000]
 
+    # ── V2 F10: Suggested reply drafts для оператора ──────────────────────
+    def _generate_reply_suggestions(self, count=3):
+        """
+        Через Claude генерує N варіантів наступної відповіді оператора
+        на основі контексту розмови. Returns list of strings.
+
+        Для OWL-компонента у Discuss side-panel. Toggle: `suggested_reply_enabled`.
+        """
+        self.ensure_one()
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param('odoo_chatwoot_connector.suggested_reply_enabled', 'False') != 'True':
+            return []
+        api_key = ICP.get_param('odoo_chatwoot_connector.anthropic_api_key', '')
+        if not api_key:
+            return []
+        model = ICP.get_param('odoo_chatwoot_connector.llm_model', 'claude-haiku-4-5')
+
+        # Контекст: останні 10 повідомлень обох сторін, хронологічно
+        recent = self.message_ids.sorted('date', reverse=False)[-10:]
+        history_lines = []
+        for m in recent:
+            who = '👤 Клієнт' if m.direction == 'incoming' else '🧑 Оператор'
+            text = (m.text_message or '').strip().replace('\n', ' ')[:300]
+            if text:
+                history_lines.append(f'{who}: {text}')
+        history = '\n'.join(history_lines) or '(порожньо — оператор ще не писав)'
+
+        # Контекст профілю
+        profile_parts = [f"Ім'я клієнта: {self.name or '—'}"]
+        if self.sp_child_name:
+            profile_parts.append(f"Дитина: {self.sp_child_name}")
+        if self.sp_booking_email:
+            profile_parts.append(f"Email: {self.sp_booking_email}")
+        if self.social_username:
+            profile_parts.append(f"Username: @{self.social_username}")
+        profile_parts.append(f"Канал: {self._get_service_label()}")
+        profile = '\n'.join(profile_parts)
+
+        prompt = (
+            f"Ти — AI-асистент менеджера CampScout (літні дитячі табори у Польщі).\n"
+            f"Прочитай історію розмови і запропонуй {count} РІЗНИХ варіантів "
+            f"наступної відповіді оператора клієнту.\n\n"
+            f"Контекст:\n{profile}\n\n"
+            f"Історія (останнє повідомлення клієнта внизу):\n{history}\n\n"
+            f"Стиль:\n"
+            f"- Коротко, 2-4 речення.\n"
+            f"- По-людському, не формально, без клішe «Дякуємо за запитання».\n"
+            f"- Емодзі помірно (1-2 максимум).\n"
+            f"- URL-и з попередніх повідомлень — без змін.\n"
+            f"- Варіанти мають бути РІЗНИМИ за підходом (інформативний / запитуючий / емпатичний).\n\n"
+            f"Формат відповіді — STRICT JSON:\n"
+            f'{{"suggestions": ["варіант 1", "варіант 2", "варіант 3"]}}\n'
+            f"Поверни ЛИШЕ JSON без додаткових пояснень."
+        )
+
+        try:
+            resp = requests.post(
+                'https://api.anthropic.com/v1/messages',
+                headers={
+                    'x-api-key': api_key,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
+                },
+                json={
+                    'model': model,
+                    'max_tokens': 800,
+                    'messages': [{'role': 'user', 'content': prompt}],
+                },
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                _logger.warning(
+                    'SendPulse Odo: suggested_reply HTTP %d — %s',
+                    resp.status_code, resp.text[:200],
+                )
+                return []
+            raw = (resp.json().get('content') or [{}])[0].get('text', '').strip()
+            import json as _json
+            import re as _re
+            m = _re.search(r'\{[\s\S]*?\}', raw)
+            if not m:
+                return []
+            data = _json.loads(m.group(0))
+            suggestions = data.get('suggestions') or []
+            # Filter: only non-empty strings, max N
+            return [s.strip() for s in suggestions if isinstance(s, str) and s.strip()][:count]
+        except Exception as e:
+            _logger.warning('SendPulse Odo: suggested_reply exception — %s', e)
+            return []
+
+    @api.model
+    def suggested_reply_for_channel(self, channel_id, count=3):
+        """RPC endpoint — для OWL-компонента. Бере connect за channel_id."""
+        connect = self.search([('channel_id', '=', channel_id)], limit=1)
+        if not connect:
+            return []
+        return connect._generate_reply_suggestions(count=count)
+
     # ── V2 F1: RAG FAQ auto-answer ────────────────────────────────────────
     def _rag_answer_question(self, question_text, contact_name=''):
         """
@@ -2166,6 +2310,26 @@ class SendpulseConnect(models.Model):
         ICP = self.env['ir.config_parameter'].sudo()
         if ICP.get_param('odoo_chatwoot_connector.rag_auto_answer_enabled', 'False') != 'True':
             return
+
+        # V2 F1 guard: RAG НЕ втручається у активну розмову з оператором.
+        # Критерії «оператор вже у чаті»:
+        #   1. Оператор уже відповідав (sp_first_reply_at не порожнє) — класичний pickup
+        #   2. Stage = in_progress — оператор взяв чат у роботу через action_open_discuss
+        #   3. У каналі є non-bot members (оператори долучені)
+        # Також не лізти у identifying / close.
+        if self.stage in ('in_progress', 'close', 'identifying'):
+            _logger.info(
+                'SendPulse Odo: RAG skip for connect %s — stage=%s (operator engaged)',
+                self.id, self.stage,
+            )
+            return
+        if self.sp_first_reply_at:
+            _logger.info(
+                'SendPulse Odo: RAG skip for connect %s — operator already replied at %s',
+                self.id, self.sp_first_reply_at,
+            )
+            return
+
         try:
             threshold = float(ICP.get_param(
                 'odoo_chatwoot_connector.rag_auto_confidence_threshold', '0.85'

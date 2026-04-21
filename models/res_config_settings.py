@@ -226,6 +226,16 @@ class ResConfigSettings(models.TransientModel):
         help='Refresh токен якщо залишилось менше N днів. Дефолт 14.',
     )
 
+    # ── Suggested reply drafts (V2 F10) ──────────────────────────────────
+    suggested_reply_enabled = fields.Boolean(
+        string='AI-драфти відповіді оператору',
+        config_parameter='odoo_chatwoot_connector.suggested_reply_enabled',
+        default=False,
+        help='У sidebar Discuss показується панель з 3 варіантами відповіді '
+             'від Claude на основі контексту розмови. Оператор натискає '
+             '«Використати» → текст вставляється у composer, можна редагувати.',
+    )
+
     # ── Drip campaigns (V2 F2) ───────────────────────────────────────────
     drip_enabled = fields.Boolean(
         string='Drip-кампанії (master switch)',

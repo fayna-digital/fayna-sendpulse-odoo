@@ -338,6 +338,16 @@
 
                     <h2>V2 Automation — Sprint 3</h2>
                     <group>
+                        <group string="AI-драфти відповіді (F10)">
+                            <field name="suggested_reply_enabled"/>
+                            <div colspan="2">
+                                <small class="text-muted">
+                                    Панель у Discuss з 3 варіантами відповіді від Claude
+                                    на основі останніх 10 повідомлень.
+                                    Потребує anthropic_api_key.
+                                </small>
+                            </div>
+                        </group>
                         <group string="Drip campaigns (F2)">
                             <field name="drip_enabled"/>
                             <field name="drip_reminder_6h_enabled"/>
