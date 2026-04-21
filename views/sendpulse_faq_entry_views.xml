@@ -43,14 +43,16 @@
                             <field name="last_used_at" readonly="1"/>
                         </group>
                     </group>
-                    <separator string="Питання (шаблон для LLM-матчу)"/>
-                    <field name="question" nolabel="1"
-                           placeholder="Скільки коштує табір?"
-                           options="{'rows': 2}"/>
-                    <separator string="Відповідь (канонічна)"/>
-                    <field name="answer" nolabel="1"
-                           placeholder="Ціни різняться залежно від програми..."
-                           options="{'rows': 8}"/>
+                    <group col="1" string="Питання (шаблон для LLM-матчу)">
+                        <field name="question" nolabel="1"
+                               placeholder="Скільки коштує табір?"
+                               options="{'rows': 2}"/>
+                    </group>
+                    <group col="1" string="Відповідь (канонічна)">
+                        <field name="answer" nolabel="1"
+                               placeholder="Ціни різняться залежно від програми..."
+                               options="{'rows': 8}"/>
+                    </group>
                 </sheet>
             </form>
         </field>
