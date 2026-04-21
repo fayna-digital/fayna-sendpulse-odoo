@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- LIST -->
+    <record id="view_sendpulse_privacy_consent_log_tree" model="ir.ui.view">
+        <field name="name">sendpulse.privacy.consent.log.tree</field>
+        <field name="model">sendpulse.privacy.consent.log</field>
+        <field name="arch" type="xml">
+            <tree string="Журнал згод RODO" decoration-success="consent_given" decoration-danger="not consent_given" create="false" delete="false">
+                <field name="consent_timestamp"/>
+                <field name="consent_given" widget="boolean_toggle"/>
+                <field name="partner_id"/>
+                <field name="email"/>
+                <field name="phone"/>
+                <field name="purpose"/>
+                <field name="channel"/>
+                <field name="legal_basis"/>
+                <field name="source"/>
+                <field name="policy_version"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- FORM (read-only тіло, тільки notes редагується) -->
+    <record id="view_sendpulse_privacy_consent_log_form" model="ir.ui.view">
+        <field name="name">sendpulse.privacy.consent.log.form</field>
+        <field name="model">sendpulse.privacy.consent.log</field>
+        <field name="arch" type="xml">
+            <form string="Запис згоди RODO" create="false" delete="false">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="display_name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Хто">
+                            <field name="partner_id" readonly="1"/>
+                            <field name="connect_id" readonly="1"/>
+                            <field name="email" readonly="1"/>
+                            <field name="phone" readonly="1"/>
+                        </group>
+                        <group string="Що">
+                            <field name="purpose" readonly="1"/>
+                            <field name="channel" readonly="1"/>
+                            <field name="legal_basis" readonly="1"/>
+                            <field name="consent_given" readonly="1" widget="boolean_toggle"/>
+                            <field name="consent_timestamp" readonly="1"/>
+                            <field name="policy_version" readonly="1"/>
+                            <field name="source" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Доказ (буквальна відповідь клієнта)">
+                        <field name="exact_user_response" readonly="1" nolabel="1"/>
+                        <field name="message_id" readonly="1" string="Повідомлення-доказ"/>
+                    </group>
+                    <group string="Адмінський коментар (редаговане)">
+                        <field name="notes" nolabel="1" placeholder="Коментар адміна — причина, контекст, посилання на тікет..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- SEARCH -->
+    <record id="view_sendpulse_privacy_consent_log_search" model="ir.ui.view">
+        <field name="name">sendpulse.privacy.consent.log.search</field>
+        <field name="model">sendpulse.privacy.consent.log</field>
+        <field name="arch" type="xml">
+            <search string="Журнал згод">
+                <field name="partner_id"/>
+                <field name="email"/>
+                <field name="phone"/>
+                <filter name="granted" string="✅ Надані" domain="[('consent_given','=',True)]"/>
+                <filter name="withdrawn" string="🚫 Відкликані" domain="[('consent_given','=',False)]"/>
+                <separator/>
+                <filter name="lead_magnet" string="Lead magnet" domain="[('purpose','in',('lead_magnet_email','lead_magnet_sms'))]"/>
+                <filter name="marketing" string="Маркетинг" domain="[('purpose','in',('marketing_email','marketing_sms'))]"/>
+                <separator/>
+                <filter name="email_ch" string="Email" domain="[('channel','=','email')]"/>
+                <filter name="sms_ch" string="SMS" domain="[('channel','=','sms')]"/>
+                <group expand="0" string="Групування">
+                    <filter name="group_partner" string="Партнер" context="{'group_by':'partner_id'}"/>
+                    <filter name="group_purpose" string="Мета" context="{'group_by':'purpose'}"/>
+                    <filter name="group_channel" string="Канал" context="{'group_by':'channel'}"/>
+                    <filter name="group_source" string="Джерело" context="{'group_by':'source'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ACTION -->
+    <record id="action_sendpulse_privacy_consent_log" model="ir.actions.act_window">
+        <field name="name">Журнал згод RODO</field>
+        <field name="res_model">sendpulse.privacy.consent.log</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_sendpulse_privacy_consent_log_search"/>
+        <field name="context">{'search_default_granted': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Поки немає жодного запису згоди</p>
+            <p>
+                Цей журнал автоматично заповнюється під час lead-magnet flow:<br/>
+                — клієнт пише email → запис <strong>lead_magnet_email</strong><br/>
+                — клієнт пише телефон → запис <strong>lead_magnet_sms</strong><br/>
+                — клієнт пише «STOP» / «отписка» / «nie chcę» → запис withdrawal
+                (майбутні надсилання пропускаються).<br/><br/>
+                Журнал <strong>append-only</strong> — записи не можна редагувати
+                і видаляти (тільки коментар адміна).
+            </p>
+        </field>
+    </record>
+
+    <!-- MENU -->
+    <menuitem id="menu_sendpulse_privacy_consent_log"
+              name="Журнал згод RODO"
+              parent="odoo_chatwoot_connector.menu_sendpulse_root"
+              action="action_sendpulse_privacy_consent_log"
+              sequence="80"
+              groups="odoo_chatwoot_connector.group_sendpulse_officer"/>
+
+</odoo>

@@ -236,6 +236,25 @@ class ResConfigSettings(models.TransientModel):
              '«Використати» → текст вставляється у composer, можна редагувати.',
     )
 
+    # ── RODO/GDPR consent log (V2 F13b) ───────────────────────────────────
+    consent_enforcement_enabled = fields.Boolean(
+        string='Enforce RODO-consent перед lead-magnet send',
+        config_parameter='odoo_chatwoot_connector.consent_enforcement_enabled',
+        default=True,
+        help='Перед send PDF-каталога / SMS-купона перевіряти '
+             'sendpulse.privacy.consent.log — якщо є withdrawal '
+             'для цього email/phone + purpose, skip send. При send: '
+             'авто-фіксується consent_given=True як доказ.',
+    )
+    rodo_policy_version = fields.Char(
+        string='Версія політики RODO/GDPR',
+        config_parameter='odoo_chatwoot_connector.rodo_policy_version',
+        default='v1.0',
+        help='Вставляється у consent.log як `policy_version` — доказ '
+             'на яку редакцію політики клієнт дав згоду. Оновлюй при '
+             'матеріальних змінах Polityka prywatności / Regulamin.',
+    )
+
     # ── Event seats awareness (V2 F14) ───────────────────────────────────
     event_seats_awareness_enabled = fields.Boolean(
         string='Live вільні місця у AI-контексті',

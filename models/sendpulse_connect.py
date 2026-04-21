@@ -1189,7 +1189,7 @@ class SendpulseConnect(models.Model):
             is_media = is_image or msg_type in ('audio', 'video', 'document')
             media_icons = {'audio': '🎵', 'video': '🎥', 'document': '📄'}
 
-            self.env['sendpulse.message'].create({
+            new_msg = self.env['sendpulse.message'].create({
                 'name': now.strftime('%Y-%m-%d %H:%M'),
                 'date': now,
                 'connect_id': connect.id,
@@ -1200,6 +1200,11 @@ class SendpulseConnect(models.Model):
                 'attachment_url': last_message if is_media else False,
                 'raw_json': str({'text': last_message, 'contact': contact}),
             })
+
+            # RODO: детектим unsubscribe-фрази — фіксуємо withdrawal для
+            # усіх lead-magnet purposes на цьому connect.
+            if not is_media and last_message:
+                connect._check_and_record_unsubscribe(last_message, new_msg)
 
             # Якщо є активний channel — постимо туди для операторів
             if connect.channel_id:
@@ -2168,6 +2173,95 @@ class SendpulseConnect(models.Model):
 
         return '\n'.join(lines)[:4000]
 
+    # ── V2 F13b: RODO unsubscribe detection ───────────────────────────────
+    # Ключові фрази де клієнт просить НЕ надсилати більше маркетингові матеріали.
+    # Мультимовно: UK + PL + RU + EN. Case-insensitive, whole-word.
+    UNSUBSCRIBE_PATTERNS = (
+        r'\bstop\b',
+        r'\bunsubscribe\b',
+        r'\bвідпис',          # відписатися, відпис
+        r'\bотпис',            # отписаться, отпис
+        r'\bне\s+над[іи]слайте',
+        r'\bне\s+пиш[іи]ть',
+        r'\bnie\s+chc[ęe]',   # nie chcę / nie chce
+        r'\bwypisz\b',         # wypiszcie / wypisać
+        r'\brezygnuj',         # rezygnuję
+        r'\busuńcie\s+mnie',
+        r'\bвидаліть\s+мене',
+        r'\bудалите\s+меня',
+    )
+
+    def _check_and_record_unsubscribe(self, text, message):
+        """
+        Сканує текст клієнта на unsubscribe-фрази (STOP, відписка, nie chcę, ...).
+        Якщо знайдено — фіксує withdrawal для всіх активних lead-magnet purposes
+        цього connect (email + SMS). Майбутні send-и пропустяться.
+        """
+        if not text:
+            return False
+        import re
+        lower = text.lower()
+        matched = None
+        for pat in self.UNSUBSCRIBE_PATTERNS:
+            if re.search(pat, lower, re.IGNORECASE | re.UNICODE):
+                matched = pat
+                break
+        if not matched:
+            return False
+        ConsentLog = self.env['sendpulse.privacy.consent.log'].sudo()
+        email = (self.sp_booking_email or
+                 (self.partner_id.email if self.partner_id else '') or '').strip().lower()
+        phone = ((self.partner_id.mobile or self.partner_id.phone)
+                 if self.partner_id else '') or ''
+        phone = phone.strip()
+        recorded = []
+        # Email withdrawal
+        if email:
+            ConsentLog.record_consent(
+                purpose='lead_magnet_email',
+                channel='email',
+                partner_id=self.partner_id.id if self.partner_id else False,
+                connect_id=self.id,
+                message_id=message.id if message else False,
+                email=email,
+                consent_given=False,
+                exact_response=text[:500],
+                notes=f'Auto-recorded unsubscribe (pattern: {matched})',
+            )
+            recorded.append('email')
+        # SMS withdrawal
+        if phone:
+            ConsentLog.record_consent(
+                purpose='lead_magnet_sms',
+                channel='sms',
+                partner_id=self.partner_id.id if self.partner_id else False,
+                connect_id=self.id,
+                message_id=message.id if message else False,
+                phone=phone,
+                consent_given=False,
+                exact_response=text[:500],
+                notes=f'Auto-recorded unsubscribe (pattern: {matched})',
+            )
+            recorded.append('sms')
+        # Messenger withdrawal (на випадок майбутніх marketing-повідомлень у чат)
+        if self.partner_id or self.sp_contact_id:
+            ConsentLog.record_consent(
+                purpose='marketing_email',  # умовно — позначка «більше не писати»
+                channel='messenger',
+                partner_id=self.partner_id.id if self.partner_id else False,
+                connect_id=self.id,
+                message_id=message.id if message else False,
+                consent_given=False,
+                exact_response=text[:500],
+                notes=f'Auto-recorded unsubscribe via messenger (pattern: {matched})',
+            )
+            recorded.append('messenger')
+        _logger.info(
+            'SendPulse Odoo: RODO unsubscribe detected у connect %s — записав withdrawals: %s (pattern: %s)',
+            self.id, recorded, matched,
+        )
+        return True
+
     # ── V2 F14: Live event seats context для AI prompts ──────────────────
     def _get_live_events_context(self, limit=15, low_ratio=0.3):
         """
@@ -2614,6 +2708,26 @@ class SendpulseConnect(models.Model):
         if self.sp_pdf_sent_at and self.sp_pdf_sent_to_email == to_email:
             return {'ok': True, 'error': 'already_sent', 'message_id': None}
 
+        # RODO/GDPR: перед send — перевірити явне відкликання згоди.
+        # Якщо клієнт писав «STOP» / «отписка» / «nie chcę» — skip.
+        # Якщо consent record відсутній — трактуємо надання email як неявну
+        # згоду (unambiguous action per art. 4(11) RODO) і фіксуємо її.
+        ConsentLog = self.env['sendpulse.privacy.consent.log'].sudo()
+        enforce_consent = ICP.get_param(
+            'odoo_chatwoot_connector.consent_enforcement_enabled', 'True'
+        ) == 'True'
+        if enforce_consent:
+            last_consent = ConsentLog.search([
+                ('purpose', '=', 'lead_magnet_email'),
+                ('email', '=', to_email.lower()),
+            ], order='consent_timestamp desc, id desc', limit=1)
+            if last_consent and not last_consent.consent_given:
+                _logger.info(
+                    'SendPulse Odoo: F13 PDF skip — consent withdrawn for %s',
+                    to_email,
+                )
+                return {'ok': False, 'error': 'consent_withdrawn', 'message_id': None}
+
         att_id_raw = ICP.get_param('odoo_chatwoot_connector.lead_magnet_pdf_attachment_id', '')
         try:
             att_id = int(att_id_raw)
@@ -2706,6 +2820,25 @@ class SendpulseConnect(models.Model):
             'sp_pdf_sent_at': fields.Datetime.now(),
             'sp_pdf_sent_to_email': to_email,
         })
+        # RODO: фіксуємо згоду як факт — email був наданий клієнтом у чаті
+        # з метою отримати каталог (unambiguous action per art. 4(11)).
+        # Беремо останнє incoming повідомлення як доказ.
+        if enforce_consent:
+            last_in_msg = self.env['sendpulse.message'].sudo().search([
+                ('connect_id', '=', self.id),
+                ('direction', '=', 'incoming'),
+            ], order='sent_at desc, id desc', limit=1)
+            ConsentLog.record_consent(
+                purpose='lead_magnet_email',
+                channel='email',
+                partner_id=self.partner_id.id if self.partner_id else False,
+                connect_id=self.id,
+                message_id=last_in_msg.id if last_in_msg else False,
+                email=to_email,
+                consent_given=True,
+                exact_response=(last_in_msg.text_message or to_email) if last_in_msg else to_email,
+                notes=f'Auto-recorded on PDF send for connect {self.id}',
+            )
         _logger.info(
             'SendPulse Odoo: F13 PDF sent to %s for connect %s', to_email, self.id,
         )
@@ -2793,6 +2926,23 @@ class SendpulseConnect(models.Model):
             return {**empty, 'ok': True, 'error': 'already_sent',
                     'code': self.sp_coupon_code}
 
+        # RODO/PKE: SMS — окремий канал, потрібна окрема згода.
+        ConsentLog = self.env['sendpulse.privacy.consent.log'].sudo()
+        enforce_consent = ICP.get_param(
+            'odoo_chatwoot_connector.consent_enforcement_enabled', 'True'
+        ) == 'True'
+        if enforce_consent:
+            last_consent = ConsentLog.search([
+                ('purpose', '=', 'lead_magnet_sms'),
+                ('phone', '=', to_phone),
+            ], order='consent_timestamp desc, id desc', limit=1)
+            if last_consent and not last_consent.consent_given:
+                _logger.info(
+                    'SendPulse Odoo: F13 SMS skip — consent withdrawn for %s',
+                    to_phone,
+                )
+                return {**empty, 'error': 'consent_withdrawn'}
+
         program_id_raw = ICP.get_param('odoo_chatwoot_connector.lead_magnet_coupon_program_id', '')
         try:
             program_id = int(program_id_raw)
@@ -2868,6 +3018,23 @@ class SendpulseConnect(models.Model):
             'sp_coupon_sent_at': fields.Datetime.now(),
             'sp_coupon_sent_to_phone': to_phone,
         })
+        # RODO/PKE: фіксуємо SMS-консент (окремий канал від email).
+        if enforce_consent:
+            last_in_msg = self.env['sendpulse.message'].sudo().search([
+                ('connect_id', '=', self.id),
+                ('direction', '=', 'incoming'),
+            ], order='sent_at desc, id desc', limit=1)
+            ConsentLog.record_consent(
+                purpose='lead_magnet_sms',
+                channel='sms',
+                partner_id=self.partner_id.id if self.partner_id else False,
+                connect_id=self.id,
+                message_id=last_in_msg.id if last_in_msg else False,
+                phone=to_phone,
+                consent_given=True,
+                exact_response=(last_in_msg.text_message or to_phone) if last_in_msg else to_phone,
+                notes=f'Auto-recorded on SMS coupon send for connect {self.id}',
+            )
         _logger.info(
             'SendPulse Odoo: F13 coupon %s sent to %s for connect %s (remaining=%d)',
             code, to_phone, self.id, remaining,
