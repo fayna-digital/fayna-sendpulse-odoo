@@ -6,7 +6,7 @@
         <field name="model">sendpulse.faq.entry</field>
         <field name="arch" type="xml">
             <tree string="FAQ Entries" multi_edit="1">
-                <field name="priority" widget="priority"/>
+                <field name="priority"/>
                 <field name="name"/>
                 <field name="tags"/>
                 <field name="hit_count" readonly="1"/>
