@@ -6,13 +6,13 @@
 <!-- HERO -->
 <div style="padding:48px 48px 40px;border-bottom:1px solid #f0f0f0;">
   <div style="display:inline-block;background:#20ac41;color:#fff;font-size:0.72em;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 12px;border-radius:4px;margin-bottom:18px;">Odoo 17 Module</div>
-  <h1 style="font-size:2.2em;font-weight:800;letter-spacing:-1px;color:#111;line-height:1.15;margin:0 0 14px;">Fayna <span style="color:#20ac41;">SendPulse Odo</span></h1>
-  <p style="font-size:1.05em;color:#555;max-width:580px;margin:0 0 24px;">Двостороння інтеграція SendPulse з Odoo — всі месенджери в одному вікні Discuss. Telegram, WhatsApp, Instagram, Facebook та інші без зміни інтерфейсу.</p>
+  <h1 style="font-size:2.2em;font-weight:800;letter-spacing:-1px;color:#111;line-height:1.15;margin:0 0 14px;">Fayna <span style="color:#20ac41;">SendPulse Odoo</span></h1>
+  <p style="font-size:1.05em;color:#555;max-width:640px;margin:0 0 24px;">Двостороння інтеграція SendPulse з Odoo + AI-помічник оператора, lead magnet з email/SMS-купоном і live-контекст подій. Всі месенджери в одному вікні Discuss — Telegram, WhatsApp, Instagram, Facebook та інші без зміни інтерфейсу.</p>
   <div style="display:flex;gap:24px;flex-wrap:wrap;">
     <span style="font-size:0.82em;color:#888;"><strong style="color:#111;">Розробник:</strong> Volodymyr Shevchenko</span>
     <span style="font-size:0.82em;color:#888;"><strong style="color:#111;">Компанія:</strong> <a href="https://fayna.company" style="color:#20ac41;font-weight:600;text-decoration:none;">Fayna Digital</a></span>
     <span style="font-size:0.82em;color:#888;"><strong style="color:#111;">Ліцензія:</strong> LGPL-3.0</span>
-    <span style="font-size:0.82em;color:#888;"><strong style="color:#111;">Версія:</strong> 17.0.3.1.0</span>
+    <span style="font-size:0.82em;color:#888;"><strong style="color:#111;">Версія:</strong> 17.0.12.0</span>
   </div>
 </div>
 
@@ -56,6 +56,69 @@
       <div style="font-size:1.5em;margin-bottom:8px;">📊</div>
       <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">UTM + CRM</h4>
       <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Автоматична UTM-атрибуція для кожного каналу. Команда <code style="background:#f4f4f4;border-radius:3px;padding:1px 5px;font-size:0.88em;">/lead</code> — створює CRM-лід з чату.</p>
+    </div>
+
+  </div>
+</div>
+
+<!-- AI & AUTOMATION -->
+<div style="padding:44px 48px;border-bottom:1px solid #f0f0f0;">
+  <div style="font-size:0.72em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#20ac41;margin-bottom:8px;">AI + автоматизація</div>
+  <h2 style="font-size:1.4em;font-weight:800;color:#111;margin:0 0 28px;letter-spacing:-0.3px;">Що додано у v17.0.12.0</h2>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;">
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">🤖</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">AI-драфти відповіді</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Бокова панель Discuss пропонує 3 варіанти відповіді від Claude — з урахуванням історії чату, даних партнера, CRM-лідів і замовлень. Оператор редагує і відправляє.</p>
+    </div>
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">🌐</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">Авто-переклад UA ↔ PL</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Останнє повідомлення клієнта перекладається у діалозі одним кліком через Claude Haiku. Зручно коли оператор не володіє мовою клієнта.</p>
+    </div>
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">🎁</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">Lead magnet: PDF + SMS</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Клієнт залишає email — отримує брендований PDF-лист. Залишає телефон — отримує SMS з промокодом з loyalty-програми. Shared-купон pool із відліком.</p>
+    </div>
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">📅</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">Drip нагадування</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Автоматичні реплаї через 6 і 24 години якщо клієнт не продовжив діалог. Налаштовувані тексти, skip для вже куплених клієнтів.</p>
+    </div>
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">🎯</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">A/B публічні шаблони</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Epsilon-greedy ротація публічних відповідей на коментарі FB/IG. Трекінг conversion rate — слабкі шаблони авто-приглушуються, сильні — показуються частіше.</p>
+    </div>
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">🎪</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">Live seats awareness</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">AI знає вільні місця з <code style="background:#f4f4f4;border-radius:3px;padding:1px 5px;font-size:0.88em;">event.event</code> у реальному часі: створює FOMO на майже-повні події, чесно відмовляє коли ліміт вичерпано — пропонує аналог.</p>
+    </div>
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">🗣️</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">FAQ RAG-відповідач</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Claude класифікує питання клієнта, підбирає canonical FAQ і переписує персоналізовано. Confidence ≥ threshold — автоматична відправка (опційно).</p>
+    </div>
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">📄</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">Multi-page Facebook</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">Одна інсталяція обслуговує до 11 FB-сторінок і 7 Instagram-акаунтів через System User — Meta App Review approved.</p>
+    </div>
+
+    <div style="flex:1;min-width:240px;border:1px solid #e8e8e8;border-radius:8px;padding:22px;background:#fff;">
+      <div style="font-size:1.5em;margin-bottom:8px;">🔐</div>
+      <h4 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 6px;">Race-safe дедуп</h4>
+      <p style="font-size:0.85em;color:#666;margin:0;line-height:1.55;">PostgreSQL partial unique index + advisory lock проти дублів connect-ів при паралельних webhooks. Backfill missed-inbound з <code style="background:#f4f4f4;border-radius:3px;padding:1px 5px;font-size:0.88em;">last_message</code>.</p>
     </div>
 
   </div>
@@ -113,7 +176,7 @@
 
     <div style="display:flex;gap:18px;padding:18px 0;border-bottom:1px solid #ebebeb;">
       <div style="width:30px;height:30px;min-width:30px;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.82em;font-weight:800;margin-top:2px;">1</div>
-      <div><h5 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 4px;">API ключі SendPulse</h5><p style="font-size:0.85em;color:#666;margin:0;">Вкажіть <strong>Client ID</strong> та <strong>Client Secret</strong> у <strong>Налаштуваннях → SendPulse Odo</strong></p></div>
+      <div><h5 style="font-size:0.92em;font-weight:700;color:#111;margin:0 0 4px;">API ключі SendPulse</h5><p style="font-size:0.85em;color:#666;margin:0;">Вкажіть <strong>Client ID</strong> та <strong>Client Secret</strong> у <strong>Налаштуваннях → SendPulse Odoo</strong></p></div>
     </div>
 
     <div style="display:flex;gap:18px;padding:18px 0;border-bottom:1px solid #ebebeb;">

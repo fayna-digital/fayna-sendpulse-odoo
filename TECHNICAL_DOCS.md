@@ -1,7 +1,8 @@
-# Technical Documentation — Fayna SendPulse Odo
+# Technical Documentation — Fayna SendPulse Odoo
 
-**Module version:** `17.0.3.7.1` · **Last updated:** 2026-04-20
-**Author:** Fayna Digital — Volodymyr Shevchenko
+**Module version:** `17.0.12.0` · **Last updated:** 2026-04-21
+**Product:** Fayna Digital — [fayna.agency](https://fayna.agency)
+**Author:** Volodymyr Shevchenko
 **License:** LGPL-3.0
 
 Authoritative technical reference модуля. Для архітектурних діаграм див. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Для налаштувань — [docs/CONFIGURATION.md](docs/CONFIGURATION.md). Для deploy — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
@@ -28,15 +29,18 @@ Authoritative technical reference модуля. Для архітектурни�
 
 ## 1. Огляд
 
-**Призначення:** двостороння інтеграція SendPulse chatbots та Odoo Discuss + автоматична обробка коментарів FB/IG з LLM-класифікацією.
+**Призначення:** AI-first omnichannel рішення на базі Odoo — двостороння інтеграція SendPulse chatbots з Discuss, автоматична обробка коментарів FB/IG з LLM-класифікацією, AI-помічник оператора, lead-magnet flow (PDF/SMS-купон), live-awareness вільних місць у подіях, drip-кампанії, A/B публічні шаблони, авто-переклад UA↔PL.
 
 **Технологічний стек:**
 - **Odoo 17.0** (Community+)
 - **Python 3.10+** (`requests`, `hashlib`, `markupsafe`)
-- **PostgreSQL 14+** (advisory locks, indexed fields)
-- **Meta Graph API v25.0** (FB + IG)
-- **Anthropic Claude Haiku 4.5** (LLM classification, опц.)
+- **PostgreSQL 14+** (advisory locks, partial unique indexes)
+- **Meta Graph API v25.0** (FB + IG, multi-page через System User)
+- **Anthropic Claude Haiku 4.5** (LLM classification + RAG + suggestions + translate)
 - **Telegram Bot API** (escalation alerts, опц.)
+- **TurboSMS** через `kw_sms_api` (SMS-купони, опц.)
+- **Odoo `loyalty.program`** (shared coupon pool)
+- **Odoo `event.event`** (live seats awareness)
 
 **Зовнішні залежності:** `mail`, `contacts`, `crm`, `web` (Odoo core).
 
@@ -90,7 +94,7 @@ from . import res_partner                  # 7. розширення партн�
 
 ```python
 {
-    'name': 'Fayna SendPulse Odo',
+    'name': 'Fayna SendPulse Odoo',
     'version': '17.0.3.7.1',
     'category': 'Discuss',
     'author': 'Fayna Digital — Volodymyr Shevchenko',

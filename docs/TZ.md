@@ -1,4 +1,4 @@
-# TZ — Fayna SendPulse Odo
+# TZ — Fayna SendPulse Odoo
 
 **Module version:** `17.0.3.7.1` · **Last updated:** 2026-04-20
 
@@ -112,7 +112,7 @@ Umbrella технічне завдання. Поточний стан модул
 | TZ | Файл | Статус |
 |---|---|---|
 | V1.4 Відповіді на коменти FB/IG | [TZ_COMMENT_AUTOREPLY.md](TZ_COMMENT_AUTOREPLY.md) | ✅ **ВИКОНАНО** (v17.0.3.7.1, 2026-04-20) |
-| V2.0 SendPulse Odo Automation | [TZ_V2_AUTOMATION.md](TZ_V2_AUTOMATION.md) | 📝 **Draft** — 11 фіч у 3 sprints |
+| V2.0 SendPulse Odoo Automation | [TZ_V2_AUTOMATION.md](TZ_V2_AUTOMATION.md) | 📝 **Draft** — 11 фіч у 3 sprints |
 
 Нові TZ додаються сюди у таблицю при початку роботи над фічею.
 
@@ -176,7 +176,7 @@ Umbrella технічне завдання. Поточний стан модул
 - `cron_pull_missing_contacts` (відновлення після downtime)
 - Public User контамінація fixes (2026-04-13 + 2026-04-15)
 - SQL міграції: разархівування каналів, зняття new_message при reply через webhook
-- Rebrand: `SendPulse Odo` → `Fayna SendPulse Odo` у manifest
+- Rebrand: `SendPulse Odoo` → `Fayna SendPulse Odoo` у manifest
 
 ### v17.0.3.0 — 3.1 (2026-04-11 — 2026-04-20 вранці)
 

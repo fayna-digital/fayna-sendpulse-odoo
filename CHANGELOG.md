@@ -4,6 +4,20 @@
 
 ---
 
+## [2026-04-21] — v17.0.12.1
+
+### Metadata refresh: Fayna Digital branding + Odoo-typo fix
+
+- `__manifest__.py`: `name` / `summary` / `description` / `website` оновлено під поточний scope (AI + lead magnet + live seats + drip + multi-page). `website` = `https://fayna.agency`.
+- `static/description/index.html`: version badge 17.0.3.1.0 → 17.0.12.1, hero subtitle переписано, додано секцію «AI + Автоматизація» з 9 карточками (F2/F9-F14/RAG/multi-page/race-safe).
+- **Typo fix: «SendPulse Odo» → «SendPulse Odoo»** в усіх 19 файлах (156 замін) — manifest name, views labels, security groups, log prefixes, docs.
+- `README.md`: bump до v17.0.12.0, секція «AI + Автоматизація» з описом F2/F9-F14, футер «Про Fayna Digital» з контактами.
+- `TECHNICAL_DOCS.md`: header bump + технологічний стек розширено (TurboSMS, loyalty.program, event.event).
+
+Функціонал без змін — тільки метадата і доки.
+
+---
+
 ## [2026-04-21] — v17.0.12.0
 
 ### F14: Event seats awareness у AI-контексті (live `seats_available`)
@@ -873,7 +887,7 @@ Legacy `ir.config_parameter.fb_page_access_token` + `ig_user_id` продовж�
 
 ### Settings UI
 
-Додано поля у форму Налаштування → SendPulse Odo для фіч, які з'явилися у попередніх 3.2.x–3.6.1 релізах але залишилися без UI (конфігурувалися лише через `ir.config_parameter`):
+Додано поля у форму Налаштування → SendPulse Odoo для фіч, які з'явилися у попередніх 3.2.x–3.6.1 релізах але залишилися без UI (конфігурувалися лише через `ir.config_parameter`):
 
 - **Instagram**: `ig_user_id` (для private_reply на IG-коментарі)
 - **Facebook App**: `fb_app_id`, `fb_app_secret` (для /debug_token експіри-треку), readonly `fb_token_status`, `fb_token_last_check`
@@ -1076,7 +1090,7 @@ Fallback на глобальний count якщо `post_id` пустий (ста
 
 **Автоперевірка терміну дії Facebook Page Access Token (#1 з roadmap)**
 
-Новий cron `SendPulse Odo: Перевірка FB Page Access Token` (раз на 7 днів):
+Новий cron `SendPulse Odoo: Перевірка FB Page Access Token` (раз на 7 днів):
 - `GET /v25.0/me` → перевіряє валідність токена
 - `GET /v25.0/debug_token` → точний `expires_at` (якщо є `fb_app_id` + `fb_app_secret`)
 - Статус зберігається у `ir.config_parameter`: `fb_token_status`, `fb_token_last_check`, `fb_token_expires_at`
@@ -1156,7 +1170,7 @@ Fallback на глобальний count якщо `post_id` пустий (ста
 - `sp_is_comment`, `sp_comment_id`, `sp_comment_text`, `sp_post_id`, `sp_post_url`
 - `sp_replied_public`, `sp_replied_private`
 
-**Нові поля Налаштувань (Налаштування → SendPulse Odo → Відповіді на коментарі):**
+**Нові поля Налаштувань (Налаштування → SendPulse Odoo → Відповіді на коментарі):**
 - Перемикачі: автовідповідь, публічна, приватна
 - `Facebook Page Access Token` (password, зберігається в ir.config_parameter)
 - `sp_comment_landing_url`, `sp_comment_tg_url`, `sp_comment_yt_url`

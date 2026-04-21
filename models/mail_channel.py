@@ -228,7 +228,7 @@ class DiscussChannel(models.Model):
             base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
             return f"{base_url}/web/content/{att.id}?access_token={att.access_token}"
         except Exception as e:
-            _logger.warning('SendPulse Odo: не вдалося отримати URL вкладення: %s', e)
+            _logger.warning('SendPulse Odoo: не вдалося отримати URL вкладення: %s', e)
             return None
 
     def _get_current_member(self):

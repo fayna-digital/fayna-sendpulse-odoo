@@ -180,7 +180,7 @@
         <field name="name">sendpulse.config.form</field>
         <field name="model">res.config.settings</field>
         <field name="arch" type="xml">
-            <form string="Налаштування SendPulse Odo">
+            <form string="Налаштування SendPulse Odoo">
                 <header>
                     <button string="Зберегти" type="object" name="execute" class="btn-primary"/>
                     <button string="Скасувати" special="cancel"/>

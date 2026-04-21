@@ -4,7 +4,7 @@
 
         <!-- ─── Security Categories ─────────────────────────────── -->
         <record id="module_sendpulse_odo" model="ir.module.category">
-            <field name="name">SendPulse Odo</field>
+            <field name="name">SendPulse Odoo</field>
             <field name="sequence">100</field>
         </record>
 
@@ -23,7 +23,7 @@
             <field name="name">Administrator</field>
             <field name="category_id" ref="module_sendpulse_odo"/>
             <field name="implied_ids" eval="[(4, ref('group_sendpulse_officer'))]"/>
-            <field name="comment">Адміністратор SendPulse Odo. Повний доступ до всіх розмов та налаштувань.</field>
+            <field name="comment">Адміністратор SendPulse Odoo. Повний доступ до всіх розмов та налаштувань.</field>
         </record>
 
         <!-- ─── Record Rules ──────────────────────────────────────── -->

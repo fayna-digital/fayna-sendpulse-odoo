@@ -49,7 +49,7 @@ class SendpulseWebhookData(models.Model):
         cutoff = datetime.now() - timedelta(days=7)
         old_records = self.search([('create_date', '<', cutoff)])
         if old_records:
-            _logger.info('SendPulse Odo: видаляємо %d старих webhook записів', len(old_records))
+            _logger.info('SendPulse Odoo: видаляємо %d старих webhook записів', len(old_records))
             old_records.unlink()
 
 

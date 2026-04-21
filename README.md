@@ -1,15 +1,15 @@
-# Fayna SendPulse Odo
+# Fayna SendPulse Odoo
 
 ![Odoo Version](https://img.shields.io/badge/Odoo-17.0-purple)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Graph API](https://img.shields.io/badge/Meta%20Graph-v25.0-1877F2)
-![Module Version](https://img.shields.io/badge/Module-17.0.3.7.1-brightgreen)
+![Module Version](https://img.shields.io/badge/Module-17.0.12.0-brightgreen)
 ![License](https://img.shields.io/badge/License-LGPL--3.0-green.svg)
 ![Status](https://img.shields.io/badge/Status-Production-brightgreen)
 
-**Двостороння інтеграція SendPulse ↔ Odoo з автоматичними відповідями на коментарі FB/IG і LLM-класифікацією.**
+**Двостороння інтеграція SendPulse ↔ Odoo з AI-помічником оператора, lead magnet flow (PDF/SMS-купон), live-контекстом подій, drip-кампаніями, A/B публічними шаблонами, авто-перекладом і багатосторінковою підтримкою Facebook/Instagram з LLM-класифікацією коментарів.**
 
-Developed by [Fayna Digital](https://fayna.agency) — Volodymyr Shevchenko.
+Продукт розробки **[Fayna Digital](https://fayna.agency)** — Volodymyr Shevchenko. Інсталяція reference — [CampScout](https://campscout.eu) (Польща, дитячі табори).
 
 ---
 
@@ -73,6 +73,20 @@ Developed by [Fayna Digital](https://fayna.agency) — Volodymyr Shevchenko.
 - 🚫 Прихований спам (silent)
 - ⏳ Закриття 24h вікна за 2h (silent)
 - ⚠️ FB Page Token недійсний / термін ≤ 7 днів
+
+### 🤖 AI + Автоматизація (v17.0.4 → v17.0.12)
+
+- **F2 · Drip-нагадування** — автоматичні реплаї через 6h / 24h якщо клієнт не продовжив, skip для вже куплених.
+- **F9 · A/B публічні шаблони** — epsilon-greedy ротація публічних відповідей на коментарі FB/IG з трекінгом `conversion_rate`; слабкі шаблони приглушуються, сильні показуються частіше.
+- **F10 · AI-драфти оператора** — бокова панель Discuss з 3 варіантами відповіді від Claude Haiku (контекст: історія чату + партнер + CRM-ліди + замовлення). Оператор редагує і відправляє одним кліком.
+- **F11 · Авто-переклад UA ↔ PL** — останнє повідомлення клієнта перекладається у діалозі одним кліком через Claude.
+- **F12 · AI context enrichment** — автоматичний витяг email з чату → link до `res.partner`; prompt отримує CRM/sale контекст.
+- **F13 · Lead magnet flow** — клієнт пише email → отримує брендований PDF-лист; пише телефон → SMS з промокодом з `loyalty.program` (shared pool). Email-шаблон з inline avatar+logo через public `ir.attachment` (Gmail-safe).
+- **F14 · Live event seats awareness** — AI знає `seats_available` з `event.event` у реальному часі: створює FOMO на майже-повні (`<30%`) події, чесно відмовляє коли ліміт вичерпано — пропонує аналог.
+- **F1 · RAG FAQ-відповідач** — Claude класифікує питання клієнта, підбирає canonical FAQ і переписує персоналізовано (confidence-based auto-send).
+- **Race-safe дедуп** — PostgreSQL partial unique index + advisory lock проти дублів connect-ів при паралельних webhooks; backfill missed-inbound з `contact.last_message`.
+
+Всі AI-фічі — feature-flag-protected, працюють на Claude Haiku 4.5 (дешево, ~$0.005 за суггестію).
 
 ---
 
@@ -140,7 +154,7 @@ docker exec <odoo_web_container> /usr/bin/odoo -d <db> --stop-after-init --no-ht
 docker compose restart web
 ```
 
-Або через UI: **Settings → Apps** → пошук «**Fayna SendPulse Odo**» → Install.
+Або через UI: **Settings → Apps** → пошук «**Fayna SendPulse Odoo**» → Install.
 
 ### Upgrade
 
@@ -212,10 +226,10 @@ Events (відмітити): ✅ subscribed / ✅ incoming_message / ✅ open_ch
 
 ### 7. Права доступу
 
-`Settings → Users → user → SendPulse Odo`:
+`Settings → Users → user → SendPulse Odoo`:
 
-- **SendPulse Odo / Officer** — бачить і веде свої розмови
-- **SendPulse Odo / Administrator** — бачить усі + керує Pages + може ручно перевіряти токени
+- **SendPulse Odoo / Officer** — бачить і веде свої розмови
+- **SendPulse Odoo / Administrator** — бачить усі + керує Pages + може ручно перевіряти токени
 
 ---
 
@@ -223,7 +237,7 @@ Events (відмітити): ✅ subscribed / ✅ incoming_message / ✅ open_ch
 
 ```
 sendpulse-odoo/
-├── __manifest__.py                  — метадата модуля (v17.0.3.7.1)
+├── __manifest__.py                  — метадата модуля (v17.0.12.0)
 ├── README.md                        — цей файл
 ├── CHANGELOG.md                     — журнал змін
 ├── TECHNICAL_DOCS.md                — технічний reference
@@ -315,4 +329,14 @@ sendpulse-odoo/
 
 ---
 
-*Розроблено для [CampScout](https://campscout.eu) — платформи організації дитячих таборів.*
+## Про Fayna Digital
+
+**Fayna Digital** — digital-агенція повного циклу (Київ / Познань). Спеціалізація: Odoo custom development, інтеграції з месенджерами і соцмережами, AI-automation для продуктів з великим обсягом клієнтських діалогів.
+
+- 🌐 Сайт: [fayna.agency](https://fayna.agency)
+- 📧 Контакт: `admin@fayna.agency`
+- 👤 Автор модуля: **Volodymyr Shevchenko** (Odoo-архітектор + product owner)
+
+Reference-інсталяція модуля — **[CampScout](https://campscout.eu)** (Польща, 1500+ дітей у 2026, 11 FB-сторінок + 7 IG-акаунтів, Meta App Review ✅ approved, 100% автоматизована воронка від коментаря до оплати).
+
+Потрібен кастомний інтеграційний модуль, AI-помічник оператора або lead-magnet flow для вашого бізнесу? Пишіть.

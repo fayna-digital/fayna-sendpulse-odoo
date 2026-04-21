@@ -2,7 +2,7 @@
 <odoo>
     <data noupdate="1">
         <record id="ir_cron_sendpulse_clear_webhook_data" model="ir.cron">
-            <field name="name">SendPulse Odo: Очищення старих webhook даних</field>
+            <field name="name">SendPulse Odoo: Очищення старих webhook даних</field>
             <field name="model_id" ref="model_sendpulse_webhook_data"/>
             <field name="state">code</field>
             <field name="code">model.clear_old_webhooks()</field>
@@ -14,7 +14,7 @@
         </record>
 
         <record id="ir_cron_sendpulse_sync_channels" model="ir.cron">
-            <field name="name">SendPulse Odo: Авто-синхронізація Discuss каналів</field>
+            <field name="name">SendPulse Odoo: Авто-синхронізація Discuss каналів</field>
             <field name="model_id" ref="model_sendpulse_connect"/>
             <field name="state">code</field>
             <field name="code">model.cron_sync_discuss_channels()</field>
@@ -25,7 +25,7 @@
             <field name="nextcall">2026-03-26 00:10:00</field>
         </record>
         <record id="ir_cron_sendpulse_pull_missing" model="ir.cron">
-            <field name="name">SendPulse Odo: Pull Missing Contacts</field>
+            <field name="name">SendPulse Odoo: Pull Missing Contacts</field>
             <field name="model_id" ref="model_sendpulse_connect"/>
             <field name="state">code</field>
             <field name="code">model.cron_pull_missing_contacts()</field>
@@ -37,7 +37,7 @@
         </record>
 
         <record id="ir_cron_sendpulse_fb_token_check" model="ir.cron">
-            <field name="name">SendPulse Odo: Перевірка FB Page Access Token</field>
+            <field name="name">SendPulse Odoo: Перевірка FB Page Access Token</field>
             <field name="model_id" ref="model_sendpulse_connect"/>
             <field name="state">code</field>
             <field name="code">model.cron_check_fb_token_expiry()</field>
@@ -49,7 +49,7 @@
         </record>
 
         <record id="ir_cron_sendpulse_messenger_window" model="ir.cron">
-            <field name="name">SendPulse Odo: Попередження про закриття 24h вікна</field>
+            <field name="name">SendPulse Odoo: Попередження про закриття 24h вікна</field>
             <field name="model_id" ref="model_sendpulse_connect"/>
             <field name="state">code</field>
             <field name="code">model.cron_check_messenger_windows()</field>
@@ -61,7 +61,7 @@
         </record>
 
         <record id="ir_cron_sendpulse_auto_close_inactive" model="ir.cron">
-            <field name="name">SendPulse Odo: Авто-закриття неактивних розмов (V2 F5)</field>
+            <field name="name">SendPulse Odoo: Авто-закриття неактивних розмов (V2 F5)</field>
             <field name="model_id" ref="model_sendpulse_connect"/>
             <field name="state">code</field>
             <field name="code">model.cron_auto_close_inactive()</field>
@@ -73,7 +73,7 @@
         </record>
 
         <record id="ir_cron_sendpulse_archive_old_comments" model="ir.cron">
-            <field name="name">SendPulse Odo: Архівація старих коментарних записів (V2 F7)</field>
+            <field name="name">SendPulse Odoo: Архівація старих коментарних записів (V2 F7)</field>
             <field name="model_id" ref="model_sendpulse_connect"/>
             <field name="state">code</field>
             <field name="code">model.cron_archive_old_comment_records()</field>
@@ -85,7 +85,7 @@
         </record>
 
         <record id="ir_cron_sendpulse_weekly_report" model="ir.cron">
-            <field name="name">SendPulse Odo: Щотижневий Telegram-звіт (V2 F8)</field>
+            <field name="name">SendPulse Odoo: Щотижневий Telegram-звіт (V2 F8)</field>
             <field name="model_id" ref="model_sendpulse_connect"/>
             <field name="state">code</field>
             <field name="code">model.cron_weekly_telegram_report()</field>
@@ -97,7 +97,7 @@
         </record>
 
         <record id="ir_cron_sendpulse_refresh_tokens" model="ir.cron">
-            <field name="name">SendPulse Odo: Long-lived FB token refresh (V2 F6)</field>
+            <field name="name">SendPulse Odoo: Long-lived FB token refresh (V2 F6)</field>
             <field name="model_id" ref="model_sendpulse_connect"/>
             <field name="state">code</field>
             <field name="code">model.cron_refresh_fb_tokens()</field>
@@ -109,7 +109,7 @@
         </record>
 
         <record id="ir_cron_sendpulse_drip_followups" model="ir.cron">
-            <field name="name">SendPulse Odo: Drip campaigns (V2 F2)</field>
+            <field name="name">SendPulse Odoo: Drip campaigns (V2 F2)</field>
             <field name="model_id" ref="model_sendpulse_connect"/>
             <field name="state">code</field>
             <field name="code">model.cron_drip_followups()</field>
