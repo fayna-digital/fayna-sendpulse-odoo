@@ -246,6 +246,54 @@ class ResConfigSettings(models.TransientModel):
              'клієнта перекладається через Claude Haiku.',
     )
 
+    # ── Lead magnet: PDF-каталог + SMS-купон (V2 F13) ────────────────────
+    lead_magnet_enabled = fields.Boolean(
+        string='Lead magnet (PDF/купон)',
+        config_parameter='odoo_chatwoot_connector.lead_magnet_enabled',
+        default=False,
+        help='Master-switch для F13. Оператор натискає кнопку у SendPulse-панелі → '
+             'клієнт отримує PDF-каталог на email АБО SMS-купон 5% на телефон.',
+    )
+    lead_magnet_pdf_attachment_id = fields.Many2one(
+        'ir.attachment', string='PDF-каталог (attachment)',
+        config_parameter='odoo_chatwoot_connector.lead_magnet_pdf_attachment_id',
+        domain="[('mimetype', '=', 'application/pdf')]",
+        help='Який PDF-файл надсилати клієнту на email. Залите через shell '
+             '(або завантажте через Settings → Технічне → Attachments).',
+    )
+    lead_magnet_email_subject = fields.Char(
+        string='Тема email',
+        config_parameter='odoo_chatwoot_connector.lead_magnet_email_subject',
+        default='CampScout — повний каталог таборів 2026',
+    )
+    lead_magnet_email_body_html = fields.Html(
+        string='Тіло email (HTML)',
+        config_parameter='odoo_chatwoot_connector.lead_magnet_email_body_html',
+        help='Placeholders: {name} — ім\'я клієнта, {name_suffix} — «, Ім\'я» або пусто.',
+    )
+    lead_magnet_coupon_program_id = fields.Many2one(
+        'loyalty.program', string='Loyalty-програма для купона',
+        config_parameter='odoo_chatwoot_connector.lead_magnet_coupon_program_id',
+        domain="[('program_type', 'in', ('coupons','promo_code')), ('active', '=', True)]",
+        help='Програма лояльності типу coupons/promo_code — з неї генерується '
+             'loyalty.card (індивідуальний промокод для клієнта).',
+    )
+    lead_magnet_sms_template = fields.Text(
+        string='SMS-шаблон',
+        config_parameter='odoo_chatwoot_connector.lead_magnet_sms_template',
+        default='CampScout: Ваш промокод на 5% знижки — {code}. '
+                'Застосуйте при оформленні на campscout.eu. Діє до 01.07.2026.',
+        help='Placeholder: {code} — згенерований код купона. Ліміт SMS ~160 симв. '
+             '(160 латиниця / 70 unicode з кирилицею).',
+    )
+    sms_provider_id_setting = fields.Integer(
+        string='SMS provider ID (kw_sms_provider)',
+        config_parameter='odoo_chatwoot_connector.sms_provider_id',
+        default=2,
+        help='ID запису з kw_sms_provider (TurboSMS=2 за замовчуванням). '
+             'Див. SMS → Providers.',
+    )
+
     # ── Drip campaigns (V2 F2) ───────────────────────────────────────────
     drip_enabled = fields.Boolean(
         string='Drip-кампанії (master switch)',

@@ -358,6 +358,31 @@
                                 </small>
                             </div>
                         </group>
+                    </group>
+
+                    <separator string="V2 Automation — Lead Magnet (F13)"/>
+                    <group>
+                        <group string="PDF-каталог на email">
+                            <field name="lead_magnet_enabled"/>
+                            <field name="lead_magnet_pdf_attachment_id"
+                                   invisible="not lead_magnet_enabled"/>
+                            <field name="lead_magnet_email_subject"
+                                   invisible="not lead_magnet_enabled"/>
+                        </group>
+                        <group string="SMS-купон 5%">
+                            <field name="lead_magnet_coupon_program_id"
+                                   invisible="not lead_magnet_enabled"/>
+                            <field name="sms_provider_id_setting"
+                                   string="SMS provider (kw_sms_provider.id)"
+                                   invisible="not lead_magnet_enabled"/>
+                        </group>
+                    </group>
+                    <group string="Шаблони" invisible="not lead_magnet_enabled">
+                        <field name="lead_magnet_email_body_html" nolabel="1"/>
+                        <field name="lead_magnet_sms_template" nolabel="1"
+                               placeholder="CampScout: Ваш код {code}. Діє до 01.07.2026."/>
+                    </group>
+                    <group>
                         <group string="Drip campaigns (F2)">
                             <field name="drip_enabled"/>
                             <field name="drip_reminder_6h_enabled"/>
