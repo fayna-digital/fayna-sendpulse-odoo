@@ -4,6 +4,31 @@
 
 ---
 
+## [2026-04-21] — v17.0.6.2
+
+### Fix: F10 panel & parser robustness
+
+**1. `sendpulseConnectId` тепер реально доходить до фронтенду (Odoo 17).**
+
+До цього `discuss.channel` override використовував `_to_store()` — метод з Odoo 18+, якого нема в 17. В результаті `sendpulse_connect_id` ніколи не додавався у channel-info який йде на фронт, і умова `isSendpulseChannel` працювала тільки через fallback по префіксу назви каналу (`[TG]`, `[IG]` тощо). Канали перейменовані вручну або без префіксу — SendPulse-панель не з'являлась.
+
+Фікс у `models/mail_channel.py`:
+- Додано override `_channel_info()` (Odoo 17 API) — додає `sendpulse_connect_id` у кожен info-dict.
+- `_to_store()` зберіг безпечний fallback через `getattr(super(), '_to_store', None)` — не падає якщо метод не існує (Odoo 17) і готовий до апгрейду на 18.
+
+**2. Robust JSON-парсер в `_generate_reply_suggestions`.**
+
+Попередній regex `\{[\s\S]*?\}` був non-greedy і міг обірватись на першій `}` якщо LLM повертав вкладені об'єкти. Також не зрізав ```json code fence` який Claude додає. Новий парсер:
+- Спершу знімає ```json / ```.
+- Пробує `json.loads(cleaned)` напряму.
+- Якщо не вийшло — balanced-brace extraction (рахує `{`/`}` depth).
+- При невдачі → WARNING з raw[:500] у лог, щоб debug на прод був видимий.
+- Порожні suggestions тепер теж логуються (INFO) з raw для аналізу.
+
+Причина: 12:50:03 прод-виклик RPC повернув `[]` (9 bytes) без warning — значить парсер мовчки відкинув відповідь Claude. Тепер такі кейси видно в логах.
+
+---
+
 ## [2026-04-21] — v17.0.6.0
 
 ### F10 Suggested Reply — OWL UI інтеграція (завершення Sprint 3 F10)
