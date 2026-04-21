@@ -2564,17 +2564,26 @@ class SendpulseConnect(models.Model):
             return {'ok': False, 'error': 'attachment_missing', 'message_id': None}
 
         # Email більше НЕ містить купона — купон окремо через SMS.
-        # Avatar + logo — inline Data URI через post-process (QWeb t-att-src
-        # у mail.template render-і не спрацьовує на ctx; надійніше просто
-        # зробити str.replace після render).
+        # Avatar + logo — публічні ir.attachment (public=True) з URL
+        # типу `/web/image/{id}/name.png`. Gmail обрізає Data URI > 8KB,
+        # тому від base64-inline відмовились — віддаємо через image proxy.
         signer = self.env['res.users'].sudo().browse(6)
         company = self.env.company
-        avatar_uri = ''
-        logo_uri = ''
+        base_url = ICP.get_param('web.base.url', 'https://campscout.eu').rstrip('/')
+        avatar_url = ''
+        logo_url = ''
         if signer.exists() and signer.image_128:
-            avatar_uri = 'data:image/png;base64,' + signer.image_128.decode()
+            av_att = self._get_or_create_public_image(
+                'lead_magnet_avatar', signer.image_128,
+            )
+            if av_att:
+                avatar_url = f'{base_url}/web/image/{av_att.id}/avatar.png'
         if company.logo:
-            logo_uri = 'data:image/png;base64,' + company.logo.decode()
+            lg_att = self._get_or_create_public_image(
+                'lead_magnet_logo', company.logo,
+            )
+            if lg_att:
+                logo_url = f'{base_url}/web/image/{lg_att.id}/campscout.png'
 
         tpl = self.env.ref(
             'odoo_chatwoot_connector.mail_template_lead_magnet_catalog',
@@ -2587,15 +2596,15 @@ class SendpulseConnect(models.Model):
                     [self.id], ['subject', 'body_html', 'email_from']
                 ).get(self.id, {})
                 body_html = rendered.get('body_html') or ''
-                if avatar_uri:
+                if avatar_url:
                     body_html = body_html.replace(
                         'https://campscout.eu/web/image/res.users/6/avatar_128',
-                        avatar_uri,
+                        avatar_url,
                     )
-                if logo_uri:
+                if logo_url:
                     body_html = body_html.replace(
                         'https://campscout.eu/web/image/res.company/1/logo',
-                        logo_uri,
+                        logo_url,
                     )
                 mail_id = tpl.sudo().send_mail(
                     self.id,
@@ -2638,6 +2647,38 @@ class SendpulseConnect(models.Model):
             'SendPulse Odo: F13 PDF sent to %s for connect %s', to_email, self.id,
         )
         return {'ok': True, 'error': None, 'message_id': mail.id}
+
+    def _get_or_create_public_image(self, name, image_b64):
+        """
+        Створити (або знайти) публічний ir.attachment для inline-картинки в email.
+        Кеш — в ir.config_parameter (lead_magnet_{name}_attachment_id).
+        Автоматично пересоздає якщо картинка змінилась (checksum mismatch).
+        Повертає ir.attachment recordset (може бути empty).
+        """
+        if not image_b64:
+            return self.env['ir.attachment'].sudo()
+        ICP = self.env['ir.config_parameter'].sudo()
+        key = f'odoo_chatwoot_connector.{name}_attachment_id'
+        att_id_raw = ICP.get_param(key, '')
+        try:
+            att_id = int(att_id_raw)
+        except (TypeError, ValueError):
+            att_id = 0
+        Att = self.env['ir.attachment'].sudo()
+        if att_id:
+            att = Att.browse(att_id)
+            if att.exists() and att.public and att.datas == image_b64:
+                return att
+        att = Att.create({
+            'name': f'{name}.png',
+            'datas': image_b64,
+            'mimetype': 'image/png',
+            'res_model': 'ir.ui.view',
+            'res_id': 0,
+            'public': True,
+        })
+        ICP.set_param(key, str(att.id))
+        return att
 
     def _generate_and_send_sms_coupon(self, to_phone=None):
         """

@@ -4,6 +4,21 @@
 
 ---
 
+## [2026-04-21] — v17.0.11.3
+
+### Fix: lead-magnet email — avatar/logo показувались `?` у Gmail
+
+**Проблема:** у v17.0.11.2 перейшли на inline Data URI (`<img src="data:image/png;base64,...">`) для avatar signer-а і CampScout logo. Тіло виросло 8 KB → 139 KB. У Gmail обидві картинки рендерились як broken-image `?` placeholder, а самі картинки показувались окремими "inline attachments" повним розміром під футером листа.
+
+**Root cause:** Gmail обрізає/ігнорує `src="data:..."` коли base64 > ~8KB в атрибуті. Avatar image_128 ≈60KB base64, логотип компанії ≈50KB — обидва за межею.
+
+**Фікс:** замість Data URI — публічний `ir.attachment` (`public=True`, `res_model='ir.ui.view'`, `res_id=0`). URL `/web/image/{id}/name.png` з `web.base.url`. Gmail завантажує через свій image proxy, розмір не важить.
+
+- Новий helper `sendpulse.connect._get_or_create_public_image(name, image_b64)` — ідемпотентний (кешує attachment_id в `ir.config_parameter`, пересоздає тільки якщо `datas` змінилось).
+- `_send_pdf_catalog_email()` — замінено Data URI blocks на `f'{base_url}/web/image/{att.id}/avatar.png'` + аналогічний для логотипа.
+
+---
+
 ## [2026-04-21] — v17.0.11.0
 
 ### Critical fix: SendPulse missed-inbound backfill + 3 related changes
