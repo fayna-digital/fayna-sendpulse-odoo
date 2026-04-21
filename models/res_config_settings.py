@@ -266,11 +266,6 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.lead_magnet_email_subject',
         default='CampScout — повний каталог таборів 2026',
     )
-    lead_magnet_email_body_html = fields.Html(
-        string='Тіло email (HTML)',
-        config_parameter='odoo_chatwoot_connector.lead_magnet_email_body_html',
-        help='Placeholders: {name} — ім\'я клієнта, {name_suffix} — «, Ім\'я» або пусто.',
-    )
     lead_magnet_coupon_program_id = fields.Many2one(
         'loyalty.program', string='Loyalty-програма для купона',
         config_parameter='odoo_chatwoot_connector.lead_magnet_coupon_program_id',
@@ -278,7 +273,7 @@ class ResConfigSettings(models.TransientModel):
         help='Програма лояльності типу coupons/promo_code — з неї генерується '
              'loyalty.card (індивідуальний промокод для клієнта).',
     )
-    lead_magnet_sms_template = fields.Text(
+    lead_magnet_sms_template = fields.Char(
         string='SMS-шаблон',
         config_parameter='odoo_chatwoot_connector.lead_magnet_sms_template',
         default='CampScout: Ваш промокод на 5% знижки — {code}. '

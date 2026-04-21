@@ -4,6 +4,25 @@
 
 ---
 
+## [2026-04-21] — v17.0.11.4
+
+### Fix: Settings падає + email logo все ще `?` у Gmail
+
+**Settings RPC_ERROR:** `Field res.config.settings.lead_magnet_email_body_html must have type 'boolean', 'integer', 'float', 'char', 'selection', 'many2one' or 'datetime'`. `fields.Html` і `fields.Text` з `config_parameter` у `res.config.settings` не підтримуються Odoo 17 — треба plain types. Наслідки: заходити в будь-які Settings неможливо (навіть не повʼязані з lead-magnet).
+
+- `lead_magnet_email_body_html` (Html) — видалено (не використовувалось, body_html рендериться з mail.template).
+- `lead_magnet_sms_template` (Text) → `Char`.
+- `views/sendpulse_connect_views.xml` — прибрано reference на видалене поле.
+
+**Email logo — `?` у Gmail (причина):** `res.company.logo` у CampScout — **SVG** (46 KB, `<?xml version="1.0"...<!DOCTYPE`). Gmail блокує рендер SVG з міркувань безпеки (CVE-і 2010+ з JS у SVG). Avatar рендериться бо JPEG.
+
+- Shipped PNG-логотип у `static/src/img/campscout_logo.png` (23 KB, растровий).
+- Новий helper `_get_email_logo_png_b64(company)` — читає PNG з модуля, fallback на `company.logo` якщо та в растрі (PNG/JPEG magic bytes).
+- `_send_pdf_catalog_email()` викликає helper замість прямого `company.logo`.
+- `_get_or_create_public_image()` авто-пересоздасть кешований public attachment (порівняння `att.datas == image_b64` → mismatch → new attachment).
+
+---
+
 ## [2026-04-21] — v17.0.11.3
 
 ### Fix: lead-magnet email — avatar/logo показувались `?` у Gmail

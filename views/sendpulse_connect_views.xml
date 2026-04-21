@@ -378,7 +378,6 @@
                         </group>
                     </group>
                     <group string="Шаблони" invisible="not lead_magnet_enabled">
-                        <field name="lead_magnet_email_body_html" nolabel="1"/>
                         <field name="lead_magnet_sms_template" nolabel="1"
                                placeholder="CampScout: Ваш код {code}. Діє до 01.07.2026."/>
                     </group>
