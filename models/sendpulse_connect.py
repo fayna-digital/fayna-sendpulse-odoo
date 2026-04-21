@@ -2136,15 +2136,65 @@ class SendpulseConnect(models.Model):
                 history_lines.append(f'{who}: {text}')
         history = '\n'.join(history_lines) or '(порожньо — оператор ще не писав)'
 
-        # Контекст профілю
+        # F12: Спроба виявити email у останніх повідомленнях клієнта
+        # і linkувати partner (ідемпотентно — якщо вже є sp_booking_email, skip).
+        if not self.sp_booking_email:
+            self._try_extract_email_and_link()
+
+        # Контекст профілю (базовий)
         profile_parts = [f"Ім'я клієнта: {self.name or '—'}"]
         if self.sp_child_name:
-            profile_parts.append(f"Дитина: {self.sp_child_name}")
+            profile_parts.append(f"Дитина (з бота): {self.sp_child_name}")
         if self.sp_booking_email:
             profile_parts.append(f"Email: {self.sp_booking_email}")
         if self.social_username:
             profile_parts.append(f"Username: @{self.social_username}")
         profile_parts.append(f"Канал: {self._get_service_label()}")
+
+        # F12: Розширений контекст — якщо є linked partner
+        partner = self.partner_id
+        if partner:
+            profile_parts.append('')
+            profile_parts.append('── ІДЕНТИФІКОВАНИЙ КЛІЄНТ ──')
+            profile_parts.append(f"Partner ID: {partner.id}, створено: {partner.create_date.strftime('%Y-%m-%d') if partner.create_date else '—'}")
+            if partner.email and partner.email != self.sp_booking_email:
+                profile_parts.append(f"Email у партнера: {partner.email}")
+            if partner.phone or partner.mobile:
+                profile_parts.append(f"Телефон: {partner.phone or partner.mobile}")
+            if partner.city or partner.street:
+                addr = ', '.join(filter(None, [partner.street, partner.city]))
+                profile_parts.append(f"Адреса: {addr}")
+
+            # crm.lead контекст — відкриті + останні закриті
+            leads = self.env['crm.lead'].sudo().search(
+                [('partner_id', '=', partner.id)],
+                order='create_date desc', limit=5,
+            )
+            if leads:
+                profile_parts.append('')
+                profile_parts.append('CRM-ліди (останні):')
+                for lead in leads:
+                    stage = lead.stage_id.name if lead.stage_id else '—'
+                    date = lead.create_date.strftime('%Y-%m-%d') if lead.create_date else '—'
+                    probab = f'{lead.probability:.0f}%' if lead.probability else '—'
+                    profile_parts.append(f"  • [{date}] {lead.name or '—'} — stage: {stage}, prob: {probab}")
+
+            # sale.order історія
+            orders = self.env['sale.order'].sudo().search(
+                [('partner_id', '=', partner.id), ('state', 'in', ('sale', 'done'))],
+                order='date_order desc', limit=3,
+            )
+            if orders:
+                profile_parts.append('')
+                profile_parts.append('Історія замовлень:')
+                for o in orders:
+                    date = o.date_order.strftime('%Y-%m-%d') if o.date_order else '—'
+                    amount = f"{o.amount_total:.0f} {o.currency_id.name or ''}".strip()
+                    profile_parts.append(f"  • [{date}] {o.name} — {amount}")
+        else:
+            profile_parts.append('')
+            profile_parts.append('⚠️ КЛІЄНТ НЕ ІДЕНТИФІКОВАНИЙ — email невідомий')
+
         profile = '\n'.join(profile_parts)
 
         prompt = (
@@ -2186,7 +2236,12 @@ class SendpulseConnect(models.Model):
             f"• Емодзі 1-2 максимум\n"
             f"• Варіанти РІЗНІ за підходом (інформативний / уточнюючий / емпатичний)\n"
             f"• Ім'я клієнта у першій фразі якщо відоме\n"
-            f"• Закінчуй CTA-запитанням якщо доречно\n\n"
+            f"• Закінчуй CTA-запитанням якщо доречно\n"
+            f"• Якщо клієнт НЕ ІДЕНТИФІКОВАНИЙ (позначка у профілі ⚠️) і цікавиться "
+            f"деталями/ціною/програмою — ОДИН з варіантів може ввічливо запропонувати "
+            f"залишити email для особистої пропозиції (не нав'язливо, природно у контексті).\n"
+            f"• Якщо клієнт ІДЕНТИФІКОВАНИЙ (є partner/ліди/замовлення) — використай контекст "
+            f"(минулі табори, стадія ліда) для персоналізації, але не цитуй деталі буквально.\n\n"
             f"КАТЕГОРИЧНО ЗАБОРОНЕНО:\n"
             f"❌ Звертання на «ти» — завжди «Ви», «Вам», «Ваш», «Ваша дитина»\n"
             f"❌ Просити у чаті ПІБ дитини, дату народження, медичні дані/діагнози/алергії — "
@@ -2271,6 +2326,45 @@ class SendpulseConnect(models.Model):
         if not connect:
             return []
         return connect._generate_reply_suggestions(count=count)
+
+    # ── V2 F12: Email extraction + partner identification ────────────────
+    _EMAIL_REGEX = r'\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b'
+
+    def _try_extract_email_and_link(self):
+        """
+        Сканує останні 20 incoming повідомлень на email (regex), бере перший.
+        Якщо знайшов: set sp_booking_email + спроба link partner_id через
+        існуючий _find_partner. Ідемпотентно — якщо sp_booking_email уже
+        встановлений, no-op.
+        """
+        self.ensure_one()
+        if self.sp_booking_email:
+            return False
+        import re as _re
+        recent = self.message_ids.filtered(
+            lambda m: m.direction == 'incoming' and (m.text_message or '').strip()
+        ).sorted('date', reverse=True)[:20]
+        for msg in recent:
+            m = _re.search(self._EMAIL_REGEX, msg.text_message or '')
+            if not m:
+                continue
+            email = m.group(0).lower().strip()
+            vals = {'sp_booking_email': email}
+            if not self.partner_id:
+                partner = self.env['res.partner'].sudo().search(
+                    [('email', '=ilike', email)], limit=1
+                )
+                if partner:
+                    vals['partner_id'] = partner.id
+                    if self.sendpulse_contact_id and not partner.sendpulse_contact_id:
+                        partner.sudo().write({'sendpulse_contact_id': self.sendpulse_contact_id})
+            self.write(vals)
+            _logger.info(
+                'SendPulse Odo: F12 email extracted %s from connect %s, linked partner=%s',
+                email, self.id, vals.get('partner_id'),
+            )
+            return True
+        return False
 
     # ── V2 F11: Auto-translate UA↔PL через Claude ────────────────────────
     def _translate_text(self, text, target_lang='pl'):
