@@ -2578,9 +2578,12 @@ class SendpulseConnect(models.Model):
             )
             if av_att:
                 avatar_url = f'{base_url}/web/image/{av_att.id}/avatar.png'
-        if company.logo:
+        # company.logo на CampScout — SVG. Gmail не рендерить SVG з міркувань
+        # безпеки → сервимо PNG-версію з модуля (shipped static/src/img).
+        logo_b64 = self._get_email_logo_png_b64(company)
+        if logo_b64:
             lg_att = self._get_or_create_public_image(
-                'lead_magnet_logo', company.logo,
+                'lead_magnet_logo', logo_b64,
             )
             if lg_att:
                 logo_url = f'{base_url}/web/image/{lg_att.id}/campscout.png'
@@ -2647,6 +2650,32 @@ class SendpulseConnect(models.Model):
             'SendPulse Odo: F13 PDF sent to %s for connect %s', to_email, self.id,
         )
         return {'ok': True, 'error': None, 'message_id': mail.id}
+
+    def _get_email_logo_png_b64(self, company):
+        """
+        Повертає base64-PNG логотипа для email. Gmail не рендерить SVG,
+        тому `res.company.logo` (SVG у CampScout) не годиться — віддаємо
+        shipped PNG з модуля (static/src/img/campscout_logo.png). Fallback
+        на company.logo якщо PNG в модулі немає.
+        """
+        import base64, os
+        module_root = os.path.dirname(os.path.dirname(__file__))
+        png_path = os.path.join(module_root, 'static', 'src', 'img', 'campscout_logo.png')
+        if os.path.exists(png_path):
+            try:
+                with open(png_path, 'rb') as f:
+                    return base64.b64encode(f.read())
+            except Exception as e:
+                _logger.warning('SendPulse Odo: cannot read shipped logo — %s', e)
+        if company and company.logo:
+            try:
+                raw = base64.b64decode(company.logo[:30])
+                # Якщо company.logo растровий (PNG/JPEG) — годиться
+                if raw.startswith(b'\x89PNG') or raw.startswith(b'\xff\xd8\xff'):
+                    return company.logo
+            except Exception:
+                pass
+        return False
 
     def _get_or_create_public_image(self, name, image_b64):
         """
