@@ -4,6 +4,45 @@
 
 ---
 
+## [2026-04-21] — v17.0.13.0
+
+### F13b: RODO/GDPR consent audit log + enforcement
+
+**Legal driver:** PL PKE (Prawo komunikacji elektronicznej) вимагає окремих consent-ів per-channel (email і SMS — різні комунікаційні канали). Без audit-log-у ми не можемо довести регулятору коли/як/на що клієнт дав згоду — ризик штрафу. RODO art. 7(1) вимагає мати доказ consent-у.
+
+**Нова модель** `sendpulse.privacy.consent.log` (append-only):
+- `partner_id`, `connect_id`, `message_id` (посилання на sendpulse.message як доказ)
+- `email`, `phone`, `purpose` (lead_magnet_email / lead_magnet_sms / marketing_* / transactional)
+- `channel`, `legal_basis` (consent/contract/legitimate_interest/legal_obligation)
+- `consent_given` (Bool — True = надано, False = withdrawal), `consent_timestamp`
+- `exact_user_response` (Text — буквально що написав клієнт)
+- `policy_version` (з ICP `rodo_policy_version`, default `v1.0`)
+- `source` (sendpulse_chat / website_form / admin_manual / api)
+- Append-only: `write()` блокує зміну всіх полів крім `notes`; `unlink()` дозволений тільки superuser-у
+- Helper методи: `record_consent(...)`, `has_active_consent(purpose, email/phone/partner)`
+
+**Auto-capture у lead magnet flow:**
+- `_send_pdf_catalog_email()` — перед send перевіряє чи є withdrawal для email+`lead_magnet_email`. Якщо є → `error='consent_withdrawn'`, skip. Після успішного send → авто-запис consent_given=True з exact_response = last incoming message.
+- `_generate_and_send_sms_coupon()` — те саме для `lead_magnet_sms` + phone.
+
+**Unsubscribe detection** у incoming flow (`_check_and_record_unsubscribe()`):
+- Regex-паттерни мультимовно: `STOP`, `unsubscribe`, `відписка`, `отписка`, `nie chcę`, `wypisz`, `rezygnuj`, `не пишіть`, `видаліть мене`, `удалите меня`...
+- Match → фіксується withdrawal для всіх актуальних purpose-ів connect-у (email + sms + messenger)
+- Майбутні `_send_pdf` / `_send_sms` пропустяться (enforcement check)
+
+**Settings:**
+- `consent_enforcement_enabled` (Bool, default=True) — toggle для enforcement (можна тимчасово вимкнути без видалення записів).
+- `rodo_policy_version` (Char, default=`v1.0`) — версія політики, записується у кожен новий consent.
+
+**UI:**
+- Новий menu «Журнал згод RODO» під SendPulse → видно Officer-ам (read-only) і Admin (create/write для manual вводу).
+- List + form + search — фільтри `granted` / `withdrawn` / `lead_magnet` / `email_ch`, групування по partner/purpose/channel/source.
+- Form read-only крім `notes` (адмін може додавати коментар з контекстом).
+
+**Важливо:** існуючі клієнти яким уже надсилалось PDF/SMS **не мають** записів у журналі (backfill не виконано — тільки з моменту v17.0.13.0). При spor-і з регулятором по старих клієнтах — залежати доведеться на SendPulse-історії чату.
+
+---
+
 ## [2026-04-21] — v17.0.12.1
 
 ### Metadata refresh: Fayna Digital branding + Odoo-typo fix
