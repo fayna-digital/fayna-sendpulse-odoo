@@ -107,5 +107,17 @@
             <field name="active">True</field>
             <field name="nextcall">2026-04-26 05:00:00</field>
         </record>
+
+        <record id="ir_cron_sendpulse_drip_followups" model="ir.cron">
+            <field name="name">SendPulse Odo: Drip campaigns (V2 F2)</field>
+            <field name="model_id" ref="model_sendpulse_connect"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_drip_followups()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">hours</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+            <field name="nextcall">2026-04-21 11:00:00</field>
+        </record>
     </data>
 </odoo>

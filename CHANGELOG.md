@@ -4,6 +4,61 @@
 
 ---
 
+## [2026-04-21] — v17.0.5.3
+
+### Sprint 3 F2 — Drip campaigns (3 streams)
+
+Погодинний cron `cron_drip_followups` повертає «зависли» розмови і алертує менеджерів.
+
+**Stream 1 — Reminder клієнту 6h (`drip_reminder_6h_enabled`):**
+- Фільтри: `sp_funnel_stage='private_sent'`, клієнт не відповів 6h+, Meta 24h-вікно відкрите, не opt-out
+- Шле текст з `drip_reminder_6h_text` через SendPulse API
+- `drip_reminder_6h_sent=True` щоб не дублювати
+
+**Stream 2 — Telegram-алерт оператору 2h (`drip_operator_alert_enabled`):**
+- Фільтри: клієнт відповів (`customer_replied`), оператор не підключився 2h+, `sp_first_reply_at` порожнє
+- Loud Telegram-алерт у менеджерську групу
+- `drip_followup_24h_sent=True` (reuse field як maker)
+
+**Stream 3 — Booking reminder 3d (`drip_booking_3d_enabled`):**
+- Фільтри: `sp_funnel_stage='lead_created'`, `sp_lead_id` не won, не opt-out, останнє повідомлення 3d+ тому
+- Шле текст з `drip_booking_3d_text`
+- `drip_booking_3d_sent=True`
+
+**Opt-out логіка:**
+- Клієнт пише STOP / "не писати" / unsubscribe / відписатись → `_check_drip_stop_keyword()` ставить `drip_stop_requested=True`
+- Всі drip потоки skip таких клієнтів
+
+**Safety gates (`_can_send_drip_message`):**
+- `drip_stop_requested=False`
+- `stage != 'close'`
+- `sp_is_comment=False` (коменти не сильно drip)
+- Meta 24h-вікно відкрите
+
+**Нові поля `sendpulse.connect`:**
+- `drip_reminder_6h_sent` (Boolean)
+- `drip_followup_24h_sent` (Boolean)
+- `drip_booking_3d_sent` (Boolean)
+- `drip_stop_requested` (Boolean)
+
+**Нові cron:**
+- `ir_cron_sendpulse_drip_followups` (1h interval)
+
+**Settings UI:**
+- Секція "V2 Automation — Sprint 3 / Drip campaigns (F2)" з master switch + per-stream toggles + custom texts
+
+Master switch `drip_enabled` = False за замовчуванням — safe rollout. Кожен stream можна окремо включити/виключити для поступового roll-out.
+
+---
+
+## [2026-04-20] — v17.0.5.2
+
+### Fix — widget="priority" on Integer field
+
+Симптом: OWL error `Array.from requires an array-like object - not null` при відкритті `SendPulse → FAQ Entries`. Root cause: widget expected Selection options, але `priority` у `sendpulse.faq.entry` — Integer. Прибрав widget, лишив plain Integer input.
+
+---
+
 ## [2026-04-20] — v17.0.5.1
 
 ### Sprint 2 F3 — Bot-wizard ідентифікації клієнтів

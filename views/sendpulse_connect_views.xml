@@ -336,6 +336,26 @@
                         </group>
                     </group>
 
+                    <h2>V2 Automation — Sprint 3</h2>
+                    <group>
+                        <group string="Drip campaigns (F2)">
+                            <field name="drip_enabled"/>
+                            <field name="drip_reminder_6h_enabled"/>
+                            <field name="drip_reminder_6h_text"/>
+                            <field name="drip_operator_alert_enabled"/>
+                            <field name="drip_booking_3d_enabled"/>
+                            <field name="drip_booking_3d_text"/>
+                            <div colspan="2">
+                                <small class="text-muted">
+                                    Погодинний cron розсилає нагадування «зависли» клієнти +
+                                    алерти менеджерам по довгих чергах. Opt-out — клієнт пише STOP /
+                                    «не писати» / unsubscribe → встановлюється `drip_stop_requested=True`.
+                                    <br/>Шле тільки якщо Meta 24h-вікно відкрите.
+                                </small>
+                            </div>
+                        </group>
+                    </group>
+
                     <h2>V2 Automation — Sprint 1</h2>
                     <group>
                         <group string="Auto-create lead (F4)">

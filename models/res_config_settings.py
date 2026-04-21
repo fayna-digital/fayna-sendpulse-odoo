@@ -226,6 +226,52 @@ class ResConfigSettings(models.TransientModel):
         help='Refresh токен якщо залишилось менше N днів. Дефолт 14.',
     )
 
+    # ── Drip campaigns (V2 F2) ───────────────────────────────────────────
+    drip_enabled = fields.Boolean(
+        string='Drip-кампанії (master switch)',
+        config_parameter='odoo_chatwoot_connector.drip_enabled',
+        default=False,
+        help='Погодинний cron розсилає нагадування «зависли» клієнти + '
+             'алерти менеджерам по затриманих розмовах. Окремі потоки можна '
+             'вимкнути нижче.',
+    )
+    drip_reminder_6h_enabled = fields.Boolean(
+        string='6h reminder клієнту',
+        config_parameter='odoo_chatwoot_connector.drip_reminder_6h_enabled',
+        default=True,
+        help='Коли private_sent + клієнт не відповів 6h → нагадування.',
+    )
+    drip_reminder_6h_text = fields.Char(
+        string='Текст 6h reminder',
+        config_parameter='odoo_chatwoot_connector.drip_reminder_6h_text',
+        default=(
+            "Привіт! 🙂 Ми надсилали вам деталі про табори — чи отримали? "
+            "Будемо раді відповісти на будь-які питання 🏕️"
+        ),
+    )
+    drip_operator_alert_enabled = fields.Boolean(
+        string='2h Telegram-алерт менеджерам',
+        config_parameter='odoo_chatwoot_connector.drip_operator_alert_enabled',
+        default=True,
+        help='Коли клієнт відповів у приват і оператор не підключився 2h → '
+             'loud Telegram-алерт у групу.',
+    )
+    drip_booking_3d_enabled = fields.Boolean(
+        string='3d нагадування про бронь',
+        config_parameter='odoo_chatwoot_connector.drip_booking_3d_enabled',
+        default=True,
+        help='Якщо є crm.lead без оплати 3 дні → нагадування клієнту.',
+    )
+    drip_booking_3d_text = fields.Char(
+        string='Текст 3d booking reminder',
+        config_parameter='odoo_chatwoot_connector.drip_booking_3d_text',
+        default=(
+            "Доброго дня! 🌟 Нагадуємо про табір, яким ви цікавились. "
+            "Місць залишається все менше — якщо готові забронювати, напишіть, "
+            "підготуємо договір і рахунок 🏕️"
+        ),
+    )
+
     # ── Bot-wizard ідентифікації (V2 F3) ─────────────────────────────────
     bot_identification_enabled = fields.Boolean(
         string='Bot auto-ідентифікація',
