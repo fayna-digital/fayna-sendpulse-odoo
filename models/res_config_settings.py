@@ -236,6 +236,17 @@ class ResConfigSettings(models.TransientModel):
              '«Використати» → текст вставляється у composer, можна редагувати.',
     )
 
+    # ── Event seats awareness (V2 F14) ───────────────────────────────────
+    event_seats_awareness_enabled = fields.Boolean(
+        string='Live вільні місця у AI-контексті',
+        config_parameter='odoo_chatwoot_connector.event_seats_awareness_enabled',
+        default=True,
+        help='У prompt для Claude (F10 suggestions + F1 RAG) інжектиться '
+             'live-блок активних event.event з поточним seats_available. '
+             'AI використовує ці дані замість hardcoded цін/таборів: '
+             'створює FOMO на майже-повні зміни, чесно говорить про повні.',
+    )
+
     # ── Auto-translate (V2 F11) ──────────────────────────────────────────
     auto_translate_enabled = fields.Boolean(
         string='Авто-переклад UA↔PL через Claude',

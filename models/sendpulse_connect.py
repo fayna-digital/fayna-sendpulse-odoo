@@ -2168,6 +2168,57 @@ class SendpulseConnect(models.Model):
 
         return '\n'.join(lines)[:4000]
 
+    # ── V2 F14: Live event seats context для AI prompts ──────────────────
+    def _get_live_events_context(self, limit=15, low_ratio=0.3):
+        """
+        Повертає текстовий блок активних майбутніх event.event з їх
+        live `seats_available` — щоб AI у F10 suggestions і F1 RAG знав
+        які табори скільки мають вільних місць. Позначає 🔴 повні і
+        ❗ майже повні (<low_ratio від seats_max) для FOMO.
+
+        Повертає '' якщо feature-flag вимкнений, ORM помилка або немає
+        активних подій.
+        """
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param(
+            'odoo_chatwoot_connector.event_seats_awareness_enabled', 'True'
+        ) != 'True':
+            return ''
+        from datetime import datetime
+        try:
+            events = self.env['event.event'].sudo().search([
+                ('active', '=', True),
+                ('date_begin', '>', datetime.now()),
+                ('stage_id.pipe_end', '=', False),
+            ], order='date_begin', limit=limit)
+        except Exception as e:
+            _logger.warning('SendPulse Odo: F14 events query failed — %s', e)
+            return ''
+        lines = []
+        for ev in events:
+            name = (ev.name or '').strip()
+            if not name:
+                continue
+            date_s = ev.date_begin.strftime('%d.%m') if ev.date_begin else '?'
+            if ev.seats_limited and ev.seats_max:
+                avail = ev.seats_available or 0
+                if avail <= 0:
+                    status = '🔴 ПОВНИЙ'
+                elif avail / ev.seats_max <= low_ratio:
+                    status = f'❗ {avail}/{ev.seats_max} (майже повний!)'
+                else:
+                    status = f'{avail}/{ev.seats_max} місць'
+            else:
+                status = 'без ліміту місць'
+            lines.append(f'• {date_s} — {name[:70]} — {status}')
+        if not lines:
+            return ''
+        return (
+            'LIVE ТАБОРИ 2026 (з Odoo, seats_available АКТУАЛЬНО ЗАРАЗ '
+            '— рекомендуй лише ті, де є місця; ❗ = FOMO, 🔴 = запропонуй аналог):\n'
+            + '\n'.join(lines)
+        )
+
     # ── V2 F10: Suggested reply drafts для оператора ──────────────────────
     def _generate_reply_suggestions(self, count=3):
         """
@@ -2256,8 +2307,13 @@ class SendpulseConnect(models.Model):
 
         profile = '\n'.join(profile_parts)
 
+        # F14: live seats у активних подіях — AI має знати реальну доступність
+        live_events = self._get_live_events_context()
+        live_events_block = f"{live_events}\n\n" if live_events else ''
+
         prompt = (
             f"Ти — AI-асистент менеджера CampScout (дитячі табори у Польщі).\n\n"
+            f"{live_events_block}"
             f"КАНОНІЧНІ ФАКТИ (НЕ ВИГАДУВАТИ НІЧОГО ІНШОГО!):\n"
             f"• Флагмани 2026: TDK 6-11р 3 300 zł (10 днів), Дослідники морів 7-17р 3 500 zł (14 днів), "
             f"Пошумимо 12-17р 3 250 zł (14 днів)\n"
@@ -2300,7 +2356,11 @@ class SendpulseConnect(models.Model):
             f"деталями/ціною/програмою — ОДИН з варіантів може ввічливо запропонувати "
             f"залишити email для особистої пропозиції (не нав'язливо, природно у контексті).\n"
             f"• Якщо клієнт ІДЕНТИФІКОВАНИЙ (є partner/ліди/замовлення) — використай контекст "
-            f"(минулі табори, стадія ліда) для персоналізації, але не цитуй деталі буквально.\n\n"
+            f"(минулі табори, стадія ліда) для персоналізації, але не цитуй деталі буквально.\n"
+            f"• Якщо клієнт питає про КОНКРЕТНИЙ табір/зміну — перевір LIVE ТАБОРИ вище: "
+            f"❗ <30% → створи FOMO («Ірине, лишилось тільки 5 місць, радимо не тягнути»); "
+            f"🔴 повний → ЧЕСНО скажи і запропонуй аналог з вільними місцями; "
+            f"звичайний → не акцентуй на seats без потреби.\n\n"
             f"КАТЕГОРИЧНО ЗАБОРОНЕНО:\n"
             f"❌ Звертання на «ти» — завжди «Ви», «Вам», «Ваш», «Ваша дитина»\n"
             f"❌ Просити у чаті ПІБ дитини, дату народження, медичні дані/діагнози/алергії — "
@@ -2876,12 +2936,16 @@ class SendpulseConnect(models.Model):
             for f in faqs
         ])
         contact_hint = f' Клієнт: {contact_name}.' if contact_name else ''
+        # F14: live seats якщо питання стосується конкретного табору
+        live_events = self._get_live_events_context()
+        live_events_block = f"{live_events}\n\n" if live_events else ''
         prompt = (
             f"Ти — AI-асистент менеджера CampScout (дитячі табори 6-17 років у Польщі).\n"
             f"Наш стиль: продавці-консультанти, не сухі факти — ЦІННІСТЬ + ТЕРМІНОВІСТЬ + CTA.\n\n"
             f"Клієнт написав у приват:\n"
             f"\"\"\"\n{question_text[:500]}\n\"\"\"\n\n"
             f"{contact_hint}\n\n"
+            f"{live_events_block}"
             f"База FAQ з canonical відповідями:\n\n"
             f"{faq_block}\n\n"
             f"Завдання:\n"
@@ -2889,6 +2953,8 @@ class SendpulseConnect(models.Model):
             f"2. Якщо match — перепиши canonical answer персоналізовано для клієнта:\n"
             f"   - Звертайся ТІЛЬКИ на «Ви» (ніколи «ти» — батьки, не ровесники), 3-6 речень\n"
             f"   - ЗБЕРЕЖИ ключові ЦИФРИ, НАЗВИ ТАБОРІВ, URL з canonical (НЕ вигадуй власні!)\n"
+            f"   - Якщо питання про конкретний табір/зміну і він є у LIVE ТАБОРИ — "
+            f"додай актуальну доступність: ❗ <30% = FOMO, 🔴 = запропонуй аналог.\n"
             f"   - Якщо є ім'я клієнта — вплети у першу фразу\n"
             f"   - Закінчуй CTA-запитанням (ведемо у діалог, не закриваємо)\n"
             f"   - Емодзі 1-2 максимум\n"

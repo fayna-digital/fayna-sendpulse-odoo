@@ -4,6 +4,30 @@
 
 ---
 
+## [2026-04-21] — v17.0.12.0
+
+### F14: Event seats awareness у AI-контексті (live `seats_available`)
+
+**Проблема:** AI у F10 suggestions і F1 RAG мав тільки hardcoded canonical facts у prompt — не знав скільки місць залишилось по конкретних змінах. Міг рекомендувати повний табір або не створював FOMO коли місць мало.
+
+**Фікс:**
+
+- Новий helper `sendpulse.connect._get_live_events_context(limit=15, low_ratio=0.3)` — читає `event.event` де `active=True, date_begin>NOW, stage_id.pipe_end=False`, форматує компактно:
+  ```
+  LIVE ТАБОРИ 2026 (з Odoo, seats_available АКТУАЛЬНО ЗАРАЗ...):
+  • 08.05 — Передтаборова зустріч... — 28/30 місць
+  • 12.07 — На вовчій стежці — ❗ 5/20 (майже повний!)
+  • 26.07 — CHILL-CAMP у Швейцарії — 30/30 місць
+  • 28.07 — Дослідники морів KIDS — II зміна — ❗ 11/30 (майже повний!)
+  ```
+- Інжект у prompt `_generate_reply_suggestions()` (F10) + `_rag_answer_question()` (F1) — перед canonical facts / FAQ block.
+- Стилістична інструкція у prompt: ❗ (<30%) → FOMO «Лишилось тільки 5 місць»; 🔴 (повний) → чесно відмовитись і запропонувати аналог; звичайний → не акцентувати.
+- Feature-flag `event_seats_awareness_enabled` (default True) у Settings — можна вимкнути якщо глюкне.
+
+Умова `stage_id.pipe_end=False` виключає стадії «Закінчений» / «Скасовано» (події в закритих стейджах не показуємо).
+
+---
+
 ## [2026-04-21] — v17.0.11.4
 
 ### Fix: Settings падає + email logo все ще `?` у Gmail
