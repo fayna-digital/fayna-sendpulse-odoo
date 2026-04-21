@@ -2566,6 +2566,17 @@ class SendpulseConnect(models.Model):
         # Email більше НЕ містить купона — купон окремо через SMS.
         # Це дозволяє зібрати два незалежних контакти (email + phone) з
         # окремими маркетинговими згодами для кожного каналу.
+        # Avatar + logo — inline Data URI щоб Gmail/Outlook гарантовано
+        # показали (без auth до /web/image/res.users/6).
+        signer = self.env['res.users'].sudo().browse(6)
+        company = self.env.company
+        avatar_uri = ''
+        logo_uri = ''
+        if signer.exists() and signer.image_128:
+            avatar_uri = 'data:image/png;base64,' + signer.image_128.decode()
+        if company.logo:
+            logo_uri = 'data:image/png;base64,' + company.logo.decode()
+
         tpl = self.env.ref(
             'odoo_chatwoot_connector.mail_template_lead_magnet_catalog',
             raise_if_not_found=False,
@@ -2574,6 +2585,8 @@ class SendpulseConnect(models.Model):
             if tpl:
                 mail_id = tpl.sudo().with_context(
                     recipient_email=to_email,
+                    user_avatar_uri=avatar_uri,
+                    company_logo_uri=logo_uri,
                 ).send_mail(
                     self.id,
                     force_send=True,
