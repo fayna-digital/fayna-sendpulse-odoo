@@ -32,6 +32,14 @@ export class SendpulseInfoPanel extends Component {
             translateLoading: false,
             translateError: "",
             translateCopied: false,
+            // F13 lead-magnet
+            pdfEmail: "",
+            pdfLoading: false,
+            pdfError: "",
+            smsPhone: "",
+            smsLoading: false,
+            smsError: "",
+            smsSuccess: null,
         });
 
         onWillStart(async () => {
@@ -56,11 +64,97 @@ export class SendpulseInfoPanel extends Component {
                 [channelId],
             );
             this.state.connect = data || null;
+            // F13: prefill email/phone
+            if (data) {
+                this.state.pdfEmail = data.prefill_email || "";
+                this.state.smsPhone = data.prefill_phone || "";
+            }
         } catch (e) {
             this.state.error = true;
             console.error("SendpulseInfoPanel: failed to load connect", e);
         } finally {
             this.state.loading = false;
+        }
+    }
+
+    /**
+     * F13: Надіслати PDF-каталог на email клієнта.
+     */
+    async onSendPdf() {
+        if (!this.props.thread?.id || !this.state.pdfEmail) return;
+        this.state.pdfLoading = true;
+        this.state.pdfError = "";
+        try {
+            const result = await this.orm.call(
+                "sendpulse.connect",
+                "send_pdf_catalog_for_channel",
+                [this.props.thread.id, this.state.pdfEmail],
+            );
+            if (!result || !result.ok) {
+                const errMap = {
+                    disabled: "Lead magnet вимкнено у Settings",
+                    no_email: "Email порожній",
+                    no_attachment_configured: "PDF-файл не налаштовано у Settings",
+                    attachment_missing: "PDF-файл не знайдено у filestore",
+                    already_sent: "Уже надіслано на цей email",
+                    no_connect: "Контакт не знайдено",
+                };
+                this.state.pdfError = errMap[result?.error] || result?.error || "Помилка відправки";
+                return;
+            }
+            this.notification.add("PDF-каталог надіслано на " + this.state.pdfEmail, {
+                type: "success",
+            });
+            await this._loadConnect(this.props.thread.id);
+        } catch (e) {
+            console.error("SendpulseInfoPanel: send PDF failed", e);
+            this.state.pdfError = "Помилка RPC";
+        } finally {
+            this.state.pdfLoading = false;
+        }
+    }
+
+    /**
+     * F13: Надіслати SMS-купон 5% на телефон клієнта.
+     */
+    async onSendSmsCoupon() {
+        if (!this.props.thread?.id || !this.state.smsPhone) return;
+        this.state.smsLoading = true;
+        this.state.smsError = "";
+        this.state.smsSuccess = null;
+        try {
+            const result = await this.orm.call(
+                "sendpulse.connect",
+                "send_sms_coupon_for_channel",
+                [this.props.thread.id, this.state.smsPhone],
+            );
+            if (!result || !result.ok) {
+                const errMap = {
+                    disabled: "Lead magnet вимкнено у Settings",
+                    no_phone: "Телефон порожній",
+                    no_program_configured: "Loyalty-програма не налаштована",
+                    program_missing: "Loyalty-програма не знайдена",
+                    coupon_exhausted: "Купони у програмі закінчились (points=0)",
+                    already_sent: "Уже надіслано купон цьому клієнту",
+                    no_connect: "Контакт не знайдено",
+                };
+                this.state.smsError = errMap[result?.error] || result?.error || "Помилка SMS";
+                return;
+            }
+            this.state.smsSuccess = {
+                code: result.code,
+                remaining: result.remaining,
+            };
+            this.notification.add(
+                `SMS-купон ${result.code} надіслано на ${this.state.smsPhone}`,
+                { type: "success" }
+            );
+            await this._loadConnect(this.props.thread.id);
+        } catch (e) {
+            console.error("SendpulseInfoPanel: send SMS coupon failed", e);
+            this.state.smsError = "Помилка RPC";
+        } finally {
+            this.state.smsLoading = false;
         }
     }
 

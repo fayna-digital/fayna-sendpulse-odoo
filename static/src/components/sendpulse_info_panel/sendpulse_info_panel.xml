@@ -219,6 +219,89 @@
                     </t>
                 </div>
 
+                <!-- F13: Lead magnet — PDF + SMS-купон -->
+                <t t-if="state.connect.lead_magnet_enabled">
+                    <div class="px-3 py-2 border-top">
+                        <div class="text-muted small text-uppercase fw-semibold mb-2">
+                            🎁 Маркетинг (F13)
+                        </div>
+
+                        <!-- PDF-каталог -->
+                        <t t-if="state.connect.pdf_sent_at">
+                            <div class="alert alert-success py-2 px-2 small mb-2" role="alert">
+                                <i class="fa fa-check-circle"/>
+                                PDF надіслано на
+                                <strong><t t-esc="state.connect.pdf_sent_to_email"/></strong>
+                                <div class="text-muted" style="font-size: 10px;">
+                                    <t t-esc="state.connect.pdf_sent_at"/>
+                                </div>
+                            </div>
+                        </t>
+                        <t t-else="">
+                            <div class="mb-2">
+                                <div class="small fw-semibold mb-1">📄 PDF-каталог</div>
+                                <div class="input-group input-group-sm">
+                                    <input type="email" class="form-control"
+                                           placeholder="email@example.com"
+                                           t-model="state.pdfEmail"
+                                           t-att-disabled="state.pdfLoading"/>
+                                    <button class="btn btn-outline-primary"
+                                            t-on-click="onSendPdf"
+                                            t-att-disabled="state.pdfLoading or !state.pdfEmail">
+                                        <t t-if="state.pdfLoading">
+                                            <i class="fa fa-spinner fa-spin"/>
+                                        </t>
+                                        <t t-else="">Надіслати</t>
+                                    </button>
+                                </div>
+                                <t t-if="state.pdfError">
+                                    <div class="text-danger small mt-1"><t t-esc="state.pdfError"/></div>
+                                </t>
+                            </div>
+                        </t>
+
+                        <!-- SMS-купон -->
+                        <t t-if="state.connect.coupon_code">
+                            <div class="alert alert-success py-2 px-2 small" role="alert">
+                                <i class="fa fa-check-circle"/>
+                                SMS-купон надіслано на
+                                <strong><t t-esc="state.connect.coupon_sent_to_phone"/></strong>
+                                <div class="text-muted" style="font-size: 10px;">
+                                    Код: <code><t t-esc="state.connect.coupon_code"/></code>
+                                    · <t t-esc="state.connect.coupon_sent_at"/>
+                                </div>
+                            </div>
+                        </t>
+                        <t t-else="">
+                            <div>
+                                <div class="small fw-semibold mb-1">📱 SMS-купон 5%</div>
+                                <div class="input-group input-group-sm">
+                                    <input type="tel" class="form-control"
+                                           placeholder="+48 600 123 456"
+                                           t-model="state.smsPhone"
+                                           t-att-disabled="state.smsLoading"/>
+                                    <button class="btn btn-outline-primary"
+                                            t-on-click="onSendSmsCoupon"
+                                            t-att-disabled="state.smsLoading or !state.smsPhone">
+                                        <t t-if="state.smsLoading">
+                                            <i class="fa fa-spinner fa-spin"/>
+                                        </t>
+                                        <t t-else="">Надіслати</t>
+                                    </button>
+                                </div>
+                                <t t-if="state.smsError">
+                                    <div class="text-danger small mt-1"><t t-esc="state.smsError"/></div>
+                                </t>
+                                <t t-if="state.smsSuccess">
+                                    <div class="text-success small mt-1">
+                                        Код <code><t t-esc="state.smsSuccess.code"/></code> надіслано. Залишилось <t t-esc="state.smsSuccess.remaining"/> купонів.
+                                    </div>
+                                </t>
+                            </div>
+                        </t>
+                    </div>
+                </t>
+
                 <!-- F10: AI Suggested Replies -->
                 <div class="px-3 py-2 border-top">
                     <div class="d-flex align-items-center justify-content-between mb-2">
