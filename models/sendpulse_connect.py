@@ -2563,70 +2563,49 @@ class SendpulseConnect(models.Model):
         if not attachment.exists() or not attachment.datas:
             return {'ok': False, 'error': 'attachment_missing', 'message_id': None}
 
-        subject = ICP.get_param(
-            'odoo_chatwoot_connector.lead_magnet_email_subject',
-            'CampScout — повний каталог таборів 2026',
+        # Email більше НЕ містить купона — купон окремо через SMS.
+        # Це дозволяє зібрати два незалежних контакти (email + phone) з
+        # окремими маркетинговими згодами для кожного каналу.
+        tpl = self.env.ref(
+            'odoo_chatwoot_connector.mail_template_lead_magnet_catalog',
+            raise_if_not_found=False,
         )
-        body_tmpl = ICP.get_param(
-            'odoo_chatwoot_connector.lead_magnet_email_body_html',
-            '',
-        ) or (
-            '<p>Вітаємо{name_suffix}!</p>'
-            '<p>У вкладенні — повний PDF каталог таборів CampScout на літо 2026: '
-            'усі програми, дати, ціни та деталі по кожному табору.</p>'
-            '<p>Промо-ціни діють до 01.05.2026 (після дати +300 zł).</p>'
-            '<p>Ваш особистий промокод на додаткові <b>5% знижки</b>: '
-            '<code style="font-size: 1.2em; background: #f0f0f0; padding: 4px 8px;">{code}</code><br/>'
-            'Залишилось <b>{remaining}</b> купонів на акцію — хто встиг, той виграв. '
-            'Термін дії: до {expires}.</p>'
-            '<p>Якщо виникнуть питання — напишіть нам прямо у чат, підкажемо вибрати '
-            'найкращий варіант для Вашої дитини.</p>'
-            '<p>З повагою,<br/>Команда CampScout<br/>'
-            '<a href="https://campscout.eu">campscout.eu</a></p>'
-        )
-        name_part = (self.name or (self.partner_id.name if self.partner_id else '')).strip()
-        name_suffix = f', {name_part}' if name_part else ''
-
-        # Підтягуємо shared coupon з програми для відображення у email
-        coupon_code = ''
-        coupon_remaining = 0
-        coupon_expires = ''
-        program_id_raw = ICP.get_param('odoo_chatwoot_connector.lead_magnet_coupon_program_id', '')
         try:
-            program_id = int(program_id_raw)
-            card = self.env['loyalty.card'].sudo().search(
-                [('program_id', '=', program_id), ('points', '>', 0)],
-                order='id', limit=1,
-            )
-            if card:
-                coupon_code = card.code
-                coupon_remaining = int(card.points)
-                coupon_expires = card.expiration_date.strftime('%d.%m.%Y') if card.expiration_date else ''
-        except (TypeError, ValueError):
-            pass
-
-        body_html = (body_tmpl
-                     .replace('{name_suffix}', name_suffix)
-                     .replace('{name}', name_part or 'шановні батьки')
-                     .replace('{code}', coupon_code)
-                     .replace('{remaining}', str(coupon_remaining))
-                     .replace('{expires}', coupon_expires or '20.06.2026'))
-
-        mail = self.env['mail.mail'].sudo().create({
-            'subject': subject,
-            'body_html': body_html,
-            'email_to': to_email,
-            'email_from': ICP.get_param('mail.catchall.alias', 'noreply@campscout.eu')
-                          + '@' + ICP.get_param('mail.catchall.domain', 'campscout.eu')
-                          if '@' not in (ICP.get_param('mail.catchall.alias', '') or '')
-                          else ICP.get_param('mail.catchall.alias'),
-            'attachment_ids': [(4, attachment.id)],
-        })
-        try:
-            mail.send(raise_exception=False)
+            if tpl:
+                mail_id = tpl.sudo().with_context(
+                    recipient_email=to_email,
+                ).send_mail(
+                    self.id,
+                    force_send=True,
+                    email_values={
+                        'email_to': to_email,
+                        'attachment_ids': [(4, attachment.id)],
+                    },
+                )
+                mail = self.env['mail.mail'].sudo().browse(mail_id)
+            else:
+                # Fallback — inline plain-HTML (мінімалістичний, без купона)
+                subject = ICP.get_param(
+                    'odoo_chatwoot_connector.lead_magnet_email_subject',
+                    'CampScout — повний каталог таборів 2026',
+                )
+                name_part = (self.name or (self.partner_id.name if self.partner_id else '')).strip()
+                name_suffix = f', {name_part}' if name_part else ''
+                body_html = (
+                    f'<p>Вітаємо{name_suffix}!</p>'
+                    '<p>У вкладенні — PDF каталог CampScout 2026.</p>'
+                    '<p>campscout.eu</p>'
+                )
+                mail = self.env['mail.mail'].sudo().create({
+                    'subject': subject,
+                    'body_html': body_html,
+                    'email_to': to_email,
+                    'attachment_ids': [(4, attachment.id)],
+                })
+                mail.send(raise_exception=False)
         except Exception as e:
             _logger.warning('SendPulse Odo: F13 PDF email exception — %s', e)
-            return {'ok': False, 'error': f'exception:{e}', 'message_id': mail.id}
+            return {'ok': False, 'error': f'exception:{e}', 'message_id': None}
         self.sudo().write({
             'sp_pdf_sent_at': fields.Datetime.now(),
             'sp_pdf_sent_to_email': to_email,
@@ -3744,104 +3723,91 @@ class SendpulseConnect(models.Model):
     @api.model
     def _process_outgoing_event(self, contact, service, timestamp_ms):
         """
-        Обробляє outbound_message — повідомлення надіслані з SendPulse
-        (зокрема з мобільного додатку менеджера).
+        Обробляє outbound_message / outgoing_message events.
 
-        Дедуплікація: якщо цей текст вже є в Odoo як outgoing за останні 60 секунд
-        (тобто надіслано з Odoo Discuss) — пропускаємо щоб не дублювати.
+        У payload.contact.last_message SendPulse завжди тримає ОСТАННЄ
+        КЛІЄНТСЬКЕ повідомлення (не текст оператора). Використовуємо це
+        для backfill missed incoming — SendPulse іноді не шле окремий
+        incoming_message webhook коли new_subscriber і перший текст
+        клієнта приходять з дуже малою різницею у часі.
         """
         contact_id = contact.get('id', '')
         last_message = contact.get('last_message', '') or ''
 
-        _logger.info(
-            'SendPulse _process_outgoing_event: contact_id=%s, last_message=%r',
-            contact_id, last_message[:80] if last_message else '',
-        )
-
         if not last_message or not contact_id:
             return
 
-        # ── Guard: contact.last_message у outbound_message завжди містить ОСТАННЄ
-        # КЛІЄНТСЬКЕ повідомлення, а не текст оператора/бота. Якщо цей текст вже
-        # збережений як incoming — це "луна" клієнта, ігноруємо.
+        # Guard: якщо цей текст уже є як incoming → нічого робити не треба
         already_incoming = self.env['sendpulse.message'].search([
             ('sendpulse_contact_id', '=', contact_id),
             ('direction', '=', 'incoming'),
             ('text_message', '=', last_message),
         ], limit=1)
-        _logger.info(
-            'SendPulse _process_outgoing_event: already_incoming=%s for text=%r',
-            bool(already_incoming), last_message[:40] if last_message else '',
-        )
         if already_incoming:
             return
 
-        # ── Дедуплікація: перевіряємо чи не ми самі щойно надіслали цей текст ──
-        cutoff = fields.Datetime.now() - timedelta(seconds=60)
-        already_saved = self.env['sendpulse.message'].search([
-            ('sendpulse_contact_id', '=', contact_id),
-            ('direction', '=', 'outgoing'),
-            ('text_message', '=', last_message),
-            ('date', '>=', cutoff),
-        ], limit=1)
-
-        if already_saved:
-            # Повідомлення вже є — надіслано з Odoo Discuss, пропускаємо
-            return
-
-        # ── Знаходимо активну розмову ────────────────────────────────────────
+        # Знаходимо активну розмову
         connect = self.search([
             ('sendpulse_contact_id', '=', contact_id),
             ('service', '=', service),
             ('stage', '!=', 'close'),
         ], limit=1)
-
         if not connect:
             return
 
+        # ── Backfill MISSED incoming ────────────────────────────────────────
+        # Текст клієнта якого немає у incoming → SendPulse пропустив webhook.
+        # Створюємо як incoming з поміткою у channel.
         now = fields.Datetime.now()
+        _logger.info(
+            'SendPulse Odo: backfill missed incoming для contact=%s: %r',
+            contact_id, last_message[:80],
+        )
 
-        # ── Зберігаємо повідомлення в sendpulse.message ──────────────────────
         self.env['sendpulse.message'].create({
             'name': now.strftime('%Y-%m-%d %H:%M'),
             'date': now,
             'connect_id': connect.id,
             'sendpulse_contact_id': contact_id,
-            'direction': 'outgoing',
+            'direction': 'incoming',
             'message_type': 'text',
             'text_message': last_message,
-            'raw_json': str({'text': last_message, 'source': 'sendpulse_mobile'}),
+            'raw_json': str({'text': last_message, 'source': 'backfill_from_outgoing_event'}),
         })
 
-        # ── Постимо у discuss.channel щоб оператори в Odoo бачили ────────────
         if connect.channel_id:
+            author_id = connect.partner_id.id if connect.partner_id else self.env.ref('base.partner_root').id
             connect.channel_id.with_context(
                 sendpulse_incoming=True
             ).message_post(
-                body=Markup("<i>📱 SendPulse:</i> {}").format(escape(last_message)),
-                author_id=self.env.ref('base.partner_root').id,
+                body=Markup(
+                    "<p>👤 <strong>{}</strong> <em>(backfill — SendPulse пропустив webhook)</em><br/>{}</p>"
+                ).format(escape(connect.name or 'Клієнт'), escape(last_message)),
+                author_id=author_id,
                 message_type='comment',
                 subtype_xmlid='mail.mt_comment',
             )
 
-        # ── Зберігаємо у вкладці Messaging картки партнера ───────────────────
         if connect.partner_id:
             self.env['partner.sendpulse.message'].create({
                 'partner_id': connect.partner_id.id,
                 'date': now,
-                'text_message': f"<p>📱 {last_message}</p>",
+                'text_message': f"<p>👤 {last_message}</p>",
                 'service': service,
-                'direction': 'outgoing',
+                'direction': 'incoming',
             })
 
-        # ── Оновлюємо preview розмови ─────────────────────────────────────────
         update_vals = {
             'last_message_preview': last_message[:100],
             'last_message_date': now,
         }
-        # Якщо оператор відповів — знімаємо "Нове повідомлення"
-        if connect.stage == 'new_message':
-            update_vals['stage'] = 'in_progress'
+        # Клієнт написав → вікно 24h відновлюється
+        update_vals['sp_messenger_window_expires_at'] = now + timedelta(hours=24)
+        update_vals['sp_window_alert_sent'] = False
+        if connect.sp_funnel_stage in ('comment_only', 'private_sent', False, None):
+            update_vals['sp_funnel_stage'] = 'customer_replied'
+        if connect.stage == 'in_progress':
+            update_vals['stage'] = 'new_message'
         connect.write(update_vals)
 
     @api.model
