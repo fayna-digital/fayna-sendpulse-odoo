@@ -71,6 +71,21 @@ class SendpulseConnect(models.Model):
     _description = 'SendPulse Розмова'
     _order = 'stage_sort asc, last_message_date desc'
 
+    def init(self):
+        """
+        Partial unique index: (sendpulse_contact_id, service) мають бути
+        унікальними у межах **активних** розмов (stage != 'close').
+        Захищає від race condition коли два webhooks одночасно створюють
+        дублі (advisory_xact_lock — софт-захист, це — хард-захист DB-рівня).
+        """
+        super().init()
+        self.env.cr.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS sendpulse_connect_active_contact_service_uniq
+            ON sendpulse_connect (sendpulse_contact_id, service)
+            WHERE stage != 'close' AND sendpulse_contact_id IS NOT NULL
+              AND sendpulse_contact_id != ''
+        """)
+
     # ── Основні поля ────────────────────────────────────────────────────
     active = fields.Boolean(
         string='Активна', default=True, index=True,
@@ -983,6 +998,11 @@ class SendpulseConnect(models.Model):
                 'SELECT pg_advisory_xact_lock(%s, %s)',
                 (lock_key1, _SENDPULSE_INBOUND_LOCK_KEY2),
             )
+            # Примусовий flush + invalidate cache щоб search після lock
+            # повертав актуальний стан (включно з записом створеним іншим
+            # worker-ом який щойно commit-нув).
+            self.env.flush_all()
+            self.env.invalidate_all()
 
         # ── Крок 2: Знаходимо або створюємо розмову ─────────────────────
         # Пріоритет 1: активна розмова по sendpulse_contact_id + service
@@ -1021,7 +1041,7 @@ class SendpulseConnect(models.Model):
         now = fields.Datetime.now()
         is_brand_new = not connect   # True тільки якщо connect щойно буде створено
         if not connect:
-            connect = self.create({
+            create_vals = {
                 'name': contact_name,
                 'sendpulse_contact_id': contact_id,
                 'service': service,
@@ -1037,20 +1057,41 @@ class SendpulseConnect(models.Model):
                 'last_message_preview': last_message[:100] if last_message else '',
                 'last_message_date': now,
                 'stage': 'new',
-            })
-            # Захист від race condition: new_subscriber + incoming_message можуть
-            # паралельно пройти search→None і обидва створити новий connect.
-            # Якщо є старший дублікат — видаляємо щойно створений і беремо його.
-            duplicate = self.search([
-                ('sendpulse_contact_id', '=', contact_id),
-                ('service', '=', service),
-                ('stage', '!=', 'close'),
-                ('id', '<', connect.id),
-            ], limit=1)
-            if duplicate:
-                connect.unlink()
-                connect = duplicate
+            }
+            # Partial unique index у init() фізично блокує дублі. Ловимо
+            # IntegrityError через savepoint, якщо випадково створюємо дубль —
+            # відкочуємо create і підхоплюємо existing запис.
+            from psycopg2 import IntegrityError
+            try:
+                with self.env.cr.savepoint():
+                    connect = self.create(create_vals)
+            except IntegrityError:
+                _logger.info(
+                    'SendPulse Odo: race duplicate intercepted by unique index — '
+                    'contact=%s service=%s', contact_id, service,
+                )
+                self.env.invalidate_all()
+                connect = self.search([
+                    ('sendpulse_contact_id', '=', contact_id),
+                    ('service', '=', service),
+                    ('stage', '!=', 'close'),
+                ], limit=1)
+                if not connect:
+                    # Дуже дивний стан — IntegrityError на unique, але search не знаходить
+                    raise
                 is_brand_new = False
+            else:
+                # Fallback race-guard (backup до unique index): find older duplicate
+                duplicate = self.search([
+                    ('sendpulse_contact_id', '=', contact_id),
+                    ('service', '=', service),
+                    ('stage', '!=', 'close'),
+                    ('id', '<', connect.id),
+                ], limit=1)
+                if duplicate:
+                    connect.unlink()
+                    connect = duplicate
+                    is_brand_new = False
 
             # V2 F3: якщо brand-new і без партнера — бот сам запитає email
             # замість stage=new (чекання оператора). Повертає True якщо flow запустився.
