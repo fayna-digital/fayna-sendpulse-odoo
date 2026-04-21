@@ -4,6 +4,36 @@
 
 ---
 
+## [2026-04-21] — v17.0.6.0
+
+### F10 Suggested Reply — OWL UI інтеграція (завершення Sprint 3 F10)
+
+Server-side метод `_generate_reply_suggestions` був готовий з v17.0.5.5 — тепер доданий повноцінний UI у Discuss sidebar.
+
+**Що бачить оператор:**
+
+У `sendpulse_info_panel` (правий sidebar Discuss-каналу SendPulse-розмови) з'явилась нова секція «🤖 AI-драфти відповіді» з:
+- Кнопка «🪄 Згенерувати» — клік викликає RPC `suggested_reply_for_channel(channel_id, 3)` → Claude Haiku з контекстом 10 останніх повідомлень → 3 варіанти
+- Loading spinner поки чекаємо (15 сек timeout)
+- Кожен варіант у border-рамці з іконкою copy
+- Клік на варіант → copy to clipboard через `browser.navigator.clipboard.writeText`
+- Badge «✅ скопійовано» 2.5 секунди
+- Toast-notification «Варіант скопійовано — вставляйте у композер»
+
+Якщо LLM не дав варіантів — показує текст-hint про Settings → `suggested_reply_enabled` + `anthropic_api_key`.
+
+**Архітектура (MVP — copy-to-clipboard):**
+- Оператор копіює → вставляє у Discuss composer через Cmd+V / Ctrl+V
+- Не вставляємо напряму у composer бо OWL composer state не експортується модулем, це було б крихке у різних Odoo revisions
+
+**Файли:**
+- `static/src/components/sendpulse_info_panel/sendpulse_info_panel.js` — state (suggestions, suggestLoading, suggestError, copiedIdx) + 2 нових action-методи
+- `static/src/components/sendpulse_info_panel/sendpulse_info_panel.xml` — секція з 3 clickable варіантами
+
+**Release bump до 17.0.6.0** — завершення Sprint 3 TZ V2 основного блоку (F10 deploy = Sprint 3 з 5 фіч готових: F10, F2, з раніше — F9/F11 відкладені).
+
+---
+
 ## [2026-04-21] — v17.0.5.6
 
 ### FAQ rewrite з маркетинговим стилем + RAG prompt поліпшення

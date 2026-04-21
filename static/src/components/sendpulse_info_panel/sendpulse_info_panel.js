@@ -1,6 +1,7 @@
 /** @odoo-module **/
 import { Component, useState, onWillStart, onWillUpdateProps } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
+import { browser } from "@web/core/browser/browser";
 
 /**
  * SendpulseInfoPanel — бічна панель в Odoo Discuss для SendPulse каналів.
@@ -17,10 +18,15 @@ export class SendpulseInfoPanel extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
+        this.notification = useService("notification");
         this.state = useState({
             connect: null,
             loading: true,
             error: false,
+            suggestions: [],
+            suggestLoading: false,
+            suggestError: false,
+            copiedIdx: null,
         });
 
         onWillStart(async () => {
@@ -101,5 +107,58 @@ export class SendpulseInfoPanel extends Component {
             unconfirmed: "badge text-bg-warning",
         };
         return classes[this.state.connect?.subscription_status] ?? "badge text-bg-light";
+    }
+
+    /**
+     * F10: Request 3 AI-drafted reply suggestions з Claude через backend RPC.
+     * Не викликається автоматично — треба клікнути «Згенерувати».
+     */
+    async onSuggestReply() {
+        if (!this.props.thread?.id) return;
+        this.state.suggestLoading = true;
+        this.state.suggestError = false;
+        this.state.suggestions = [];
+        try {
+            const result = await this.orm.call(
+                "sendpulse.connect",
+                "suggested_reply_for_channel",
+                [this.props.thread.id, 3],
+            );
+            this.state.suggestions = Array.isArray(result) ? result : [];
+            if (this.state.suggestions.length === 0) {
+                this.state.suggestError = true;
+            }
+        } catch (e) {
+            console.error("SendpulseInfoPanel: suggest reply failed", e);
+            this.state.suggestError = true;
+        } finally {
+            this.state.suggestLoading = false;
+        }
+    }
+
+    /**
+     * Копіює варіант у clipboard. Показує notification що скопійовано.
+     */
+    async onCopySuggestion(idx) {
+        const text = this.state.suggestions[idx];
+        if (!text) return;
+        try {
+            await browser.navigator.clipboard.writeText(text);
+            this.state.copiedIdx = idx;
+            this.notification.add("Варіант скопійовано — вставляйте у композер (Cmd+V)", {
+                type: "success",
+                sticky: false,
+            });
+            setTimeout(() => {
+                if (this.state.copiedIdx === idx) {
+                    this.state.copiedIdx = null;
+                }
+            }, 2500);
+        } catch (e) {
+            console.error("SendpulseInfoPanel: clipboard write failed", e);
+            this.notification.add("Не вдалось скопіювати — скопіюйте вручну", {
+                type: "danger",
+            });
+        }
     }
 }

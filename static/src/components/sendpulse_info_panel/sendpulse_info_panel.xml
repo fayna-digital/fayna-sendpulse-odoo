@@ -166,6 +166,55 @@
                         </div>
                     </div>
                 </t>
+
+                <!-- F10: AI Suggested Replies -->
+                <div class="px-3 py-2 border-top">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="text-muted small text-uppercase fw-semibold">
+                            🤖 AI-драфти відповіді
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary"
+                                t-on-click="onSuggestReply"
+                                t-att-disabled="state.suggestLoading">
+                            <t t-if="state.suggestLoading">
+                                <i class="fa fa-spinner fa-spin"/>
+                            </t>
+                            <t t-else="">
+                                <i class="fa fa-magic"/> Згенерувати
+                            </t>
+                        </button>
+                    </div>
+
+                    <t t-if="state.suggestError">
+                        <div class="text-muted small">
+                            Немає варіантів. Можливо, LLM-класифікатор вимкнено
+                            у Settings або Anthropic API key не налаштовано.
+                        </div>
+                    </t>
+
+                    <t t-if="state.suggestions.length > 0">
+                        <div class="text-muted small mb-2" style="font-size: 11px;">
+                            Клікніть варіант — скопіюється у буфер. Вставте у композер Cmd+V (Ctrl+V).
+                        </div>
+                        <t t-foreach="state.suggestions" t-as="suggestion" t-key="suggestion_index">
+                            <div class="border rounded p-2 mb-2 small"
+                                 style="cursor: pointer; background: #f8f9fa;"
+                                 t-on-click="() => this.onCopySuggestion(suggestion_index)">
+                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <div style="flex: 1; white-space: pre-wrap;" t-esc="suggestion"/>
+                                    <t t-if="state.copiedIdx === suggestion_index">
+                                        <span class="badge text-bg-success flex-shrink-0">
+                                            <i class="fa fa-check"/> скопійовано
+                                        </span>
+                                    </t>
+                                    <t t-else="">
+                                        <i class="fa fa-copy text-muted flex-shrink-0 mt-1"/>
+                                    </t>
+                                </div>
+                            </div>
+                        </t>
+                    </t>
+                </div>
             </t>
         </div>
     </t>
