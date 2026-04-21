@@ -120,9 +120,15 @@ class SendpulseWebhookController(http.Controller):
                     timestamp_ms=timestamp_ms,
                 )
 
-            elif event_type == EVENT_OUTGOING_MSG:
-                # Вихідне повідомлення з SendPulse (може бути з мобільного додатку менеджера)
-                # Зберігаємо з дедуплікацією — якщо вже є в Odoo (надіслано з Discuss) — пропускаємо
+            elif event_type in (EVENT_OUTGOING_MSG, EVENT_OUTGOING_MSG2):
+                # Вихідне повідомлення з SendPulse (може бути з мобільного додатку менеджера).
+                # SendPulse шле два типи: 'outbound_message' і 'outgoing_message' —
+                # обробляємо обидва. Дедуплікація всередині _process_outgoing_event
+                # (skip якщо текст вже є в Odoo outgoing за 60s).
+                # Bonus: тут же backfill missed incoming — contact.last_message іноді
+                # містить текст клієнта який SendPulse не прислав окремим
+                # incoming_message webhook (наприклад коли new_subscriber і перший
+                # текст клієнта приходять у вікно <1с).
                 request.env['sendpulse.connect'].sudo()._process_outgoing_event(
                     contact=contact,
                     service=service,

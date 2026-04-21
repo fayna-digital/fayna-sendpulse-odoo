@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <record id="mail_template_lead_magnet_catalog" model="mail.template">
+            <field name="name">CampScout: PDF-каталог (lead magnet)</field>
+            <field name="model_id" ref="model_sendpulse_connect"/>
+            <field name="subject">CampScout — повний каталог таборів 2026 🏕️</field>
+            <field name="email_from">{{ (object.env['ir.mail_server'].sudo().search([], limit=1).smtp_user) or 'noreply@campscout.eu' }}</field>
+            <field name="email_to">{{ ctx.get('recipient_email') or object.sp_booking_email or (object.partner_id.email if object.partner_id else '') }}</field>
+            <field name="lang">uk_UA</field>
+            <field name="auto_delete" eval="False"/>
+            <field name="body_html" type="html">
+<div style="margin:0;padding:20px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#333;background-color:#f4f4f4;">
+  <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e1e1e1;box-shadow:0 4px 6px rgba(0,0,0,0.04);">
+
+    <!-- Header: червона смуга + лого -->
+    <div style="padding:24px 32px 16px 32px;border-top:6px solid #952426;">
+      <img src="https://campscout.eu/web/image/res.company/1/logo" alt="CampScout" style="display:block;max-height:56px;width:auto;max-width:220px;"/>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:8px 32px 8px 32px;">
+      <h2 style="margin:0 0 8px 0;font-size:24px;color:#952426;font-weight:700;">
+        Ваш каталог таборів 2026 🏕️
+      </h2>
+      <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#444;">
+        Вітаємо<t t-if="object.name">, <strong t-out="object.name"/></t>!<br/>
+        У вкладенні — повний PDF каталог таборів CampScout на літо 2026:
+        усі програми, дати, ціни та деталі по кожному табору.
+      </p>
+
+      <!-- Promo info -->
+      <div style="background:#f9f9f9;border-radius:8px;border:1px solid #eee;padding:16px 20px;margin-bottom:20px;">
+        <div style="font-size:11px;color:#952426;font-weight:700;text-transform:uppercase;margin-bottom:4px;">
+          Промо-ціни
+        </div>
+        <div style="font-size:15px;color:#333;line-height:1.5;">
+          Діють <strong>до 01.05.2026</strong>. Після дати +300 zł до кожного табору.
+        </div>
+      </div>
+
+      <!-- Hint про SMS-купон (без самого коду — щоб замотивувати дати phone окремо) -->
+      <div style="background:#fdf5f5;border-left:5px solid #952426;border-radius:0 6px 6px 0;padding:16px 20px;margin-bottom:20px;">
+        <div style="font-weight:700;color:#952426;margin-bottom:6px;font-size:14px;">🎁 Додаткова знижка 5%</div>
+        <p style="margin:0;font-size:14px;color:#444;line-height:1.6;">
+          Напишіть у чат Ваш телефон — надішлемо SMS із промокодом.
+          Купонів обмежена кількість, тому хто встиг, той виграв.
+        </p>
+      </div>
+
+      <!-- CTA -->
+      <div style="text-align:center;margin-bottom:24px;">
+        <a href="https://campscout.eu/shop" style="display:inline-block;padding:13px 32px;background-color:#952426;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;">
+          Обрати табір
+        </a>
+      </div>
+
+      <!-- Help info -->
+      <div style="border-left:5px solid #952426;background:#fdf5f5;border-radius:0 6px 6px 0;padding:16px 20px;margin-bottom:20px;">
+        <p style="margin:0;font-size:14px;color:#444;line-height:1.6;">
+          💬 Якщо виникнуть питання — напишіть нам прямо у чат, підкажемо вибрати
+          найкращий варіант для Вашої дитини.
+        </p>
+      </div>
+
+      <!-- Legal / guarantee -->
+      <div style="background:#f9f9f9;border:1px solid #eee;border-radius:8px;padding:20px;margin-bottom:20px;font-size:12px;color:#555;line-height:1.6;">
+        <div style="font-weight:700;color:#952426;text-transform:uppercase;font-size:11px;margin-bottom:10px;border-bottom:1px solid #eee;padding-bottom:8px;">
+          Гарантії організатора
+        </div>
+        <table style="border-collapse:collapse;">
+          <tr>
+            <td style="padding:2px 16px 2px 0;white-space:nowrap;vertical-align:top;"><strong>Організатор:</strong></td>
+            <td style="padding:2px 0;">CampScout — Volodymyr Shevchenko</td>
+          </tr>
+          <tr>
+            <td style="padding:2px 16px 2px 0;white-space:nowrap;vertical-align:top;"><strong>Реєстр:</strong></td>
+            <td style="padding:2px 0;">№ 1129 (Marszałek Wielkopolski)</td>
+          </tr>
+          <tr>
+            <td style="padding:2px 16px 2px 0;white-space:nowrap;vertical-align:top;"><strong>Страхівка:</strong></td>
+            <td style="padding:2px 0;">Compensa TU S.A. VIG nr COR766003 (31 617,00 PLN)</td>
+          </tr>
+          <tr>
+            <td style="padding:2px 16px 2px 0;white-space:nowrap;vertical-align:top;"><strong>Соц-доказ:</strong></td>
+            <td style="padding:2px 0;">3 сезони, 1 500+ дітей, 4.9★ на Google</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Signature -->
+    <div style="margin:16px 32px 8px 32px;padding:16px 0;border-top:1px solid #eee;">
+      <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.45;color:#333;">
+        <tr>
+          <td width="68" style="vertical-align:middle;padding-right:12px;min-width:68px;">
+            <img src="https://campscout.eu/web/image/res.users/6/avatar_128" width="56" height="56" style="border-radius:50%;display:block;width:56px;height:56px;object-fit:cover;" alt="Volodymyr Shevchenko"/>
+          </td>
+          <td style="vertical-align:middle;">
+            <strong style="font-size:15px;color:#5a4a63;">Volodymyr Shevchenko</strong><br/>
+            <span style="color:#555;font-size:13px;">CEO &amp; FOUNDER | CAMPSCOUT</span>
+          </td>
+        </tr>
+      </table>
+      <div style="margin:10px 0 6px 0;">
+        <img src="https://campscout.eu/web/image/res.company/1/logo" alt="CampScout" style="display:block;max-height:80px;width:auto;max-width:180px;"/>
+      </div>
+      <div style="font-family:Arial,Helvetica,sans-serif;line-height:1.7;">
+        <a href="http://campscout.eu/shop" style="color:#008f8c;text-decoration:none;font-weight:bold;font-size:13px;">🔥 Бронювання на табори 2026 року відкрито</a><br/>
+        <span style="color:#444;font-size:12px;">NIP: 6222847059 | REGON: 524720757</span><br/>
+        <span style="color:#444;font-size:12px;">Wpis do Rejestru Organizatorów Turystyki nr 1129</span><br/>
+        <a href="https://g.page/r/CZBM2zwS-IAtEAE" style="color:#0a7;text-decoration:none;font-size:12px;">Google Rating 4.9 ★★★★★</a>
+      </div>
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#666;line-height:1.5;margin-top:12px;">
+        <strong>CAMPSCOUT VOLODYMYR SHEVCHENKO</strong><br/>
+        <a href="tel:+48459568854" style="color:#008f8c;text-decoration:none;">+48 459 568 854</a> |
+        <a href="mailto:admin@campscout.eu" style="color:#008f8c;text-decoration:none;">admin@campscout.eu</a> |
+        <a href="https://campscout.eu" style="color:#008f8c;text-decoration:none;">https://campscout.eu</a>
+      </div>
+    </div>
+
+    <!-- RODO + unsubscribe -->
+    <div style="padding:14px 32px;background-color:#fafafa;border-top:1px solid #e0e0e0;font-size:11px;line-height:1.6;color:#666;">
+      <div style="font-weight:700;color:#555;margin-bottom:6px;">ℹ️ Про цей лист</div>
+      <p style="margin:0 0 6px 0;">
+        Ви отримали його, бо залишили запит на каталог через чат із менеджером CampScout.
+        Ваш email використовується виключно для надання інформації про табори CampScout
+        відповідно до <a href="https://campscout.eu/privacy-policy" style="color:#952426;text-decoration:none;">Polityki prywatności (RODO/GDPR)</a>.
+      </p>
+      <p style="margin:0;">
+        Не бажаєте отримувати листи від нас — натисніть
+        <a t-att-href="'mailto:admin@campscout.eu?subject=Unsubscribe&amp;body=' + (object.sp_booking_email or (object.partner_id.email if object.partner_id else '') or '')"
+           style="color:#952426;text-decoration:underline;font-weight:600;">Відписатись</a>,
+        або напишіть на <a href="mailto:admin@campscout.eu" style="color:#952426;">admin@campscout.eu</a> — видалимо з бази протягом 24 годин.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:14px 32px;background-color:#f2f2f2;border-top:1px solid #e0e0e0;font-size:10px;line-height:1.8;color:#999;text-align:center;">
+      <strong style="color:#666;">CAMPSCOUT VOLODYMYR SHEVCHENKO</strong> | NIP: 6222847059<br/>
+      Gwarancja ubezpieczeniowa <strong style="color:#555;">Compensa TU S.A. VIG</strong> nr COR766003.<br/>
+      Wiadomość wygenerowana automatycznie.
+      <div style="margin-top:8px;padding-top:6px;border-top:1px dashed #ddd;">
+        <a href="https://campscout.eu/terms" style="color:#bbb;text-decoration:none;">Regulamin</a> ·
+        <a href="https://campscout.eu/privacy-policy" style="color:#bbb;text-decoration:none;">Polityka prywatności (RODO)</a> ·
+        <a href="https://campscout.eu/cookie-policy" style="color:#bbb;text-decoration:none;">Cookies</a> ·
+        <a href="https://campscout.eu/child-protection" style="color:#bbb;text-decoration:none;">Ochrona dzieci</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+            </field>
+        </record>
+
+    </data>
+</odoo>

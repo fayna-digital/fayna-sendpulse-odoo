@@ -4,6 +4,64 @@
 
 ---
 
+## [2026-04-21] — v17.0.11.0
+
+### Critical fix: SendPulse missed-inbound backfill + 3 related changes
+
+**Багa root cause:**
+
+У `controllers/main.py` handler для outgoing SendPulse events був завʼязаний тільки на `EVENT_OUTGOING_MSG = 'outbound_message'`, але SendPulse фактично шле event type `'outgoing_message'`. Константа `EVENT_OUTGOING_MSG2 = 'outgoing_message'` була визначена, але **не використовувалась** у `elif`. Тому `_process_outgoing_event()` ніколи не викликався на проді.
+
+Цей же code path робить backfill missed incoming (детект тексту клієнта у `contact.last_message` який SendPulse забув прислати як `incoming_message` webhook). Отже missed messages пропадали.
+
+**Кейс Сергій Досужий:** клієнт написав перше повідомлення «Добрый день дата заїзду, ціна, тематика 11 років хлопец» → SendPulse його отримав, показав у email-notification і у `contact.last_message` наступних events, але окремий `incoming_message` webhook не надіслав. У нас повідомлення пропало, AI не знав віку («11 років») і питав.
+
+**Фікси:**
+
+1. **`controllers/main.py`**: `elif event_type in (EVENT_OUTGOING_MSG, EVENT_OUTGOING_MSG2)` — обробляємо обидва типи.
+
+2. **`_process_outgoing_event()` повністю переписаний**:
+   - Раніше помилково створював `sendpulse.message(direction=outgoing)` з текстом **клієнта** (бо `contact.last_message` = текст клієнта, не наш outgoing).
+   - Тепер: якщо `contact.last_message` не знайдено у incoming → створюємо як **incoming** (backfill), постимо у channel з поміткою `(backfill — SendPulse пропустив webhook)`, автор = partner_id або OdooBot, оновлюємо funnel_stage → `customer_replied`, stage → `new_message`.
+   - Видалена помилкова outgoing-дедуплікація.
+
+3. **Audit + backfill 91 історичних missed messages** через shell-script по всім чатах. Скановано 2520 outgoing-webhooks, 148 унікальних `(contact_id, last_message)` не знайдено у `sendpulse.message(incoming)` — 91 реальне повідомлення клієнта відновлено, 91 `/start`-шум і 6 orphan без connect — skipped.
+
+**Email template v17.0.10.3 також у цьому релізі:**
+
+- Купон **прибрано з email** (PDF-attach). Тепер купон іде ТІЛЬКИ через SMS — щоб оператор міг зібрати і email, і phone окремо з окремою маркетинговою згодою.
+- У email тільки hint: «Напишіть у чат телефон — надішлемо SMS з купоном».
+- Брендовий CampScout `mail.template` (з `28_event_registration.html`): header #952426, CTA «Обрати табір» → campscout.eu/shop, блок гарантій (NIP/REGON/1129/Compensa), signature, **RODO блок + unsubscribe посилання**, footer.
+
+**Hot-fix на проді:** reset `sp_pdf_sent_at`/`sp_pdf_sent_to_email` на connect 421 (Дашка Запорожская) — прибрано тестовий send на admin@fayna-mail.
+
+---
+
+## [2026-04-21] — v17.0.10.2
+
+### F13 email: брендовий CampScout template замість plain HTML
+
+Попередній фідбек: лист-каталог виглядав "голо" — plain-text-style HTML без стилю бренду. Замінено на повноцінний `mail.template` з CampScout брендбуку (стиль з `28_event_registration.html` у `Projects/camp/docs/email-previews/`):
+
+- Header з червоною смугою #952426 + логотип компанії
+- Блок промо (до 01.05.2026)
+- **Виділений блок купона** — особистий промокод на 5% у рамці з dashed border, розмір 22pt, letter-spacing, `{залишилось N на акцію}` тригер терміновості
+- CTA-кнопка «Обрати табір» → campscout.eu/shop
+- Блок гарантій (REGON/NIP/Compensa/1129)
+- Signature — Volodymyr Shevchenko + логотип
+- **RODO блок** з поясненням «ви отримали бо запитали через чат», посилання на Polityki prywatności
+- **Unsubscribe посилання** — `mailto:admin@campscout.eu?subject=Unsubscribe` з prefill email клієнта
+- Footer з Regulamin / RODO / Cookies / Ochrona dzieci
+
+**Технічно:**
+
+- `data/mail_template_lead_magnet.xml` — `mail.template` record, `noupdate="1"` (admin може правити через Settings → Technical → Email Templates без deploy).
+- `_send_pdf_catalog_email()` переписаний на `template.send_mail(self.id, force_send=True, email_values={'attachment_ids': [...]})`.
+- Змінні: `object.name`, `object.sp_booking_email` через t-out; купон-дані через `ctx.get('coupon_code')` / `ctx.get('coupon_remaining')` / `ctx.get('coupon_expires')` (передаються через `with_context(...)`).
+- Fallback — inline plain-HTML якщо template не знайдено (наприклад при першому install до data-load).
+
+---
+
 ## [2026-04-21] — v17.0.10.2
 
 ### F13-UI: OWL кнопки «Надіслати PDF» + «Надіслати SMS-купон»
