@@ -4,6 +4,51 @@
 
 ---
 
+## [2026-04-21] — v17.0.7.0
+
+### F9 A/B шаблони публічних відповідей з conversion tracking
+
+До v17.0.7.0 публічні відповіді під FB/IG коментарями ротувалися через хардкод-список з 5 шаблонів: `count % 5`. Не було видно який з них фактично приводить клієнтів у приват. Тепер це модель з метриками.
+
+**Нова модель `sendpulse.public.template`:**
+
+- `name`, `text` (з placeholders `{landing_url}`, `{tg_url}`)
+- `kind`: `standard` | `repeat` (repeat — коли клієнт уже писав у приват цьому контакту)
+- `use_count` — скільки разів опубліковано
+- `customer_replied_count` — скільки клієнтів після цієї публічної відповіді написали у приват
+- `conversion_rate` — computed stored, `replied / use_count * 100`
+- `active`, `sequence` — для sorting і вимкнення шаблону без видалення
+
+**Rotation algorithm (`pick_template`):**
+
+- Перші 50 використань загалом — round-robin (щоб набрати статистику рівномірно)
+- Далі epsilon-greedy: 20% random explore, 80% найкращий за `conversion_rate`
+- Repeat-режим — повертає перший active template з `kind='repeat'`
+
+**Tracking у flow:**
+
+- `_process_comment_event`: `pick_template()` → `bump_use()` → записуємо `sp_public_template_id` на connect
+- `_process_inbound` (перехід `funnel_stage → customer_replied`): `bump_customer_replied()` на пов'язаному шаблоні. Ідемпотентно через `sp_public_template_conversion_counted` flag.
+
+**Fallback:** якщо модель порожня (seed не виконаний чи всі деактивовано) — код падає назад на хардкод `_COMMENT_PUBLIC_TEMPLATES`/`_COMMENT_PUBLIC_REPEAT_TEMPLATE`.
+
+**UI:**
+
+- Menu: `SendPulse → Публічні шаблони (A/B)` (permission: officer)
+- Tree view з color-coded `conversion_rate` (>40% зелений, ≤40% жовтий, 0% сірий)
+- Graph view (bar chart) для візуалізації
+- Form з placeholders-hint і метриками
+
+**Seed (`noupdate="1"`):**
+
+5 стандартних шаблонів — ідентичні поточному хардкоду + 1 repeat-шаблон.
+
+**Weekly Telegram report:**
+
+Додано секцію 🏆 Топ-3 шаблонів + ⚠️ Worst-1, фільтр `use_count >= 10` для статистичної значущості.
+
+---
+
 ## [2026-04-21] — v17.0.6.2
 
 ### Fix: F10 panel & parser robustness
