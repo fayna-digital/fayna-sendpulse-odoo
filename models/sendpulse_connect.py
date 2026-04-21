@@ -3381,14 +3381,146 @@ class SendpulseConnect(models.Model):
             }
         return result
 
+    # Ліміти SendPulse API по довжині тексту (chars). Перевищення → 400 (#100).
+    _SERVICE_TEXT_LIMITS = {
+        'telegram': 4096,
+        'instagram': 1000,   # SendPulse-side ліміт для IG
+        'facebook': 2000,
+        'messenger': 2000,
+        'whatsapp': 1600,
+        'viber': 7000,
+        'livechat': 4000,
+        'tiktok': 1000,
+    }
+
+    @staticmethod
+    def _split_text_by_limit(text, max_chars):
+        """
+        Розбиває текст на частини не довші за max_chars зі збереженням абзаців
+        і речень. Стратегія: абзаци → речення → слова → hard cut.
+        Повертає list of chunks.
+        """
+        if not text or len(text) <= max_chars:
+            return [text] if text else []
+
+        # Safety margin — залишаємо 20 chars на нумерацію "(1/3) "
+        effective_max = max_chars - 20
+
+        def flush(acc, chunks):
+            if acc.strip():
+                chunks.append(acc.strip())
+
+        chunks = []
+        current = ''
+
+        # Крок 1: по абзацах (\n\n)
+        paragraphs = text.split('\n\n')
+        for para in paragraphs:
+            if not para.strip():
+                continue
+            candidate = (current + '\n\n' + para) if current else para
+            if len(candidate) <= effective_max:
+                current = candidate
+                continue
+            # Pending current → flush
+            flush(current, chunks)
+            current = ''
+            # Абзац вміщується сам — стаємо ним
+            if len(para) <= effective_max:
+                current = para
+                continue
+            # Абзац занадто довгий — по реченнях
+            import re as _re
+            sentences = _re.split(r'(?<=[.!?…])\s+', para)
+            buf = ''
+            for sent in sentences:
+                cand2 = (buf + ' ' + sent) if buf else sent
+                if len(cand2) <= effective_max:
+                    buf = cand2
+                    continue
+                flush(buf, chunks)
+                buf = ''
+                if len(sent) <= effective_max:
+                    buf = sent
+                    continue
+                # Речення ще довше — по словах
+                words = sent.split(' ')
+                wbuf = ''
+                for w in words:
+                    cand3 = (wbuf + ' ' + w) if wbuf else w
+                    if len(cand3) <= effective_max:
+                        wbuf = cand3
+                    else:
+                        flush(wbuf, chunks)
+                        # Hard cut якщо навіть одне слово > max
+                        while len(w) > effective_max:
+                            chunks.append(w[:effective_max])
+                            w = w[effective_max:]
+                        wbuf = w
+                if wbuf:
+                    buf = wbuf
+            if buf:
+                current = buf
+
+        flush(current, chunks)
+        return chunks
+
     def send_message_to_sendpulse(self, text, attachment_url=None):
         """
         Відправляє текстове повідомлення клієнту через SendPulse API.
         Викликається з mail_channel.py при відповіді оператора в Discuss.
+        Auto-split: якщо text довший за per-service limit — розбиває на частини
+        і шле по черзі. Повертає True якщо ВСІ частини пройшли.
         """
         self.ensure_one()
         if not self.sendpulse_contact_id:
             _logger.warning('SendPulse Odo: немає contact_id для відправки')
+            return False
+
+        # ── V2 F13: Pre-flight check довжини + auto-split ────────────────
+        service = self.service or 'telegram'
+        limit = self._SERVICE_TEXT_LIMITS.get(service, 2000)
+        if text and len(text) > limit:
+            chunks = self._split_text_by_limit(text, limit)
+            total = len(chunks)
+            _logger.info(
+                'SendPulse Odo: text %d chars > %d limit for %s → split into %d chunks',
+                len(text), limit, service, total,
+            )
+            all_ok = True
+            for i, chunk in enumerate(chunks, 1):
+                prefix = f'({i}/{total}) ' if total > 1 else ''
+                piece = prefix + chunk
+                # Перша частина несе attachment, решта — лише текст
+                att = attachment_url if i == 1 else None
+                ok = self._send_single_message(piece, att)
+                if not ok:
+                    all_ok = False
+                    _logger.warning(
+                        'SendPulse Odo: chunk %d/%d failed for contact %s',
+                        i, total, self.sendpulse_contact_id,
+                    )
+                    break
+                if i < total:
+                    time.sleep(0.7)  # ratelimit-safe pause
+            if self.channel_id and total > 1:
+                self.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
+                    body=(
+                        f'ℹ️ Повідомлення було довше за ліміт {service.title()} ({limit} chars) — '
+                        f'автоматично розбите на {total} частин{"" if all_ok else ", АЛЕ не всі пройшли"}.'
+                    ),
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_note',
+                    author_id=self.env.ref('base.partner_root').id,
+                )
+            return all_ok
+
+        return self._send_single_message(text, attachment_url)
+
+    def _send_single_message(self, text, attachment_url=None):
+        """Low-level send — без перевірки довжини (для chunk-sending)."""
+        self.ensure_one()
+        if not self.sendpulse_contact_id:
             return False
 
         token = self._get_access_token()
