@@ -1,4 +1,4 @@
-# Configuration — Fayna SendPulse Odo
+# Configuration — Fayna SendPulse Odoo
 
 **Module version:** `17.0.3.7.1` · **Last updated:** 2026-04-20
 
@@ -8,7 +8,7 @@
 
 ## Зміст
 
-1. [Settings UI (Налаштування → SendPulse Odo)](#1-settings-ui)
+1. [Settings UI (Налаштування → SendPulse Odoo)](#1-settings-ui)
 2. [Config parameters reference](#2-config-parameters-reference)
 3. [Facebook Pages (multi-page)](#3-facebook-pages-multi-page)
 4. [Cron schedule](#4-cron-schedule)
@@ -21,7 +21,7 @@
 
 ## 1. Settings UI
 
-**Шлях:** Odoo → Settings → Apps → SendPulse Odo → кнопка «Налаштування».
+**Шлях:** Odoo → Settings → Apps → SendPulse Odoo → кнопка «Налаштування».
 Або через top menu: SendPulse → Налаштування.
 
 ### 1.1 SendPulse API
@@ -263,8 +263,8 @@ EOF
 
 | Group | XMLID | Призначення |
 |---|---|---|
-| SendPulse Odo / Officer | `odoo_chatwoot_connector.group_sendpulse_officer` | Бачить свої розмови (`user_id = current_user`) |
-| SendPulse Odo / Administrator | `odoo_chatwoot_connector.group_sendpulse_admin` | Повний доступ |
+| SendPulse Odoo / Officer | `odoo_chatwoot_connector.group_sendpulse_officer` | Бачить свої розмови (`user_id = current_user`) |
+| SendPulse Odoo / Administrator | `odoo_chatwoot_connector.group_sendpulse_admin` | Повний доступ |
 
 **Record rule** на `sendpulse.connect`:
 
@@ -276,7 +276,7 @@ EOF
 ### 5.1 Додавання оператора
 
 1. Settings → Users & Companies → Users → [user] → Access Rights
-2. «SendPulse Odo» → виставити `Officer` або `Administrator`
+2. «SendPulse Odoo» → виставити `Officer` або `Administrator`
 3. Save
 
 Без цієї групи користувач **не бачить** SendPulse меню.

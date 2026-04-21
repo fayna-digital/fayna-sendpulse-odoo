@@ -1,4 +1,4 @@
-# TZ v2.0 — SendPulse Odo Automation
+# TZ v2.0 — SendPulse Odoo Automation
 
 **Статус:** 📝 Draft
 **Дата створення:** 2026-04-20

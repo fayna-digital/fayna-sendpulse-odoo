@@ -1,6 +1,6 @@
 # ТЗ: Автовідповідь на коментарі Facebook та Instagram
 
-**Модуль:** `odoo_chatwoot_connector` (SendPulse Odo)
+**Модуль:** `odoo_chatwoot_connector` (SendPulse Odoo)
 **Версія ТЗ:** 1.4 (final)
 **Дата:** 2026-04-19 (drafted) · 2026-04-20 (closed)
 **Статус:** ✅ **ВИКОНАНО** у модулі v17.0.3.7.1
@@ -34,7 +34,7 @@
 - Отримано **безстроковий** Page Access Token для сторінки CampScout (id `106771868966309`)
 - App: **Campscout_odoo** (id `2471909913241204`)
 - Активні scopes (Standard Access): `instagram_manage_comments`, `instagram_manage_messages`, `pages_read_engagement`, `pages_messaging`
-- Збережено в Odoo: Налаштування → SendPulse Odo → Facebook Page Access Token
+- Збережено в Odoo: Налаштування → SendPulse Odoo → Facebook Page Access Token
 - ⚠️ **Відсутній `pages_manage_engagement`** → FB-коментарі не отримують публічну відповідь (працює тільки IG)
 - ⚠️ Приватне повідомлення: повертає **код 100/33** для частини користувачів — Graph API rate limit на Standard Access
 
@@ -59,7 +59,7 @@
 ### Наступні кроки після approval
 
 1. **Регенерувати Page Access Token** через Business Manager → System User → Generate Token (нові scopes тягнуться автоматично)
-2. **Замінити токен** в Odoo (Налаштування → SendPulse Odo → Facebook Page Access Token)
+2. **Замінити токен** в Odoo (Налаштування → SendPulse Odoo → Facebook Page Access Token)
 3. **Smoke-тест:**
    - Залишити коментар під FB-постом CampScout → перевірити що зʼявляється публічна відповідь з ротацією текстів §4.1
    - Перевірити що в Messenger клієнта приходить private_reply (§4.2 Варіант A)

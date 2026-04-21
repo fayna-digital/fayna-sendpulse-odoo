@@ -1,4 +1,4 @@
-# Architecture — Fayna SendPulse Odo
+# Architecture — Fayna SendPulse Odoo
 
 **Module version:** `17.0.3.7.1` · **Last updated:** 2026-04-20
 
@@ -512,11 +512,11 @@ if from_id in own_ids:
 
 | Назва | Модель.метод | Interval | Призначення |
 |---|---|---|---|
-| SendPulse Odo: Очищення webhook даних | `sendpulse.webhook.data.cron_clean` | 1 day | Видалити `sendpulse.webhook.data` старше 7 днів |
-| SendPulse Odo: Авто-синхронізація Discuss каналів | `sendpulse.connect.cron_sync_discuss_channels` | 1 hour | Створити discuss.channel для розмов які не мають каналу |
-| SendPulse Odo: Повернення втрачених контактів | `sendpulse.connect.cron_pull_missing_contacts` | 6 hours | Через SendPulse REST витягує всі діалоги за останні 24h — відновлює пропущені webhooks |
-| **SendPulse Odo: Перевірка FB Page Access Token** | `sendpulse.connect.cron_check_fb_token_expiry` | 7 days | Усі active sendpulse.facebook.page + legacy — `GET /me` + `/debug_token`, пише `token_status` |
-| **SendPulse Odo: Попередження про закриття 24h вікна** | `sendpulse.connect.cron_check_messenger_windows` | 30 min | Шукає розмови де `sp_messenger_window_expires_at` менше 2h → Telegram alert + нотатка |
+| SendPulse Odoo: Очищення webhook даних | `sendpulse.webhook.data.cron_clean` | 1 day | Видалити `sendpulse.webhook.data` старше 7 днів |
+| SendPulse Odoo: Авто-синхронізація Discuss каналів | `sendpulse.connect.cron_sync_discuss_channels` | 1 hour | Створити discuss.channel для розмов які не мають каналу |
+| SendPulse Odoo: Повернення втрачених контактів | `sendpulse.connect.cron_pull_missing_contacts` | 6 hours | Через SendPulse REST витягує всі діалоги за останні 24h — відновлює пропущені webhooks |
+| **SendPulse Odoo: Перевірка FB Page Access Token** | `sendpulse.connect.cron_check_fb_token_expiry` | 7 days | Усі active sendpulse.facebook.page + legacy — `GET /me` + `/debug_token`, пише `token_status` |
+| **SendPulse Odoo: Попередження про закриття 24h вікна** | `sendpulse.connect.cron_check_messenger_windows` | 30 min | Шукає розмови де `sp_messenger_window_expires_at` менше 2h → Telegram alert + нотатка |
 
 ---
 

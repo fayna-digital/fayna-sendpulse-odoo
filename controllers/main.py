@@ -70,7 +70,7 @@ class SendpulseWebhookController(http.Controller):
                 provided_token = request.params.get('token', '')
                 if provided_token != expected_token:
                     _logger.warning(
-                        'SendPulse Odo: невірний webhook token від %s',
+                        'SendPulse Odoo: невірний webhook token від %s',
                         request.httprequest.remote_addr,
                     )
                     return _json({'status': 'error', 'message': 'Unauthorized'})
@@ -94,7 +94,7 @@ class SendpulseWebhookController(http.Controller):
             timestamp_ms = data.get('date', 0)
 
             _logger.info(
-                'SendPulse Odo webhook: event=%s service=%s contact_id=%s',
+                'SendPulse Odoo webhook: event=%s service=%s contact_id=%s',
                 event_type, service, contact.get('id'),
             )
 
@@ -144,5 +144,5 @@ class SendpulseWebhookController(http.Controller):
             return _json({'status': 'ok'})
 
         except Exception as e:
-            _logger.error('SendPulse Odo webhook error: %s', e, exc_info=True)
+            _logger.error('SendPulse Odoo webhook error: %s', e, exc_info=True)
             return _json({'status': 'error', 'message': 'Processing failed'})

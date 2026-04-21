@@ -8,10 +8,10 @@
         <field name="arch" type="xml">
             <xpath expr="//form/div[@class='settings']" position="inside">
                 <div class="app_settings_block"
-                     data-string="SendPulse Odo"
+                     data-string="SendPulse Odoo"
                      data-key="sendpulse_odo"
                      groups="odoo_chatwoot_connector.group_sendpulse_admin">
-                    <h2>SendPulse Odo</h2>
+                    <h2>SendPulse Odoo</h2>
                     <p class="text-muted">
                         Інтеграція чат-ботів SendPulse з Odoo.
                         Отримайте Client ID та Client Secret у SendPulse:

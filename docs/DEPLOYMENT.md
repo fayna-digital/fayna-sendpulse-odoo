@@ -1,4 +1,4 @@
-# Deployment — Fayna SendPulse Odo
+# Deployment — Fayna SendPulse Odoo
 
 **Module version:** `17.0.3.7.1` · **Last updated:** 2026-04-20
 
@@ -230,7 +230,7 @@ docker exec campscout_db psql -U odoo -d campscout -c \
 
 ```bash
 docker exec campscout_db psql -U odoo -d campscout -c \
-  "SELECT cron_name, active, nextcall FROM ir_cron WHERE cron_name LIKE 'SendPulse Odo%';"
+  "SELECT cron_name, active, nextcall FROM ir_cron WHERE cron_name LIKE 'SendPulse Odoo%';"
 ```
 
 ### 5.6 Test webhook receive

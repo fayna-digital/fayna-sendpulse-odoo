@@ -641,7 +641,7 @@ class SendpulseConnect(models.Model):
         ])
         if connects_without_channel:
             _logger.info(
-                'SendPulse Odo cron: знайдено %d розмов без каналу, синхронізуємо...',
+                'SendPulse Odoo cron: знайдено %d розмов без каналу, синхронізуємо...',
                 len(connects_without_channel),
             )
             connects_without_channel.action_sync_discuss_channels()
@@ -811,7 +811,7 @@ class SendpulseConnect(models.Model):
         client_id = ICP.get_param('odoo_chatwoot_connector.client_id', '')
         client_secret = ICP.get_param('odoo_chatwoot_connector.client_secret', '')
         if not client_id or not client_secret:
-            _logger.warning('SendPulse Odo: не налаштовані client_id / client_secret')
+            _logger.warning('SendPulse Odoo: не налаштовані client_id / client_secret')
             return None
         max_attempts = 5
         last_err = None
@@ -835,7 +835,7 @@ class SendpulseConnect(models.Model):
                     if wait is None or wait <= 0:
                         wait = min(2.0 ** attempt, 30.0)
                     _logger.warning(
-                        'SendPulse Odo: OAuth 429 Too Many Requests, sleep %.1fs (attempt %s/%s)',
+                        'SendPulse Odoo: OAuth 429 Too Many Requests, sleep %.1fs (attempt %s/%s)',
                         wait, attempt + 1, max_attempts,
                     )
                     time.sleep(wait)
@@ -844,7 +844,7 @@ class SendpulseConnect(models.Model):
                 data = resp.json() if resp.content else {}
                 token = (data.get('access_token') or '').strip()
                 if not token:
-                    _logger.error('SendPulse Odo: у відповіді OAuth немає access_token')
+                    _logger.error('SendPulse Odoo: у відповіді OAuth немає access_token')
                     return None
                 try:
                     expires_in = int(data.get('expires_in') or 3600)
@@ -858,11 +858,11 @@ class SendpulseConnect(models.Model):
                 return token
             except Exception as e:
                 last_err = e
-                _logger.error('SendPulse Odo: помилка отримання токена: %s', e)
+                _logger.error('SendPulse Odoo: помилка отримання токена: %s', e)
                 if attempt < max_attempts - 1:
                     time.sleep(min(2.0 ** attempt, 10.0))
         if last_err:
-            _logger.error('SendPulse Odo: OAuth після %s спроб не вдався: %s', max_attempts, last_err)
+            _logger.error('SendPulse Odoo: OAuth після %s спроб не вдався: %s', max_attempts, last_err)
         return None
 
     @api.model
@@ -1067,7 +1067,7 @@ class SendpulseConnect(models.Model):
                     connect = self.create(create_vals)
             except IntegrityError:
                 _logger.info(
-                    'SendPulse Odo: race duplicate intercepted by unique index — '
+                    'SendPulse Odoo: race duplicate intercepted by unique index — '
                     'contact=%s service=%s', contact_id, service,
                 )
                 self.env.invalidate_all()
@@ -1330,7 +1330,7 @@ class SendpulseConnect(models.Model):
         # Перевіряємо чи увімкнена автовідповідь
         ICP = self.env['ir.config_parameter'].sudo()
         if not ICP.get_param('odoo_chatwoot_connector.sp_comment_autoreply_enabled', 'True') == 'True':
-            _logger.info('SendPulse Odo: comment autoreply disabled, skipping %s', comment_id)
+            _logger.info('SendPulse Odoo: comment autoreply disabled, skipping %s', comment_id)
             return None
 
         # Multi-page: резолвимо Facebook Page запис з webhook page_id
@@ -1353,7 +1353,7 @@ class SendpulseConnect(models.Model):
                 own_ids.add(p.ig_business_id)
         if from_id and from_id in own_ids:
             _logger.info(
-                'SendPulse Odo: self-comment detected (from=%s == own), skipping %s',
+                'SendPulse Odoo: self-comment detected (from=%s == own), skipping %s',
                 from_id, comment_id,
             )
             return None
@@ -1373,7 +1373,7 @@ class SendpulseConnect(models.Model):
         if comment_id:
             existing = self.search([('sp_comment_id', '=', comment_id)], limit=1)
             if existing:
-                _logger.info('SendPulse Odo: comment %s already processed, skipping', comment_id)
+                _logger.info('SendPulse Odoo: comment %s already processed, skipping', comment_id)
                 return existing
 
         # Знаходимо/створюємо розмову
@@ -1420,7 +1420,7 @@ class SendpulseConnect(models.Model):
         # LLM-класифікація коментаря (якщо увімкнено)
         category = self._classify_comment(comment_text, service)
         connect.write({'sp_comment_category': category})
-        _logger.info('SendPulse Odo: comment %s classified as "%s"', comment_id, category)
+        _logger.info('SendPulse Odoo: comment %s classified as "%s"', comment_id, category)
 
         # Визначаємо чи надсилати приватне (тільки перший раз для цього контакту)
         already_private = self.search([
@@ -1447,7 +1447,7 @@ class SendpulseConnect(models.Model):
         # - complaint: не автовідповідь, лише нотатка оператору з мітою 🚨 (ескалація)
         # - question_*: поточна логіка (публічна + приватна) — без змін
         if category in ('thanks', 'spam'):
-            _logger.info('SendPulse Odo: category=%s → skip auto-reply for %s', category, comment_id)
+            _logger.info('SendPulse Odoo: category=%s → skip auto-reply for %s', category, comment_id)
             send_public = False
             send_private = False
             # Для spam — приховуємо коментар через Graph API (якщо увімкнено)
@@ -1456,7 +1456,7 @@ class SendpulseConnect(models.Model):
             ) == 'True' and comment_id:
                 hide_ok, hide_err = connect._hide_comment(comment_id, service, page=page)
                 if hide_ok:
-                    _logger.info('SendPulse Odo: spam comment %s hidden', comment_id)
+                    _logger.info('SendPulse Odoo: spam comment %s hidden', comment_id)
                     self._notify_telegram(
                         f'🚫 <b>Спам приховано</b>\n'
                         f'Клієнт: {contact_name}\n'
@@ -1465,9 +1465,9 @@ class SendpulseConnect(models.Model):
                         silent=True,
                     )
                 else:
-                    _logger.warning('SendPulse Odo: failed to hide spam %s: %s', comment_id, hide_err)
+                    _logger.warning('SendPulse Odoo: failed to hide spam %s: %s', comment_id, hide_err)
         elif category == 'complaint':
-            _logger.warning('SendPulse Odo: complaint detected → escalation, no auto-reply for %s', comment_id)
+            _logger.warning('SendPulse Odoo: complaint detected → escalation, no auto-reply for %s', comment_id)
             send_public = False
             send_private = False
             self._notify_telegram(
@@ -1627,7 +1627,7 @@ class SendpulseConnect(models.Model):
             )
             if resp.status_code != 200:
                 _logger.warning(
-                    'SendPulse Odo: LLM classifier HTTP %d — %s',
+                    'SendPulse Odoo: LLM classifier HTTP %d — %s',
                     resp.status_code, resp.text[:200],
                 )
                 return 'other'
@@ -1636,10 +1636,10 @@ class SendpulseConnect(models.Model):
             for valid in self._COMMENT_CATEGORIES:
                 if valid in raw:
                     return valid
-            _logger.info('SendPulse Odo: LLM returned unknown category "%s"', raw)
+            _logger.info('SendPulse Odoo: LLM returned unknown category "%s"', raw)
             return 'other'
         except Exception as e:
-            _logger.warning('SendPulse Odo: LLM classifier exception — %s', e)
+            _logger.warning('SendPulse Odoo: LLM classifier exception — %s', e)
             return 'other'
 
     def _log_fb_audit(self, label, url, payload, status_code, response_text, attempts_used=1):
@@ -1669,7 +1669,7 @@ class SendpulseConnect(models.Model):
             })
         except Exception as e:
             # Аудит-лог не повинен ламати основний флоу
-            _logger.warning('SendPulse Odo: audit log write failed — %s', e)
+            _logger.warning('SendPulse Odoo: audit log write failed — %s', e)
 
     def _fb_post_with_retry(self, url, payload, label='fb-call', attempts=3, base_delay=1):
         """
@@ -1695,12 +1695,12 @@ class SendpulseConnect(models.Model):
                 if resp.status_code == 429 or 500 <= resp.status_code < 600:
                     last_err = self._parse_fb_error(resp)
                     _logger.warning(
-                        'SendPulse Odo %s attempt %d/%d → HTTP %d (%s) — retrying',
+                        'SendPulse Odoo %s attempt %d/%d → HTTP %d (%s) — retrying',
                         label, attempt + 1, attempts, resp.status_code, last_err,
                     )
                 else:
                     err = self._parse_fb_error(resp)
-                    _logger.warning('SendPulse Odo %s failed (no retry) — %s', label, err)
+                    _logger.warning('SendPulse Odoo %s failed (no retry) — %s', label, err)
                     self._log_fb_audit(label, url, payload, resp.status_code, last_text, attempt + 1)
                     # V2 immediate alert: якщо токен протух (code 190) — одразу Telegram,
                     # не чекаємо weekly cron. Rate-limited 1/год щоб не спамити.
@@ -1710,16 +1710,16 @@ class SendpulseConnect(models.Model):
                 last_err = str(e)
                 last_text = f'network error: {e}'
                 _logger.warning(
-                    'SendPulse Odo %s attempt %d/%d → network error (%s) — retrying',
+                    'SendPulse Odoo %s attempt %d/%d → network error (%s) — retrying',
                     label, attempt + 1, attempts, e,
                 )
             except Exception as e:
-                _logger.error('SendPulse Odo %s exception — %s', label, e)
+                _logger.error('SendPulse Odoo %s exception — %s', label, e)
                 self._log_fb_audit(label, url, payload, 0, f'exception: {e}', attempt + 1)
                 return False, str(e), None
             if attempt < attempts - 1:
                 time.sleep(base_delay * (3 ** attempt))
-        _logger.error('SendPulse Odo %s — all %d retries exhausted: %s', label, attempts, last_err)
+        _logger.error('SendPulse Odoo %s — all %d retries exhausted: %s', label, attempts, last_err)
         self._log_fb_audit(label, url, payload, last_status, last_text, attempts)
         return False, f'retries exhausted: {last_err}', None
 
@@ -1795,10 +1795,10 @@ class SendpulseConnect(models.Model):
             )
             if resp.status_code == 200:
                 return True
-            _logger.warning('SendPulse Odo: Telegram alert failed HTTP %d — %s', resp.status_code, resp.text[:200])
+            _logger.warning('SendPulse Odoo: Telegram alert failed HTTP %d — %s', resp.status_code, resp.text[:200])
             return False
         except Exception as e:
-            _logger.warning('SendPulse Odo: Telegram alert exception — %s', e)
+            _logger.warning('SendPulse Odoo: Telegram alert exception — %s', e)
             return False
 
     # ── V2 F4: Auto-create CRM leads ─────────────────────────────────────
@@ -1827,7 +1827,7 @@ class SendpulseConnect(models.Model):
         )
         if not has_contact:
             _logger.info(
-                'SendPulse Odo: skip auto_create_lead for connect %s — no contact info',
+                'SendPulse Odoo: skip auto_create_lead for connect %s — no contact info',
                 self.id,
             )
             return self.env['crm.lead']
@@ -1900,7 +1900,7 @@ class SendpulseConnect(models.Model):
                 'sp_funnel_stage': 'lead_created',
             })
             _logger.info(
-                'SendPulse Odo: auto-created crm.lead %s from connect %s',
+                'SendPulse Odoo: auto-created crm.lead %s from connect %s',
                 lead.id, self.id,
             )
             # Системна нотатка у Discuss-канал
@@ -1917,7 +1917,7 @@ class SendpulseConnect(models.Model):
                 )
             return lead
         except Exception as e:
-            _logger.error('SendPulse Odo: auto_create_lead failed for connect %s: %s', self.id, e)
+            _logger.error('SendPulse Odoo: auto_create_lead failed for connect %s: %s', self.id, e)
             return self.env['crm.lead']
 
     # ── V2 F5: Auto-close inactive conversations ──────────────────────────
@@ -1962,12 +1962,12 @@ class SendpulseConnect(models.Model):
                     goodbye_sent += 1
                 except Exception as e:
                     _logger.warning(
-                        'SendPulse Odo: goodbye send failed for connect %s: %s', rec.id, e
+                        'SendPulse Odoo: goodbye send failed for connect %s: %s', rec.id, e
                     )
             rec.write({'stage': 'close'})
             closed_count += 1
         _logger.info(
-            'SendPulse Odo: cron_auto_close_inactive — closed %d, goodbye sent %d',
+            'SendPulse Odoo: cron_auto_close_inactive — closed %d, goodbye sent %d',
             closed_count, goodbye_sent,
         )
 
@@ -1996,7 +1996,7 @@ class SendpulseConnect(models.Model):
         if candidates:
             candidates.write({'active': False})
         _logger.info(
-            'SendPulse Odo: cron_archive_old_comment_records — archived %d',
+            'SendPulse Odoo: cron_archive_old_comment_records — archived %d',
             len(candidates),
         )
 
@@ -2011,7 +2011,7 @@ class SendpulseConnect(models.Model):
         if ICP.get_param('odoo_chatwoot_connector.weekly_report_enabled', 'False') != 'True':
             return
         if ICP.get_param('odoo_chatwoot_connector.telegram_alerts_enabled', 'False') != 'True':
-            _logger.info('SendPulse Odo: weekly report skipped — Telegram disabled')
+            _logger.info('SendPulse Odoo: weekly report skipped — Telegram disabled')
             return
 
         now = fields.Datetime.now()
@@ -2019,7 +2019,7 @@ class SendpulseConnect(models.Model):
         stats = self._calculate_weekly_stats(week_start, now)
         message = self._format_weekly_report(stats, week_start, now)
         self._notify_telegram(message, silent=False)
-        _logger.info('SendPulse Odo: weekly report sent (%d chars)', len(message))
+        _logger.info('SendPulse Odoo: weekly report sent (%d chars)', len(message))
 
     @api.model
     def _calculate_weekly_stats(self, period_start, period_end):
@@ -2192,7 +2192,7 @@ class SendpulseConnect(models.Model):
                 ('stage_id.pipe_end', '=', False),
             ], order='date_begin', limit=limit)
         except Exception as e:
-            _logger.warning('SendPulse Odo: F14 events query failed — %s', e)
+            _logger.warning('SendPulse Odoo: F14 events query failed — %s', e)
             return ''
         lines = []
         for ev in events:
@@ -2392,7 +2392,7 @@ class SendpulseConnect(models.Model):
             )
             if resp.status_code != 200:
                 _logger.warning(
-                    'SendPulse Odo: suggested_reply HTTP %d — %s',
+                    'SendPulse Odoo: suggested_reply HTTP %d — %s',
                     resp.status_code, resp.text[:200],
                 )
                 return []
@@ -2422,20 +2422,20 @@ class SendpulseConnect(models.Model):
                                 break
             if not isinstance(data, dict):
                 _logger.warning(
-                    'SendPulse Odo: suggested_reply failed to parse JSON. RAW=%s',
+                    'SendPulse Odoo: suggested_reply failed to parse JSON. RAW=%s',
                     raw[:500],
                 )
                 return []
             suggestions = data.get('suggestions') or []
             if not suggestions:
                 _logger.info(
-                    'SendPulse Odo: suggested_reply — LLM повернув 0 варіантів. RAW=%s',
+                    'SendPulse Odoo: suggested_reply — LLM повернув 0 варіантів. RAW=%s',
                     raw[:300],
                 )
             # Filter: only non-empty strings, max N
             return [s.strip() for s in suggestions if isinstance(s, str) and s.strip()][:count]
         except Exception as e:
-            _logger.warning('SendPulse Odo: suggested_reply exception — %s', e)
+            _logger.warning('SendPulse Odoo: suggested_reply exception — %s', e)
             return []
 
     @api.model
@@ -2479,7 +2479,7 @@ class SendpulseConnect(models.Model):
                         partner.sudo().write({'sendpulse_contact_id': self.sendpulse_contact_id})
             self.write(vals)
             _logger.info(
-                'SendPulse Odo: F12 email extracted %s from connect %s, linked partner=%s',
+                'SendPulse Odoo: F12 email extracted %s from connect %s, linked partner=%s',
                 email, self.id, vals.get('partner_id'),
             )
             return True
@@ -2532,7 +2532,7 @@ class SendpulseConnect(models.Model):
             )
             if resp.status_code != 200:
                 _logger.warning(
-                    'SendPulse Odo: translate HTTP %d — %s',
+                    'SendPulse Odoo: translate HTTP %d — %s',
                     resp.status_code, resp.text[:200],
                 )
                 return {'translated': '', 'source_lang': '', 'error': f'http_{resp.status_code}'}
@@ -2559,7 +2559,7 @@ class SendpulseConnect(models.Model):
                                     pass
                                 break
             if not isinstance(data, dict):
-                _logger.warning('SendPulse Odo: translate parse failed. RAW=%s', raw[:300])
+                _logger.warning('SendPulse Odoo: translate parse failed. RAW=%s', raw[:300])
                 return {'translated': '', 'source_lang': '', 'error': 'parse_failed'}
             return {
                 'translated': (data.get('translated') or '').strip(),
@@ -2567,7 +2567,7 @@ class SendpulseConnect(models.Model):
                 'error': None,
             }
         except Exception as e:
-            _logger.warning('SendPulse Odo: translate exception — %s', e)
+            _logger.warning('SendPulse Odoo: translate exception — %s', e)
             return {'translated': '', 'source_lang': '', 'error': f'exception:{e}'}
 
     @api.model
@@ -2700,14 +2700,14 @@ class SendpulseConnect(models.Model):
                 })
                 mail.send(raise_exception=False)
         except Exception as e:
-            _logger.warning('SendPulse Odo: F13 PDF email exception — %s', e)
+            _logger.warning('SendPulse Odoo: F13 PDF email exception — %s', e)
             return {'ok': False, 'error': f'exception:{e}', 'message_id': None}
         self.sudo().write({
             'sp_pdf_sent_at': fields.Datetime.now(),
             'sp_pdf_sent_to_email': to_email,
         })
         _logger.info(
-            'SendPulse Odo: F13 PDF sent to %s for connect %s', to_email, self.id,
+            'SendPulse Odoo: F13 PDF sent to %s for connect %s', to_email, self.id,
         )
         return {'ok': True, 'error': None, 'message_id': mail.id}
 
@@ -2726,7 +2726,7 @@ class SendpulseConnect(models.Model):
                 with open(png_path, 'rb') as f:
                     return base64.b64encode(f.read())
             except Exception as e:
-                _logger.warning('SendPulse Odo: cannot read shipped logo — %s', e)
+                _logger.warning('SendPulse Odoo: cannot read shipped logo — %s', e)
         if company and company.logo:
             try:
                 raw = base64.b64decode(company.logo[:30])
@@ -2860,7 +2860,7 @@ class SendpulseConnect(models.Model):
             sms = self.env['sms.sms'].sudo().create(sms_vals)
             sms.send()
         except Exception as e:
-            _logger.warning('SendPulse Odo: F13 SMS send exception — %s', e)
+            _logger.warning('SendPulse Odoo: F13 SMS send exception — %s', e)
             return {'ok': False, 'error': f'sms_send:{e}', 'code': code}
 
         self.sudo().write({
@@ -2869,7 +2869,7 @@ class SendpulseConnect(models.Model):
             'sp_coupon_sent_to_phone': to_phone,
         })
         _logger.info(
-            'SendPulse Odo: F13 coupon %s sent to %s for connect %s (remaining=%d)',
+            'SendPulse Odoo: F13 coupon %s sent to %s for connect %s (remaining=%d)',
             code, to_phone, self.id, remaining,
         )
         return {'ok': True, 'error': None, 'code': code,
@@ -2994,7 +2994,7 @@ class SendpulseConnect(models.Model):
             )
             if resp.status_code != 200:
                 _logger.warning(
-                    'SendPulse Odo: RAG HTTP %d — %s',
+                    'SendPulse Odoo: RAG HTTP %d — %s',
                     resp.status_code, resp.text[:200],
                 )
                 return {**empty, 'reason': f'http_{resp.status_code}'}
@@ -3005,7 +3005,7 @@ class SendpulseConnect(models.Model):
             import re as _re
             m = _re.search(r'\{[\s\S]*?\}', raw)
             if not m:
-                _logger.warning('SendPulse Odo: RAG no JSON in response — %s', raw[:200])
+                _logger.warning('SendPulse Odoo: RAG no JSON in response — %s', raw[:200])
                 return {**empty, 'reason': 'no_json'}
             data = _json.loads(m.group(0))
             faq_id_raw = data.get('faq_id')
@@ -3048,7 +3048,7 @@ class SendpulseConnect(models.Model):
                 'confidence': confidence, 'answer': answer, 'reason': 'ok',
             }
         except Exception as e:
-            _logger.error('SendPulse Odo: RAG exception — %s', e)
+            _logger.error('SendPulse Odoo: RAG exception — %s', e)
             return {**empty, 'reason': f'exception: {str(e)[:100]}'}
 
     def _try_rag_auto_answer(self, question_text):
@@ -3072,13 +3072,13 @@ class SendpulseConnect(models.Model):
         # Також не лізти у identifying / close.
         if self.stage in ('in_progress', 'close', 'identifying'):
             _logger.info(
-                'SendPulse Odo: RAG skip for connect %s — stage=%s (operator engaged)',
+                'SendPulse Odoo: RAG skip for connect %s — stage=%s (operator engaged)',
                 self.id, self.stage,
             )
             return
         if self.sp_first_reply_at:
             _logger.info(
-                'SendPulse Odo: RAG skip for connect %s — operator already replied at %s',
+                'SendPulse Odoo: RAG skip for connect %s — operator already replied at %s',
                 self.id, self.sp_first_reply_at,
             )
             return
@@ -3100,7 +3100,7 @@ class SendpulseConnect(models.Model):
             return
         if result.get('confidence', 0.0) < threshold:
             _logger.info(
-                'SendPulse Odo: RAG match below threshold for connect %s (conf=%.2f < %.2f)',
+                'SendPulse Odoo: RAG match below threshold for connect %s (conf=%.2f < %.2f)',
                 self.id, result.get('confidence'), threshold,
             )
             return
@@ -3111,7 +3111,7 @@ class SendpulseConnect(models.Model):
             # Шлемо через SendPulse API
             sent = self.send_message_to_sendpulse(answer, attachment_url=None)
             if not sent:
-                _logger.warning('SendPulse Odo: RAG auto-answer send failed for connect %s', self.id)
+                _logger.warning('SendPulse Odoo: RAG auto-answer send failed for connect %s', self.id)
                 return
             # Мітимо розмову
             self.write({
@@ -3136,11 +3136,11 @@ class SendpulseConnect(models.Model):
                     author_id=self.env.ref('base.partner_root').id,
                 )
             _logger.info(
-                'SendPulse Odo: RAG auto-answered connect %s from FAQ #%s (conf=%.2f)',
+                'SendPulse Odoo: RAG auto-answered connect %s from FAQ #%s (conf=%.2f)',
                 self.id, faq_id, result.get('confidence', 0.0),
             )
         except Exception as e:
-            _logger.error('SendPulse Odo: RAG auto-answer exception for connect %s: %s', self.id, e)
+            _logger.error('SendPulse Odoo: RAG auto-answer exception for connect %s: %s', self.id, e)
 
     # ── V2 F2: Drip campaigns ─────────────────────────────────────────────
     _DRIP_STOP_KEYWORDS = (
@@ -3157,7 +3157,7 @@ class SendpulseConnect(models.Model):
         for kw in self._DRIP_STOP_KEYWORDS:
             if kw in lower:
                 self.write({'drip_stop_requested': True})
-                _logger.info('SendPulse Odo: drip opt-out set for connect %s', self.id)
+                _logger.info('SendPulse Odoo: drip opt-out set for connect %s', self.id)
                 return
 
     def _can_send_drip_message(self):
@@ -3215,8 +3215,8 @@ class SendpulseConnect(models.Model):
                         rec.write({'drip_reminder_6h_sent': True})
                         sent_6h += 1
                 except Exception as e:
-                    _logger.warning('SendPulse Odo: drip 6h failed for %s: %s', rec.id, e)
-            _logger.info('SendPulse Odo: drip 6h reminder — sent %d', sent_6h)
+                    _logger.warning('SendPulse Odoo: drip 6h failed for %s: %s', rec.id, e)
+            _logger.info('SendPulse Odoo: drip 6h reminder — sent %d', sent_6h)
 
         # ── Stream 2: customer_replied → оператор silent 2h → Telegram alert ─
         if ICP.get_param('odoo_chatwoot_connector.drip_operator_alert_enabled', 'True') == 'True':
@@ -3246,8 +3246,8 @@ class SendpulseConnect(models.Model):
                     rec.write({'drip_followup_24h_sent': True})
                     alerted += 1
                 except Exception as e:
-                    _logger.warning('SendPulse Odo: drip operator alert failed for %s: %s', rec.id, e)
-            _logger.info('SendPulse Odo: drip operator 2h alert — sent %d', alerted)
+                    _logger.warning('SendPulse Odoo: drip operator alert failed for %s: %s', rec.id, e)
+            _logger.info('SendPulse Odoo: drip operator 2h alert — sent %d', alerted)
 
         # ── Stream 3: lead_created → без оплати 3д → нагадування про бронь ──
         booking_3d_text = ICP.get_param(
@@ -3281,8 +3281,8 @@ class SendpulseConnect(models.Model):
                         rec.write({'drip_booking_3d_sent': True})
                         sent_3d += 1
                 except Exception as e:
-                    _logger.warning('SendPulse Odo: drip 3d failed for %s: %s', rec.id, e)
-            _logger.info('SendPulse Odo: drip booking 3d — sent %d', sent_3d)
+                    _logger.warning('SendPulse Odoo: drip 3d failed for %s: %s', rec.id, e)
+            _logger.info('SendPulse Odoo: drip booking 3d — sent %d', sent_3d)
 
     # ── V2 F3: Bot-wizard ідентифікації ───────────────────────────────────
     _EMAIL_REGEX = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
@@ -3332,10 +3332,10 @@ class SendpulseConnect(models.Model):
                     'id_step': 'ask_email',
                     'id_attempts': 1,
                 })
-                _logger.info('SendPulse Odo: started identification for connect %s', self.id)
+                _logger.info('SendPulse Odoo: started identification for connect %s', self.id)
                 return True
         except Exception as e:
-            _logger.warning('SendPulse Odo: id flow start failed for connect %s: %s', self.id, e)
+            _logger.warning('SendPulse Odoo: id flow start failed for connect %s: %s', self.id, e)
         return False
 
     def _try_advance_identification(self, inbound_text):
@@ -3371,7 +3371,7 @@ class SendpulseConnect(models.Model):
                 'id_step': 'done',
             })
             _logger.info(
-                'SendPulse Odo: identified connect %s → partner %s (email=%s)',
+                'SendPulse Odoo: identified connect %s → partner %s (email=%s)',
                 self.id, partner.id, email,
             )
             return True
@@ -3405,7 +3405,7 @@ class SendpulseConnect(models.Model):
             'id_step': 'gave_up',
         })
         _logger.info(
-            'SendPulse Odo: identification gave up for connect %s after %d attempts',
+            'SendPulse Odoo: identification gave up for connect %s after %d attempts',
             self.id, self.id_attempts,
         )
         return True
@@ -3436,14 +3436,14 @@ class SendpulseConnect(models.Model):
             )
             if resp.status_code != 200:
                 err = self._parse_fb_error(resp)
-                _logger.error('SendPulse Odo: token exchange HTTP %d — %s', resp.status_code, err)
+                _logger.error('SendPulse Odoo: token exchange HTTP %d — %s', resp.status_code, err)
                 return None, None
             data = resp.json()
             new_token = data.get('access_token') or ''
             expires_in = data.get('expires_in')  # seconds, або null для безстрокового
             return new_token or None, expires_in
         except Exception as e:
-            _logger.error('SendPulse Odo: token exchange exception — %s', e)
+            _logger.error('SendPulse Odoo: token exchange exception — %s', e)
             return None, None
 
     @api.model
@@ -3459,7 +3459,7 @@ class SendpulseConnect(models.Model):
         app_id = ICP.get_param('odoo_chatwoot_connector.fb_app_id', '')
         app_secret = ICP.get_param('odoo_chatwoot_connector.fb_app_secret', '')
         if not (app_id and app_secret):
-            _logger.info('SendPulse Odo: token refresh skipped — no app_id/secret')
+            _logger.info('SendPulse Odoo: token refresh skipped — no app_id/secret')
             return
         try:
             threshold_days = int(ICP.get_param(
@@ -3480,7 +3480,7 @@ class SendpulseConnect(models.Model):
             if days_left is None or days_left >= threshold_days:
                 continue
             _logger.info(
-                'SendPulse Odo: refreshing token for %s (%d days left)',
+                'SendPulse Odoo: refreshing token for %s (%d days left)',
                 page.name, days_left,
             )
             new_token, expires_in = self._exchange_token_for_long_lived(page.access_token)
@@ -3506,7 +3506,7 @@ class SendpulseConnect(models.Model):
                     silent=False,
                 )
         _logger.info(
-            'SendPulse Odo: cron_refresh_fb_tokens — refreshed %d, failed %d',
+            'SendPulse Odoo: cron_refresh_fb_tokens — refreshed %d, failed %d',
             refreshed, failed,
         )
 
@@ -3530,7 +3530,7 @@ class SendpulseConnect(models.Model):
             url, payload, label=f'hide-comment {comment_id} ({service})',
         )
         if ok:
-            _logger.info('SendPulse Odo: comment %s hidden (%s)', comment_id, service)
+            _logger.info('SendPulse Odoo: comment %s hidden (%s)', comment_id, service)
         return ok, err
 
     def _send_comment_public_reply(self, comment_id, service, text, page=None):
@@ -3552,7 +3552,7 @@ class SendpulseConnect(models.Model):
             label=f'public-reply {comment_id}',
         )
         if ok:
-            _logger.info('SendPulse Odo: public reply posted for comment %s', comment_id)
+            _logger.info('SendPulse Odoo: public reply posted for comment %s', comment_id)
         return ok, err
 
     def _send_comment_private_reply(self, comment_id, text, service='facebook', page=None):
@@ -3588,7 +3588,7 @@ class SendpulseConnect(models.Model):
             url, payload, label=f'private-reply {comment_id} ({service})',
         )
         if ok:
-            _logger.info('SendPulse Odo: private reply sent for comment %s (%s)', comment_id, service)
+            _logger.info('SendPulse Odoo: private reply sent for comment %s (%s)', comment_id, service)
         return ok, err
 
     def _get_fb_page_token(self, page=None):
@@ -3638,7 +3638,7 @@ class SendpulseConnect(models.Model):
         for rec in records:
             minutes_left = int((rec.sp_messenger_window_expires_at - now).total_seconds() / 60)
             _logger.info(
-                'SendPulse Odo: window closing in %d min for connect %s (%s)',
+                'SendPulse Odoo: window closing in %d min for connect %s (%s)',
                 minutes_left, rec.id, rec.name,
             )
             self._notify_telegram(
@@ -3677,7 +3677,7 @@ class SendpulseConnect(models.Model):
             )
             if resp.status_code != 200:
                 err = self._parse_fb_error(resp)
-                _logger.error('SendPulse Odo [%s]: FB token invalid — %s', label, err)
+                _logger.error('SendPulse Odoo [%s]: FB token invalid — %s', label, err)
                 self._notify_telegram(
                     f'⚠️ <b>FB Page Token НЕДІЙСНИЙ</b> [{label}]\n\n'
                     f'Причина: {err}\n\n'
@@ -3686,7 +3686,7 @@ class SendpulseConnect(models.Model):
                 )
                 return {'valid': False, 'status': f'invalid: {err[:100]}', 'days_left': None, 'error': err}
         except Exception as e:
-            _logger.error('SendPulse Odo [%s]: FB token check failed — %s', label, e)
+            _logger.error('SendPulse Odoo [%s]: FB token check failed — %s', label, e)
             return {'valid': False, 'status': f'check_failed: {str(e)[:100]}', 'days_left': None, 'error': str(e)}
 
         # /debug_token (якщо є app credentials)
@@ -3710,7 +3710,7 @@ class SendpulseConnect(models.Model):
             exp_dt = datetime.utcfromtimestamp(expires_at)
             days_left = (exp_dt - datetime.utcnow()).days
             if days_left < 7:
-                _logger.error('SendPulse Odo [%s]: FB token expires in %d days!', label, days_left)
+                _logger.error('SendPulse Odoo [%s]: FB token expires in %d days!', label, days_left)
                 self._notify_telegram(
                     f'⚠️ <b>FB Page Token скоро помре</b> [{label}]\n\n'
                     f'Залишилось днів: <b>{days_left}</b>\n'
@@ -3719,7 +3719,7 @@ class SendpulseConnect(models.Model):
                 return {'valid': True, 'status': f'expires_soon: {days_left}d', 'days_left': days_left, 'error': None}
             return {'valid': True, 'status': f'valid: {days_left}d left', 'days_left': days_left, 'error': None}
         except Exception as e:
-            _logger.warning('SendPulse Odo [%s]: debug_token exception — %s', label, e)
+            _logger.warning('SendPulse Odoo [%s]: debug_token exception — %s', label, e)
             return {'valid': True, 'status': 'valid (debug_token error)', 'days_left': None, 'error': None}
 
     @api.model
@@ -3920,7 +3920,7 @@ class SendpulseConnect(models.Model):
         # Створюємо як incoming з поміткою у channel.
         now = fields.Datetime.now()
         _logger.info(
-            'SendPulse Odo: backfill missed incoming для contact=%s: %r',
+            'SendPulse Odoo: backfill missed incoming для contact=%s: %r',
             contact_id, last_message[:80],
         )
 
@@ -3981,7 +3981,7 @@ class SendpulseConnect(models.Model):
         for connect in connects:
             connect.write({'stage': 'close'})
             _logger.info(
-                'SendPulse Odo: контакт %s відписався (%s), розмова закрита',
+                'SendPulse Odoo: контакт %s відписався (%s), розмова закрита',
                 contact_id, service,
             )
 
@@ -4008,7 +4008,7 @@ class SendpulseConnect(models.Model):
         try:
             # SSRF guard
             if not self._is_allowed_media_url(media_url):
-                _logger.warning('SendPulse Odo: заблоковано URL не з домену SendPulse: %s', media_url)
+                _logger.warning('SendPulse Odoo: заблоковано URL не з домену SendPulse: %s', media_url)
                 return None
 
             token = self._get_access_token()
@@ -4036,7 +4036,7 @@ class SendpulseConnect(models.Model):
             if content_length:
                 try:
                     if int(content_length) > self._MEDIA_MAX_BYTES:
-                        _logger.warning('SendPulse Odo: медіа завелике (%s байт), пропускаємо', content_length)
+                        _logger.warning('SendPulse Odoo: медіа завелике (%s байт), пропускаємо', content_length)
                         return None
                 except ValueError:
                     pass
@@ -4055,7 +4055,7 @@ class SendpulseConnect(models.Model):
             for chunk in resp.iter_content(8192):
                 data += chunk
                 if len(data) > self._MEDIA_MAX_BYTES:
-                    _logger.warning('SendPulse Odo: медіа перевищило 20 MB ліміт, скасовуємо')
+                    _logger.warning('SendPulse Odoo: медіа перевищило 20 MB ліміт, скасовуємо')
                     return None
 
             att = self.env['ir.attachment'].create({
@@ -4066,7 +4066,7 @@ class SendpulseConnect(models.Model):
             att.generate_access_token()
             return att
         except Exception as e:
-            _logger.warning('SendPulse Odo: не вдалося завантажити медіа %s: %s', media_url, e)
+            _logger.warning('SendPulse Odoo: не вдалося завантажити медіа %s: %s', media_url, e)
             return None
 
     # ════════════════════════════════════════════════════════════════════
@@ -4129,14 +4129,14 @@ class SendpulseConnect(models.Model):
             resp.raise_for_status()
             data = resp.json()
         except Exception as e:
-            _logger.warning('SendPulse Odo: не вдалося отримати профіль %s: %s', self.sendpulse_contact_id, e)
+            _logger.warning('SendPulse Odoo: не вдалося отримати профіль %s: %s', self.sendpulse_contact_id, e)
             return {'type': 'ir.actions.client', 'tag': 'display_notification',
                     'params': {'title': 'SendPulse', 'message': f'Помилка API: {e}', 'type': 'danger'}}
 
         vals = self._extract_contact_vals(data)
         if vals:
             self.write(vals)
-            _logger.info('SendPulse Odo: профіль %s оновлено, поля: %s',
+            _logger.info('SendPulse Odoo: профіль %s оновлено, поля: %s',
                          self.sendpulse_contact_id, list(vals.keys()))
 
         # Синхронізуємо аватар у картку партнера якщо він ідентифікований
@@ -4160,9 +4160,9 @@ class SendpulseConnect(models.Model):
             resp.raise_for_status()
             image_b64 = base64.b64encode(resp.content).decode()
             self.partner_id.write({'image_1920': image_b64})
-            _logger.info('SendPulse Odo: аватар партнера %s оновлено', self.partner_id.name)
+            _logger.info('SendPulse Odoo: аватар партнера %s оновлено', self.partner_id.name)
         except Exception as e:
-            _logger.warning('SendPulse Odo: не вдалося завантажити аватар %s: %s', self.avatar_url, e)
+            _logger.warning('SendPulse Odoo: не вдалося завантажити аватар %s: %s', self.avatar_url, e)
 
     # GET /contacts/get: status — ціле число: 1=active, 0=unsubscribed, 2=deleted, 3=unconfirmed
     _SP_STATUS_INT_MAP = {1: 'active', 0: 'unsubscribed', 2: 'deleted', 3: 'unconfirmed'}
@@ -4230,7 +4230,7 @@ class SendpulseConnect(models.Model):
         if booking_email and not self.sp_booking_email:
             vals['sp_booking_email'] = booking_email
 
-        _logger.info('SendPulse Odo: extracted vals keys=%s', list(vals.keys()))
+        _logger.info('SendPulse Odoo: extracted vals keys=%s', list(vals.keys()))
         return vals
 
     # ════════════════════════════════════════════════════════════════════
@@ -4399,7 +4399,7 @@ class SendpulseConnect(models.Model):
         """
         self.ensure_one()
         if not self.sendpulse_contact_id:
-            _logger.warning('SendPulse Odo: немає contact_id для відправки')
+            _logger.warning('SendPulse Odoo: немає contact_id для відправки')
             return False
 
         # ── V2 F13: Pre-flight check довжини + auto-split ────────────────
@@ -4409,7 +4409,7 @@ class SendpulseConnect(models.Model):
             chunks = self._split_text_by_limit(text, limit)
             total = len(chunks)
             _logger.info(
-                'SendPulse Odo: text %d chars > %d limit for %s → split into %d chunks',
+                'SendPulse Odoo: text %d chars > %d limit for %s → split into %d chunks',
                 len(text), limit, service, total,
             )
             all_ok = True
@@ -4422,7 +4422,7 @@ class SendpulseConnect(models.Model):
                 if not ok:
                     all_ok = False
                     _logger.warning(
-                        'SendPulse Odo: chunk %d/%d failed for contact %s',
+                        'SendPulse Odoo: chunk %d/%d failed for contact %s',
                         i, total, self.sendpulse_contact_id,
                     )
                     break
@@ -4509,12 +4509,12 @@ class SendpulseConnect(models.Model):
 
         try:
             _logger.info(
-                'SendPulse Odo: відправляємо в %s contact=%s payload=%s',
+                'SendPulse Odoo: відправляємо в %s contact=%s payload=%s',
                 endpoint, self.sendpulse_contact_id, payload,
             )
             resp = requests.post(endpoint, headers=headers, json=payload, timeout=15)
             _logger.info(
-                'SendPulse Odo: відповідь API status=%s body=%s',
+                'SendPulse Odoo: відповідь API status=%s body=%s',
                 resp.status_code, resp.text.replace('\n', ' ').replace('\r', '')[:500],
             )
 
@@ -4525,7 +4525,7 @@ class SendpulseConnect(models.Model):
                     headers['Authorization'] = f'Bearer {token}'
                     resp = requests.post(endpoint, headers=headers, json=payload, timeout=15)
                     _logger.info(
-                        'SendPulse Odo: повтор після 401 status=%s body=%s',
+                        'SendPulse Odoo: повтор після 401 status=%s body=%s',
                         resp.status_code, resp.text.replace('\n', ' ').replace('\r', '')[:500],
                     )
 
@@ -4565,7 +4565,7 @@ class SendpulseConnect(models.Model):
                     hint = f'API відхилив запит. Код: {err_code or raw or "невідомо"}.'
 
                 _logger.warning(
-                    'SendPulse Odo: 400 for %s contact=%s (%s): %s',
+                    'SendPulse Odoo: 400 for %s contact=%s (%s): %s',
                     service, self.sendpulse_contact_id, self.name, err_code,
                 )
                 if self.channel_id:
@@ -4583,7 +4583,7 @@ class SendpulseConnect(models.Model):
                 raw_reason = (resp.text or '').replace('\n', ' ').replace('\r', ' ').strip()
                 short_reason = raw_reason[:220] if raw_reason else 'Без деталей від API.'
                 _logger.warning(
-                    'SendPulse Odo: 422 for %s contact=%s (%s): %s',
+                    'SendPulse Odoo: 422 for %s contact=%s (%s): %s',
                     service, self.sendpulse_contact_id, self.name, short_reason,
                 )
                 # Розбираємо тіло відповіді щоб дати точну підказку
@@ -4631,7 +4631,7 @@ class SendpulseConnect(models.Model):
                 return False
 
             resp.raise_for_status()
-            _logger.info('SendPulse Odo: повідомлення відправлено контакту %s', self.sendpulse_contact_id)
+            _logger.info('SendPulse Odoo: повідомлення відправлено контакту %s', self.sendpulse_contact_id)
             # Метрики: фіксуємо першу відповідь оператора
             if not self.sp_first_reply_at:
                 update_metrics = {'sp_first_reply_at': fields.Datetime.now()}
@@ -4640,7 +4640,7 @@ class SendpulseConnect(models.Model):
                 self.sudo().write(update_metrics)
             return True
         except Exception as e:
-            _logger.error('SendPulse Odo: помилка відправки: %s', e)
+            _logger.error('SendPulse Odoo: помилка відправки: %s', e)
             if self.channel_id:
                 self.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
                     body=f'❌ Помилка відправки повідомлення: {e}',

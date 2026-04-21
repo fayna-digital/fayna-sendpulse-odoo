@@ -1,22 +1,35 @@
 # -*- coding: utf-8 -*-
 {
-    'name': 'Fayna SendPulse Odo',
-    'version': '17.0.12.0',
-    'summary': 'Fayna Digital — інтеграція SendPulse з Odoo, переписка з клієнтами прямо в Discuss',
+    'name': 'Fayna SendPulse Odoo',
+    'version': '17.0.12.1',
+    'summary': 'Fayna Digital — SendPulse + AI-помічник + lead magnet (PDF/SMS) + live event seats + drip + A/B шаблони + multi-page FB/IG',
     'description': """
-        Двостороння інтеграція між Odoo і SendPulse (чат-боти месенджерів).
+        AI-first omnichannel рішення від Fayna Digital на базі Odoo 17.
 
-        Можливості:
-        - Отримання повідомлень через Webhook з SendPulse
-        - Автоматичне створення/ідентифікація контактів по email
-        - Збереження повної історії розмов у картці партнера
-        - Підтримка каналів: Telegram, Instagram, Facebook, Viber, Messenger, WhatsApp, LiveChat
-        - Черга нових (неідентифікованих) чатів
-        - Відповідь клієнту прямо з Odoo Discuss
-        - Прикріплення файлів/фото
+        Core:
+        - Двостороння інтеграція SendPulse ↔ Odoo Discuss
+        - Канали: Telegram, Instagram, Facebook/Messenger, Viber, WhatsApp, LiveChat, TikTok
+        - Автоматична ідентифікація контактів (email / phone / bot-vars)
+        - Черга нових чатів, повна історія у картці партнера, UTM-атрибуція
+
+        AI + Automation (v2):
+        - AI-драфти відповіді оператору (Claude Haiku у sidebar Discuss)
+        - Авто-переклад UA ↔ PL
+        - FAQ RAG-відповідач (confidence-based auto-send)
+        - Lead magnet: email → брендований PDF-лист + SMS → промокод з loyalty.program
+        - Live event seats awareness (FOMO <30%, чесна відмова коли повний)
+        - Drip-нагадування 6h/24h
+        - A/B публічні шаблони (epsilon-greedy + conversion tracking)
+        - Multi-page Facebook/Instagram (через System User, Meta App Review approved)
+        - Meta Graph API v25.0 + LLM-класифікатор коментарів
+
+        Reliability:
+        - PostgreSQL advisory lock + partial unique index (race-safe)
+        - Backfill missed-inbound з contact.last_message
+        - Weekly FB Page Token check + Telegram alerts
     """,
     'author': 'Fayna Digital — Volodymyr Shevchenko',
-    'website': 'https://fayna.company',
+    'website': 'https://fayna.agency',
     'license': 'LGPL-3',
     'category': 'Discuss',
     'depends': [
