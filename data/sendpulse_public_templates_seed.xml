@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- F9 A/B шаблони публічних відповідей.
+         noupdate="1" — після першого install не перезаписує ручні правки в БД.
+         Placeholders: {landing_url}, {tg_url} підставляються з Settings.
+    -->
+
+    <record id="public_template_1" model="sendpulse.public.template">
+        <field name="name">Дякуємо / приват / лендинг</field>
+        <field name="kind">standard</field>
+        <field name="sequence">10</field>
+        <field name="text">Дякуємо за коментар! 🏕️ Написали вам детальніше у приватні — перевірте вхідні 😊 Або одразу: {landing_url}</field>
+    </record>
+
+    <record id="public_template_2" model="sendpulse.public.template">
+        <field name="name">Дякуємо / деталі / програма</field>
+        <field name="kind">standard</field>
+        <field name="sequence">20</field>
+        <field name="text">Дякуємо! 🌟 Всі деталі надіслали в особисті. Також можна одразу глянути програму: {landing_url}</field>
+    </record>
+
+    <record id="public_template_3" model="sendpulse.public.template">
+        <field name="name">Зацікавленість / TG / -5%</field>
+        <field name="kind">standard</field>
+        <field name="sequence">30</field>
+        <field name="text">Радіємо вашій зацікавленості! ✨ Написали в приват — там детальна відповідь. Підписуйтесь на наш ТГ-канал і отримайте -5% на табір: {tg_url} 🎁</field>
+    </record>
+
+    <record id="public_template_4" model="sendpulse.public.template">
+        <field name="name">Привіт / TG / знижка</field>
+        <field name="kind">standard</field>
+        <field name="sequence">40</field>
+        <field name="text">Привіт! Відповіли вам у повідомленнях 📩 Актуальні табори 2026 та знижка -5% за підписку: {tg_url}</field>
+    </record>
+
+    <record id="public_template_5" model="sendpulse.public.template">
+        <field name="name">Дякуємо / табори 2026</field>
+        <field name="kind">standard</field>
+        <field name="sequence">50</field>
+        <field name="text">Дякуємо за інтерес! 🏕️ Детальніше написали у приватних. Все про табори 2026: {landing_url}</field>
+    </record>
+
+    <record id="public_template_repeat" model="sendpulse.public.template">
+        <field name="name">Повторний контакт</field>
+        <field name="kind">repeat</field>
+        <field name="sequence">100</field>
+        <field name="text">Раді бачити вас знову! 😊 Наш менеджер вже напише вам у повідомленнях — слідкуйте за вхідними 🏕️</field>
+    </record>
+
+</odoo>

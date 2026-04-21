@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_sendpulse_public_template_tree" model="ir.ui.view">
+        <field name="name">sendpulse.public.template.tree</field>
+        <field name="model">sendpulse.public.template</field>
+        <field name="arch" type="xml">
+            <tree string="Публічні шаблони (A/B)" multi_edit="1">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="kind"/>
+                <field name="use_count" readonly="1"/>
+                <field name="customer_replied_count" readonly="1"/>
+                <field name="conversion_rate" readonly="1" widget="percentage"
+                       decoration-success="conversion_rate &gt; 40"
+                       decoration-warning="conversion_rate &gt; 0 and conversion_rate &lt;= 40"
+                       decoration-muted="conversion_rate == 0"/>
+                <field name="last_used_at" readonly="1" optional="show"/>
+                <field name="active" widget="boolean_toggle"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sendpulse_public_template_form" model="ir.ui.view">
+        <field name="name">sendpulse.public.template.form</field>
+        <field name="model">sendpulse.public.template</field>
+        <field name="arch" type="xml">
+            <form string="Public Template">
+                <sheet>
+                    <widget name="web_ribbon" title="Архівовано" bg_color="bg-danger"
+                            invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Дякуємо / приват / лендинг"/></h1>
+                    </div>
+                    <group>
+                        <group string="Налаштування">
+                            <field name="kind"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                        </group>
+                        <group string="Метрики A/B">
+                            <field name="use_count" readonly="1"/>
+                            <field name="customer_replied_count" readonly="1"/>
+                            <field name="conversion_rate" readonly="1" widget="percentage"/>
+                            <field name="last_used_at" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Текст шаблону">
+                        <field name="text" nolabel="1"
+                               placeholder="Дякуємо за коментар! 🏕️ Написали у приватні. {landing_url}"/>
+                    </group>
+                    <div class="alert alert-info" role="alert">
+                        <strong>Placeholders:</strong>
+                        <code>{landing_url}</code> — посилання на лендинг,
+                        <code>{tg_url}</code> — ТГ-канал (беруться з Settings або FB Page).
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_sendpulse_public_template_graph" model="ir.ui.view">
+        <field name="name">sendpulse.public.template.graph</field>
+        <field name="model">sendpulse.public.template</field>
+        <field name="arch" type="xml">
+            <graph string="Конверсія шаблонів" type="bar" sample="1">
+                <field name="name"/>
+                <field name="conversion_rate" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_sendpulse_public_template_search" model="ir.ui.view">
+        <field name="name">sendpulse.public.template.search</field>
+        <field name="model">sendpulse.public.template</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="text"/>
+                <filter name="active" string="Активні" domain="[('active', '=', True)]"/>
+                <filter name="inactive" string="Архівовані" domain="[('active', '=', False)]"/>
+                <filter name="standard" string="Стандартні" domain="[('kind', '=', 'standard')]"/>
+                <filter name="repeat" string="Повторні" domain="[('kind', '=', 'repeat')]"/>
+                <group expand="0" string="Групувати за">
+                    <filter name="group_kind" string="Тип" context="{'group_by': 'kind'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_sendpulse_public_template" model="ir.actions.act_window">
+        <field name="name">Публічні шаблони (A/B)</field>
+        <field name="res_model">sendpulse.public.template</field>
+        <field name="view_mode">tree,graph,form</field>
+        <field name="search_view_id" ref="view_sendpulse_public_template_search"/>
+        <field name="context">{'search_default_active': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Додайте перший публічний шаблон
+            </p>
+            <p>
+                Шаблони публічних відповідей під коментарями Facebook/Instagram.
+                Автоматично ротуються через epsilon-greedy алгоритм —
+                80% найкращий за conversion_rate, 20% random explore.
+                Конверсія = клієнт написав у приват після публічної відповіді.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_sendpulse_public_template"
+              name="Публічні шаблони (A/B)"
+              parent="odoo_chatwoot_connector.menu_sendpulse_root"
+              action="action_sendpulse_public_template"
+              sequence="75"
+              groups="odoo_chatwoot_connector.group_sendpulse_officer"/>
+
+</odoo>

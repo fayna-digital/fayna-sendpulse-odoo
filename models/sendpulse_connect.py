@@ -184,6 +184,14 @@ class SendpulseConnect(models.Model):
         string='Публічна відповідь надіслана', default=False,
         help='True якщо публічна відповідь під коментарем успішно опублікована',
     )
+    sp_public_template_id = fields.Many2one(
+        'sendpulse.public.template', string='Публічний шаблон', ondelete='set null',
+        help='Який шаблон (A/B) використано для публічної відповіді — для conversion tracking.',
+    )
+    sp_public_template_conversion_counted = fields.Boolean(
+        default=False, readonly=True,
+        help='True якщо конверсія customer_replied вже зарахована цьому шаблону (щоб не дублювати).',
+    )
     sp_replied_private = fields.Boolean(
         string='Приватне повідомлення надіслано', default=False,
         help='True якщо private_reply успішно надіслано через Graph API',
@@ -1076,6 +1084,13 @@ class SendpulseConnect(models.Model):
             # вже є sp_lead_id → skip. No-op якщо auto_create_lead_enabled=False.
             if update_vals.get('sp_funnel_stage') == 'customer_replied':
                 connect._auto_create_crm_lead()
+                # F9 A/B: зарахувати конверсію шаблону публічної відповіді (ідемпотентно)
+                if (
+                    connect.sp_public_template_id
+                    and not connect.sp_public_template_conversion_counted
+                ):
+                    connect.sp_public_template_id.bump_customer_replied()
+                    connect.write({'sp_public_template_conversion_counted': True})
 
             # V2 F1: RAG FAQ auto-answer — якщо клієнт написав питання
             # і ми маємо високий confidence на FAQ match → відповідаємо автоматично.
@@ -1417,21 +1432,28 @@ class SendpulseConnect(models.Model):
         public_ok = False
         public_error = None
         if send_public and comment_id:
-            # Ротація шаблонів: рахуємо кількість вже опублікованих публічних відповідей
-            # ПІД ТИМ САМИМ ПОСТОМ (не глобально). Інакше під одним постом з 20 коментарями
-            # всі бачили б той самий шаблон після 5-го повторення циклу.
-            if post_id:
-                count = self.search_count([
-                    ('sp_is_comment', '=', True),
-                    ('sp_post_id', '=', post_id),
-                    ('sp_replied_public', '=', True),
-                ])
-            else:
-                count = self.search_count([('sp_is_comment', '=', True)])
-            # Якщо вже є приватне від цього контакту — використовуємо repeat шаблон
-            if bool(already_private):
+            # F9: Вибір шаблону через модель sendpulse.public.template (epsilon-greedy).
+            # Fallback на hard-coded константи якщо модель порожня (міграція не
+            # виконана або всі шаблони деактивовано).
+            PublicTemplate = self.env['sendpulse.public.template'].sudo()
+            template = PublicTemplate.pick_template(is_repeat=bool(already_private))
+            if template:
+                public_text = template.text.format(
+                    landing_url=landing_url or 'https://lato2026.campscout.eu',
+                    tg_url=tg_url or 'https://t.me/campscouting',
+                )
+            elif bool(already_private):
                 public_text = self._COMMENT_PUBLIC_REPEAT_TEMPLATE
             else:
+                # Fallback: старий round-robin по константах
+                if post_id:
+                    count = self.search_count([
+                        ('sp_is_comment', '=', True),
+                        ('sp_post_id', '=', post_id),
+                        ('sp_replied_public', '=', True),
+                    ])
+                else:
+                    count = self.search_count([('sp_is_comment', '=', True)])
                 tmpl = self._COMMENT_PUBLIC_TEMPLATES[count % len(self._COMMENT_PUBLIC_TEMPLATES)]
                 public_text = tmpl.format(
                     landing_url=landing_url or 'https://lato2026.campscout.eu',
@@ -1439,7 +1461,12 @@ class SendpulseConnect(models.Model):
                 )
             public_ok, public_error = connect._send_comment_public_reply(comment_id, service, public_text, page=page)
             if public_ok:
-                connect.write({'sp_replied_public': True})
+                vals = {'sp_replied_public': True}
+                if template:
+                    vals['sp_public_template_id'] = template.id
+                connect.write(vals)
+                if template:
+                    template.bump_use()
 
         # Приватне повідомлення
         private_ok = False
@@ -2056,6 +2083,29 @@ class SendpulseConnect(models.Model):
             lines.append('⚠️ <b>Проблеми з токенами:</b>')
             for p in stats['bad_tokens']:
                 lines.append(f'  • {p.name}: {p.token_status or "?"}')
+
+        # F9 A/B: топ-3 і worst-1 шаблонів за conversion (мін. 10 використань)
+        PublicTemplate = self.env['sendpulse.public.template'].sudo()
+        significant = PublicTemplate.search([
+            ('active', '=', True),
+            ('kind', '=', 'standard'),
+            ('use_count', '>=', 10),
+        ])
+        if significant:
+            sorted_by_conv = significant.sorted(key='conversion_rate', reverse=True)
+            lines.append('')
+            lines.append('🏆 <b>Топ шаблонів публічної відповіді:</b>')
+            for tpl in sorted_by_conv[:3]:
+                lines.append(
+                    f'  • {tpl.name}: {tpl.conversion_rate:.1f}% '
+                    f'({tpl.customer_replied_count}/{tpl.use_count})'
+                )
+            if len(sorted_by_conv) > 3:
+                worst = sorted_by_conv[-1]
+                lines.append(
+                    f'  ⚠️ Слабкий: {worst.name}: {worst.conversion_rate:.1f}% '
+                    f'({worst.customer_replied_count}/{worst.use_count})'
+                )
 
         return '\n'.join(lines)[:4000]
 
