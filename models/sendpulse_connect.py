@@ -192,6 +192,24 @@ class SendpulseConnect(models.Model):
         default=False, readonly=True,
         help='True якщо конверсія customer_replied вже зарахована цьому шаблону (щоб не дублювати).',
     )
+    # F13 Lead magnet tracking
+    sp_pdf_sent_at = fields.Datetime(
+        string='PDF-каталог надіслано', readonly=True,
+        help='Коли було надіслано lead-magnet PDF на email клієнта.',
+    )
+    sp_pdf_sent_to_email = fields.Char(
+        string='Email для PDF', readonly=True,
+    )
+    sp_coupon_code = fields.Char(
+        string='Купон-код', readonly=True,
+        help='Згенерований промокод (loyalty.card) — відправлений SMS-ом.',
+    )
+    sp_coupon_sent_at = fields.Datetime(
+        string='Купон надіслано SMS', readonly=True,
+    )
+    sp_coupon_sent_to_phone = fields.Char(
+        string='Телефон для купона', readonly=True,
+    )
     sp_replied_private = fields.Boolean(
         string='Приватне повідомлення надіслано', default=False,
         help='True якщо private_reply успішно надіслано через Graph API',
@@ -2475,6 +2493,229 @@ class SendpulseConnect(models.Model):
             'original': text[:2000],
             'error': result['error'],
         }
+
+    # ── V2 F13: Lead magnet — PDF-каталог + SMS-купон ─────────────────────
+    def _send_pdf_catalog_email(self, to_email=None):
+        """
+        Надсилає lead-magnet PDF-каталог на email клієнта.
+        Повертає {'ok': bool, 'error': str or None, 'message_id': int or None}.
+        Ідемпотентно — якщо sp_pdf_sent_at уже встановлено на цей email, skip.
+        """
+        self.ensure_one()
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param('odoo_chatwoot_connector.lead_magnet_enabled', 'False') != 'True':
+            return {'ok': False, 'error': 'disabled', 'message_id': None}
+        to_email = (to_email or self.sp_booking_email or
+                    (self.partner_id.email if self.partner_id else '')).strip()
+        if not to_email:
+            return {'ok': False, 'error': 'no_email', 'message_id': None}
+        # Idempotency
+        if self.sp_pdf_sent_at and self.sp_pdf_sent_to_email == to_email:
+            return {'ok': True, 'error': 'already_sent', 'message_id': None}
+
+        att_id_raw = ICP.get_param('odoo_chatwoot_connector.lead_magnet_pdf_attachment_id', '')
+        try:
+            att_id = int(att_id_raw)
+        except (TypeError, ValueError):
+            return {'ok': False, 'error': 'no_attachment_configured', 'message_id': None}
+        attachment = self.env['ir.attachment'].sudo().browse(att_id)
+        if not attachment.exists() or not attachment.datas:
+            return {'ok': False, 'error': 'attachment_missing', 'message_id': None}
+
+        subject = ICP.get_param(
+            'odoo_chatwoot_connector.lead_magnet_email_subject',
+            'CampScout — повний каталог таборів 2026',
+        )
+        body_tmpl = ICP.get_param(
+            'odoo_chatwoot_connector.lead_magnet_email_body_html',
+            '',
+        ) or (
+            '<p>Вітаємо{name_suffix}!</p>'
+            '<p>У вкладенні — повний PDF каталог таборів CampScout на літо 2026: '
+            'усі програми, дати, ціни та деталі по кожному табору.</p>'
+            '<p>Промо-ціни діють до 01.05.2026 (після дати +300 zł).</p>'
+            '<p>Ваш особистий промокод на додаткові <b>5% знижки</b>: '
+            '<code style="font-size: 1.2em; background: #f0f0f0; padding: 4px 8px;">{code}</code><br/>'
+            'Залишилось <b>{remaining}</b> купонів на акцію — хто встиг, той виграв. '
+            'Термін дії: до {expires}.</p>'
+            '<p>Якщо виникнуть питання — напишіть нам прямо у чат, підкажемо вибрати '
+            'найкращий варіант для Вашої дитини.</p>'
+            '<p>З повагою,<br/>Команда CampScout<br/>'
+            '<a href="https://campscout.eu">campscout.eu</a></p>'
+        )
+        name_part = (self.name or (self.partner_id.name if self.partner_id else '')).strip()
+        name_suffix = f', {name_part}' if name_part else ''
+
+        # Підтягуємо shared coupon з програми для відображення у email
+        coupon_code = ''
+        coupon_remaining = 0
+        coupon_expires = ''
+        program_id_raw = ICP.get_param('odoo_chatwoot_connector.lead_magnet_coupon_program_id', '')
+        try:
+            program_id = int(program_id_raw)
+            card = self.env['loyalty.card'].sudo().search(
+                [('program_id', '=', program_id), ('points', '>', 0)],
+                order='id', limit=1,
+            )
+            if card:
+                coupon_code = card.code
+                coupon_remaining = int(card.points)
+                coupon_expires = card.expiration_date.strftime('%d.%m.%Y') if card.expiration_date else ''
+        except (TypeError, ValueError):
+            pass
+
+        body_html = (body_tmpl
+                     .replace('{name_suffix}', name_suffix)
+                     .replace('{name}', name_part or 'шановні батьки')
+                     .replace('{code}', coupon_code)
+                     .replace('{remaining}', str(coupon_remaining))
+                     .replace('{expires}', coupon_expires or '20.06.2026'))
+
+        mail = self.env['mail.mail'].sudo().create({
+            'subject': subject,
+            'body_html': body_html,
+            'email_to': to_email,
+            'email_from': ICP.get_param('mail.catchall.alias', 'noreply@campscout.eu')
+                          + '@' + ICP.get_param('mail.catchall.domain', 'campscout.eu')
+                          if '@' not in (ICP.get_param('mail.catchall.alias', '') or '')
+                          else ICP.get_param('mail.catchall.alias'),
+            'attachment_ids': [(4, attachment.id)],
+        })
+        try:
+            mail.send(raise_exception=False)
+        except Exception as e:
+            _logger.warning('SendPulse Odo: F13 PDF email exception — %s', e)
+            return {'ok': False, 'error': f'exception:{e}', 'message_id': mail.id}
+        self.sudo().write({
+            'sp_pdf_sent_at': fields.Datetime.now(),
+            'sp_pdf_sent_to_email': to_email,
+        })
+        _logger.info(
+            'SendPulse Odo: F13 PDF sent to %s for connect %s', to_email, self.id,
+        )
+        return {'ok': True, 'error': None, 'message_id': mail.id}
+
+    def _generate_and_send_sms_coupon(self, to_phone=None):
+        """
+        Надсилає SMS зі shared-купоном lead_magnet_coupon_program_id.
+        Один код на всіх клієнтів — спільний pool, Odoo loyalty знижує
+        points на кожному використанні.
+
+        Повертає {'ok', 'error', 'code', 'remaining', 'expires'}.
+        Ідемпотентно — якщо клієнту SMS уже надіслано, повертає existing.
+        """
+        self.ensure_one()
+        ICP = self.env['ir.config_parameter'].sudo()
+        empty = {'ok': False, 'error': '', 'code': '', 'remaining': 0, 'expires': ''}
+        if ICP.get_param('odoo_chatwoot_connector.lead_magnet_enabled', 'False') != 'True':
+            return {**empty, 'error': 'disabled'}
+        to_phone = (to_phone or
+                    (self.partner_id.mobile or self.partner_id.phone
+                     if self.partner_id else '') or '').strip()
+        if not to_phone:
+            return {**empty, 'error': 'no_phone'}
+        # Idempotency: той самий клієнт — той самий код (shared pool)
+        if self.sp_coupon_code and self.sp_coupon_sent_at:
+            return {**empty, 'ok': True, 'error': 'already_sent',
+                    'code': self.sp_coupon_code}
+
+        program_id_raw = ICP.get_param('odoo_chatwoot_connector.lead_magnet_coupon_program_id', '')
+        try:
+            program_id = int(program_id_raw)
+        except (TypeError, ValueError):
+            return {**empty, 'error': 'no_program_configured'}
+        program = self.env['loyalty.program'].sudo().browse(program_id)
+        if not program.exists():
+            return {**empty, 'error': 'program_missing'}
+
+        # Беремо shared card програми (перший active card з points > 0).
+        # Якщо нема — fallback: створюємо одну spільну.
+        card = self.env['loyalty.card'].sudo().search(
+            [('program_id', '=', program.id), ('points', '>', 0)],
+            order='id', limit=1,
+        )
+        if not card:
+            card = self.env['loyalty.card'].sudo().search(
+                [('program_id', '=', program.id)],
+                order='id desc', limit=1,
+            )
+            if not card:
+                try:
+                    card = self.env['loyalty.card'].sudo().create({
+                        'program_id': program.id,
+                        'points': 100.0,
+                    })
+                except Exception as e:
+                    return {**empty, 'error': f'coupon_create:{e}'}
+        code = card.code
+        remaining = int(card.points) if card.points is not None else 0
+        expires_str = card.expiration_date.strftime('%d.%m.%Y') if card.expiration_date else ''
+
+        if remaining <= 0:
+            return {**empty, 'error': 'coupon_exhausted', 'code': code,
+                    'expires': expires_str}
+
+        # Compose SMS text
+        sms_tmpl = ICP.get_param(
+            'odoo_chatwoot_connector.lead_magnet_sms_template',
+            '',
+        ) or (
+            'CampScout: код 5% знижки — {code}. Залишилось {remaining} '
+            'купонів! Діє до {expires}. Оформляйте: campscout.eu'
+        )
+        sms_text = (sms_tmpl.replace('{code}', code)
+                            .replace('{remaining}', str(remaining))
+                            .replace('{expires}', expires_str or '01.07.2026'))
+
+        # Send via kw_sms_api (TurboSMS) — sms.sms record with kw_sms_provider_id set
+        sms_provider_id = ICP.get_param('odoo_chatwoot_connector.sms_provider_id', '')
+        try:
+            sms_provider_id = int(sms_provider_id)
+        except (TypeError, ValueError):
+            sms_provider_id = False
+
+        sms_vals = {
+            'number': to_phone,
+            'body': sms_text[:300],
+            'partner_id': self.partner_id.id if self.partner_id else False,
+        }
+        # kw_sms_api додає поле kw_sms_provider_id — ставимо якщо налаштовано
+        if sms_provider_id and 'kw_sms_provider_id' in self.env['sms.sms']._fields:
+            sms_vals['kw_sms_provider_id'] = sms_provider_id
+        try:
+            sms = self.env['sms.sms'].sudo().create(sms_vals)
+            sms.send()
+        except Exception as e:
+            _logger.warning('SendPulse Odo: F13 SMS send exception — %s', e)
+            return {'ok': False, 'error': f'sms_send:{e}', 'code': code}
+
+        self.sudo().write({
+            'sp_coupon_code': code,
+            'sp_coupon_sent_at': fields.Datetime.now(),
+            'sp_coupon_sent_to_phone': to_phone,
+        })
+        _logger.info(
+            'SendPulse Odo: F13 coupon %s sent to %s for connect %s (remaining=%d)',
+            code, to_phone, self.id, remaining,
+        )
+        return {'ok': True, 'error': None, 'code': code,
+                'remaining': remaining, 'expires': expires_str}
+
+    @api.model
+    def send_pdf_catalog_for_channel(self, channel_id, to_email=None):
+        """RPC для OWL-панелі. Надсилає PDF-каталог на email."""
+        connect = self.search([('channel_id', '=', channel_id)], limit=1)
+        if not connect:
+            return {'ok': False, 'error': 'no_connect', 'message_id': None}
+        return connect._send_pdf_catalog_email(to_email=to_email)
+
+    @api.model
+    def send_sms_coupon_for_channel(self, channel_id, to_phone=None):
+        """RPC для OWL-панелі. Генерує coupon + SMS."""
+        connect = self.search([('channel_id', '=', channel_id)], limit=1)
+        if not connect:
+            return {'ok': False, 'error': 'no_connect', 'code': ''}
+        return connect._generate_and_send_sms_coupon(to_phone=to_phone)
 
     # ── V2 F1: RAG FAQ auto-answer ────────────────────────────────────────
     def _rag_answer_question(self, question_text, contact_name=''):

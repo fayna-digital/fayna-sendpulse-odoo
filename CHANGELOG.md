@@ -4,6 +4,42 @@
 
 ---
 
+## [2026-04-21] — v17.0.10.0
+
+### F13 Lead magnet: PDF-каталог на email + SMS-купон (backend)
+
+Нова велика фіча — клієнт отримує або PDF-каталог на email, або промокод 5% SMS-ом, в обмін на контакт.
+
+**Архітектура:**
+
+- `sendpulse.connect` tracking fields: `sp_pdf_sent_at`, `sp_pdf_sent_to_email`, `sp_coupon_code`, `sp_coupon_sent_at`, `sp_coupon_sent_to_phone`.
+- **PDF-email** (`_send_pdf_catalog_email(to_email)`) — через `mail.mail` з ir.attachment. Template HTML з placeholders `{name}`, `{code}`, `{remaining}`, `{expires}`. Ідемпотентно — не надсилає двічі на той самий email.
+- **SMS-купон** (`_generate_and_send_sms_coupon(to_phone)`) — бере **spільну loyalty.card** з налаштованої програми (один код на всіх — shared pool). Відправка через `kw_sms_api` (TurboSMS) як `sms.sms` з `kw_sms_provider_id` з Settings.
+- SMS template з placeholders `{code}`, `{remaining}` (points на картці програми), `{expires}` (expiration_date картки) — scarcity-тригер «залишилось N купонів, хто встиг — той виграв».
+- RPC endpoints для OWL-панелі (наступний реліз): `send_pdf_catalog_for_channel`, `send_sms_coupon_for_channel`.
+
+**Settings:**
+
+- Master-switch `lead_magnet_enabled` (default False).
+- `lead_magnet_pdf_attachment_id` Many2one на `ir.attachment` (domain mime=pdf).
+- `lead_magnet_email_subject` / `lead_magnet_email_body_html` — шаблон email.
+- `lead_magnet_coupon_program_id` Many2one на `loyalty.program` (domain: coupons/promo_code, active).
+- `lead_magnet_sms_template` — шаблон SMS з placeholders.
+- `sms_provider_id_setting` — ID з `kw_sms_provider` (TurboSMS=2 за замовчуванням на проді).
+
+**Залиті дані на проді:**
+
+- `ir.attachment` ID 37929 — `CampScout-Oferta-2026.pdf` (8 MB, стиснуто з 44 MB через Ghostscript /screen preset).
+- Програма-купон на вибір: `Early Bird Promo 2026` id=19 (5%, coupons, shared card з points=91, expires=2026-06-20).
+
+**Scarcity-логіка (shared coupon pool):**
+
+Один код `0449-fa20-49c8` для всіх клієнтів. Коли клієнт застосовує код при checkout → Odoo loyalty автоматично зменшує `points`. У SMS/email показуємо актуальний залишок. При 0 — код перестає діяти.
+
+**Frontend (OWL-кнопки)** — наступний коміт v17.0.10.1.
+
+---
+
 ## [2026-04-21] — v17.0.9.0
 
 ### F12 AI context enrichment через email-ідентифікацію
