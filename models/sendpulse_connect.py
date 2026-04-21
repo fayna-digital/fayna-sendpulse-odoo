@@ -2272,6 +2272,116 @@ class SendpulseConnect(models.Model):
             return []
         return connect._generate_reply_suggestions(count=count)
 
+    # ── V2 F11: Auto-translate UA↔PL через Claude ────────────────────────
+    def _translate_text(self, text, target_lang='pl'):
+        """
+        Перекладає текст на target_lang через Claude. Повертає dict:
+        {translated: str, source_lang: str, error: str or None}.
+        No-op якщо toggle вимкнено або API key відсутній.
+        """
+        if not text or not text.strip():
+            return {'translated': '', 'source_lang': '', 'error': 'empty_input'}
+        ICP = self.env['ir.config_parameter'].sudo()
+        if ICP.get_param('odoo_chatwoot_connector.auto_translate_enabled', 'False') != 'True':
+            return {'translated': '', 'source_lang': '', 'error': 'disabled'}
+        api_key = ICP.get_param('odoo_chatwoot_connector.anthropic_api_key', '')
+        if not api_key:
+            return {'translated': '', 'source_lang': '', 'error': 'no_api_key'}
+
+        model = ICP.get_param('odoo_chatwoot_connector.llm_model', 'claude-haiku-4-5')
+        target_full = {'pl': 'польську', 'uk': 'українську', 'en': 'англійську', 'ru': 'російську'}.get(
+            target_lang, target_lang
+        )
+        prompt = (
+            f"Визнач мову вхідного тексту і переклади його на {target_full}.\n"
+            f"Якщо текст уже на цільовій мові — поверни його без змін.\n"
+            f"Стиль розмовний, природній (клієнтсько-операторський чат).\n"
+            f"Зберігай емодзі, URL, цифри, імена власні.\n\n"
+            f"Вхідний текст:\n\"\"\"\n{text[:2000]}\n\"\"\"\n\n"
+            f"Формат — STRICT JSON:\n"
+            f'{{"source_lang": "uk|pl|en|ru|...", "translated": "переклад"}}\n'
+            f"Поверни ТІЛЬКИ JSON без пояснень."
+        )
+        try:
+            resp = requests.post(
+                'https://api.anthropic.com/v1/messages',
+                headers={
+                    'x-api-key': api_key,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
+                },
+                json={
+                    'model': model,
+                    'max_tokens': 2000,
+                    'messages': [{'role': 'user', 'content': prompt}],
+                },
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                _logger.warning(
+                    'SendPulse Odo: translate HTTP %d — %s',
+                    resp.status_code, resp.text[:200],
+                )
+                return {'translated': '', 'source_lang': '', 'error': f'http_{resp.status_code}'}
+            raw = (resp.json().get('content') or [{}])[0].get('text', '').strip()
+            import json as _json
+            import re as _re
+            cleaned = _re.sub(r'^```(?:json)?\s*|\s*```$', '', raw, flags=_re.MULTILINE).strip()
+            data = None
+            try:
+                data = _json.loads(cleaned)
+            except Exception:
+                start = cleaned.find('{')
+                if start >= 0:
+                    depth = 0
+                    for i, ch in enumerate(cleaned[start:], start=start):
+                        if ch == '{':
+                            depth += 1
+                        elif ch == '}':
+                            depth -= 1
+                            if depth == 0:
+                                try:
+                                    data = _json.loads(cleaned[start:i+1])
+                                except Exception:
+                                    pass
+                                break
+            if not isinstance(data, dict):
+                _logger.warning('SendPulse Odo: translate parse failed. RAW=%s', raw[:300])
+                return {'translated': '', 'source_lang': '', 'error': 'parse_failed'}
+            return {
+                'translated': (data.get('translated') or '').strip(),
+                'source_lang': (data.get('source_lang') or '').strip().lower(),
+                'error': None,
+            }
+        except Exception as e:
+            _logger.warning('SendPulse Odo: translate exception — %s', e)
+            return {'translated': '', 'source_lang': '', 'error': f'exception:{e}'}
+
+    @api.model
+    def translate_last_inbound_for_channel(self, channel_id, target_lang='pl'):
+        """
+        RPC для OWL-панелі. Перекладає останнє incoming повідомлення у
+        channel на target_lang. Повертає {'translated', 'source_lang',
+        'original', 'error'}.
+        """
+        empty = {'translated': '', 'source_lang': '', 'original': '', 'error': None}
+        connect = self.search([('channel_id', '=', channel_id)], limit=1)
+        if not connect:
+            return {**empty, 'error': 'no_connect'}
+        last_in = connect.message_ids.filtered(
+            lambda m: m.direction == 'incoming' and (m.text_message or '').strip()
+        ).sorted('date', reverse=True)[:1]
+        if not last_in:
+            return {**empty, 'error': 'no_inbound'}
+        text = (last_in.text_message or '').strip()
+        result = connect._translate_text(text, target_lang=target_lang)
+        return {
+            'translated': result['translated'],
+            'source_lang': result['source_lang'],
+            'original': text[:2000],
+            'error': result['error'],
+        }
+
     # ── V2 F1: RAG FAQ auto-answer ────────────────────────────────────────
     def _rag_answer_question(self, question_text, contact_name=''):
         """

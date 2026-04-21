@@ -167,6 +167,58 @@
                     </div>
                 </t>
 
+                <!-- F11: Переклад останнього вхідного -->
+                <div class="px-3 py-2 border-top">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="text-muted small text-uppercase fw-semibold">
+                            🌐 Переклад
+                        </div>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-outline-secondary"
+                                    t-on-click="() => this.onTranslate('pl')"
+                                    t-att-disabled="state.translateLoading">
+                                → PL
+                            </button>
+                            <button class="btn btn-outline-secondary"
+                                    t-on-click="() => this.onTranslate('uk')"
+                                    t-att-disabled="state.translateLoading">
+                                → UK
+                            </button>
+                        </div>
+                    </div>
+                    <t t-if="state.translateLoading">
+                        <div class="text-muted small text-center py-2">
+                            <i class="fa fa-spinner fa-spin"/> Перекладаю...
+                        </div>
+                    </t>
+                    <t t-if="state.translateError">
+                        <div class="text-muted small">
+                            <t t-esc="state.translateError"/>
+                        </div>
+                    </t>
+                    <t t-if="state.translatedText">
+                        <div class="text-muted small mb-1" style="font-size: 10px;">
+                            З <t t-esc="state.translateSourceLang || '?'"/>
+                            · клік — копіювати
+                        </div>
+                        <div class="border rounded p-2 small"
+                             style="cursor: pointer; background: #f8f9fa; white-space: pre-wrap;"
+                             t-on-click="onCopyTranslation">
+                            <div class="d-flex justify-content-between gap-2">
+                                <div style="flex: 1;" t-esc="state.translatedText"/>
+                                <t t-if="state.translateCopied">
+                                    <span class="badge text-bg-success flex-shrink-0">
+                                        <i class="fa fa-check"/>
+                                    </span>
+                                </t>
+                                <t t-else="">
+                                    <i class="fa fa-copy text-muted flex-shrink-0 mt-1"/>
+                                </t>
+                            </div>
+                        </div>
+                    </t>
+                </div>
+
                 <!-- F10: AI Suggested Replies -->
                 <div class="px-3 py-2 border-top">
                     <div class="d-flex align-items-center justify-content-between mb-2">

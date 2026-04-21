@@ -348,6 +348,16 @@
                                 </small>
                             </div>
                         </group>
+                        <group string="Авто-переклад UA↔PL (F11)">
+                            <field name="auto_translate_enabled"/>
+                            <div colspan="2">
+                                <small class="text-muted">
+                                    У SendPulse-панелі Discuss показує кнопки «→ PL» / «→ UK»
+                                    для останнього повідомлення клієнта.
+                                    Переклад через Claude Haiku. Потребує anthropic_api_key.
+                                </small>
+                            </div>
+                        </group>
                         <group string="Drip campaigns (F2)">
                             <field name="drip_enabled"/>
                             <field name="drip_reminder_6h_enabled"/>

@@ -27,6 +27,11 @@ export class SendpulseInfoPanel extends Component {
             suggestLoading: false,
             suggestError: false,
             copiedIdx: null,
+            translatedText: "",
+            translateSourceLang: "",
+            translateLoading: false,
+            translateError: "",
+            translateCopied: false,
         });
 
         onWillStart(async () => {
@@ -133,6 +138,64 @@ export class SendpulseInfoPanel extends Component {
             this.state.suggestError = true;
         } finally {
             this.state.suggestLoading = false;
+        }
+    }
+
+    /**
+     * F11: Перекласти останнє вхідне повідомлення клієнта на target_lang.
+     */
+    async onTranslate(targetLang) {
+        if (!this.props.thread?.id) return;
+        this.state.translateLoading = true;
+        this.state.translateError = "";
+        this.state.translatedText = "";
+        this.state.translateSourceLang = "";
+        this.state.translateCopied = false;
+        try {
+            const result = await this.orm.call(
+                "sendpulse.connect",
+                "translate_last_inbound_for_channel",
+                [this.props.thread.id, targetLang],
+            );
+            if (result?.error) {
+                const errMap = {
+                    disabled: "Переклад вимкнено у Settings",
+                    no_api_key: "Anthropic API key не налаштовано",
+                    no_inbound: "Немає вхідних повідомлень",
+                    no_connect: "Контакт не знайдено",
+                    parse_failed: "Не вдалось розібрати відповідь LLM",
+                };
+                this.state.translateError = errMap[result.error] || result.error;
+                return;
+            }
+            this.state.translatedText = result?.translated || "";
+            this.state.translateSourceLang = result?.source_lang || "";
+            if (!this.state.translatedText) {
+                this.state.translateError = "Порожня відповідь";
+            }
+        } catch (e) {
+            console.error("SendpulseInfoPanel: translate failed", e);
+            this.state.translateError = "Помилка RPC";
+        } finally {
+            this.state.translateLoading = false;
+        }
+    }
+
+    async onCopyTranslation() {
+        const text = this.state.translatedText;
+        if (!text) return;
+        try {
+            await browser.navigator.clipboard.writeText(text);
+            this.state.translateCopied = true;
+            this.notification.add("Переклад скопійовано — вставляйте у композер (Cmd+V)", {
+                type: "success",
+            });
+            setTimeout(() => {
+                this.state.translateCopied = false;
+            }, 2500);
+        } catch (e) {
+            console.error("SendpulseInfoPanel: clipboard (translate) failed", e);
+            this.notification.add("Не вдалось скопіювати", { type: "danger" });
         }
     }
 
