@@ -46,11 +46,11 @@
                             <field name="last_used_at" readonly="1"/>
                         </group>
                     </group>
-                    <group string="Текст шаблону">
-                        <field name="text" nolabel="1"
-                               placeholder="Дякуємо за коментар! 🏕️ Написали у приватні. {landing_url}"/>
-                    </group>
-                    <div class="alert alert-info" role="alert">
+                    <separator string="Текст шаблону"/>
+                    <field name="text" nolabel="1"
+                           placeholder="Дякуємо за коментар! 🏕️ Написали у приватні. {landing_url}"
+                           options="{'rows': 4}"/>
+                    <div class="alert alert-info mt16" role="alert">
                         <strong>Placeholders:</strong>
                         <code>{landing_url}</code> — посилання на лендинг,
                         <code>{tg_url}</code> — ТГ-канал (беруться з Settings або FB Page).

@@ -4,6 +4,16 @@
 
 ---
 
+## [2026-04-21] — v17.0.7.1
+
+### UX fix: text-field width у form-views
+
+У формах `sendpulse.public.template` і `sendpulse.faq.entry` текстові поля (text/question/answer) були обгорнуті в `<group>`, через що рендерились у вузькій half-column колонці — текст переносився по одному-двом словам на рядок.
+
+Заміна на `<separator>` + `<field nolabel="1">` поза group → поле розтягується на всю ширину sheet. Додано `options="{'rows': ...}"` для керованої висоти.
+
+---
+
 ## [2026-04-21] — v17.0.7.0
 
 ### F9 A/B шаблони публічних відповідей з conversion tracking
