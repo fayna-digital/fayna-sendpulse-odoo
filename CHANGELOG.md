@@ -4,6 +4,35 @@
 
 ---
 
+## [2026-04-21] — v17.0.10.1
+
+### Fix: race condition → дублі `sendpulse.connect` на одного контакта
+
+Поточний incident: Yulia Kolesnyk (Instagram, contact=69e78d68bb641b63820d6b8a) — два записи 429 і 430, створені за 164 мс двома workers (34 і 33) з подій `new_subscriber` + `incoming_message`. Advisory_xact_lock не серіалізував через Odoo cache (search після lock повертав stale state).
+
+**Три рівні захисту тепер:**
+
+1. **Postgres partial unique index** (hard lock, init()):
+   ```sql
+   CREATE UNIQUE INDEX sendpulse_connect_active_contact_service_uniq
+     ON sendpulse_connect (sendpulse_contact_id, service)
+     WHERE stage != 'close' AND sendpulse_contact_id NOT NULL
+   ```
+   Фізично не дозволить створити дубль на БД-рівні.
+
+2. **Flush + invalidate після advisory_lock** — `env.flush_all() + env.invalidate_all()` після взяття lock. Гарантує що search повертає актуальний стан (включно з записом який commit-нув інший worker).
+
+3. **IntegrityError handler з savepoint** — якщо попри все unique index триггерить при create, ловимо через `cr.savepoint() + except IntegrityError`, invalidate cache, пере-search → використовуємо existing.
+
+**Hot-fix уже виконано:**
+
+- Merge 3 messages + 1 sendpulse.message з connect 430 → 429
+- Merge partner 14186 → 14185 (FK переведені, 14186 unlinked)
+- channel 5331 unlinked, connect 430 unlinked
+- Remaining: connect 429, partner 14185, channel 5330
+
+---
+
 ## [2026-04-21] — v17.0.10.0
 
 ### F13 Lead magnet: PDF-каталог на email + SMS-купон (backend)
