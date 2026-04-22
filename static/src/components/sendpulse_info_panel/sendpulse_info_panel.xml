@@ -139,10 +139,30 @@
                 <t t-if="state.connect.partner">
                     <div class="px-3 py-2">
                         <div class="text-muted small text-uppercase fw-semibold mb-2">Клієнт Odoo</div>
-                        <div class="d-flex gap-2 mb-1 small">
-                            <i class="fa fa-user-circle text-success mt-1" style="width:14px;"/>
-                            <span class="text-success fw-semibold" t-esc="state.connect.partner.name"/>
+                        <div class="d-flex gap-2 mb-1 small align-items-center">
+                            <i t-attf-class="fa fa-user-circle mt-1 {{ state.connect.partner.active ? 'text-success' : 'text-danger' }}" style="width:14px;"/>
+                            <span t-attf-class="fw-semibold {{ state.connect.partner.active ? 'text-success' : 'text-danger' }}" t-esc="state.connect.partner.name"/>
                         </div>
+                        <t t-if="!state.connect.partner.active">
+                            <div class="alert alert-danger py-2 px-2 mb-2 small" role="alert">
+                                <div class="fw-semibold mb-1">
+                                    <i class="fa fa-archive"/> Контакт в архіві
+                                </div>
+                                <div class="text-muted mb-2" style="font-size:11px;">
+                                    Фото клієнта не відображається у чаті, поки картка архівована.
+                                </div>
+                                <button class="btn btn-sm btn-danger w-100"
+                                        t-on-click="onUnarchivePartner"
+                                        t-att-disabled="state.unarchiveLoading">
+                                    <t t-if="state.unarchiveLoading">
+                                        <i class="fa fa-spinner fa-spin"/> Розархівую...
+                                    </t>
+                                    <t t-else="">
+                                        <i class="fa fa-undo"/> Розархівувати
+                                    </t>
+                                </button>
+                            </div>
+                        </t>
                         <t t-if="state.connect.partner.email">
                             <div class="d-flex gap-2 mb-1 small">
                                 <i class="fa fa-envelope text-muted mt-1" style="width:14px;"/>
