@@ -149,7 +149,7 @@
                                     <i class="fa fa-archive"/> Контакт в архіві
                                 </div>
                                 <div class="text-muted mb-2" style="font-size:11px;">
-                                    Фото клієнта не відображається у чаті, поки картка архівована.
+                                    Ймовірно потрапив автоматично через bulk-правило «порожні картки». Перевір і розархівуй, якщо клієнт активний.
                                 </div>
                                 <button class="btn btn-sm btn-danger w-100"
                                         t-on-click="onUnarchivePartner"
