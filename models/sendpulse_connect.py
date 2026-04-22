@@ -2827,7 +2827,7 @@ class SendpulseConnect(models.Model):
             last_in_msg = self.env['sendpulse.message'].sudo().search([
                 ('connect_id', '=', self.id),
                 ('direction', '=', 'incoming'),
-            ], order='sent_at desc, id desc', limit=1)
+            ], order='date desc, id desc', limit=1)
             ConsentLog.record_consent(
                 purpose='lead_magnet_email',
                 channel='email',
@@ -3023,7 +3023,7 @@ class SendpulseConnect(models.Model):
             last_in_msg = self.env['sendpulse.message'].sudo().search([
                 ('connect_id', '=', self.id),
                 ('direction', '=', 'incoming'),
-            ], order='sent_at desc, id desc', limit=1)
+            ], order='date desc, id desc', limit=1)
             ConsentLog.record_consent(
                 purpose='lead_magnet_sms',
                 channel='sms',
