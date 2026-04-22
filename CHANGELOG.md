@@ -4,6 +4,28 @@
 
 ---
 
+## [2026-04-22] — v17.0.14.1
+
+### Bugfix: прибрано дубль імені контакта в Discuss bubble
+
+**Симптом:** у чатах SendPulse кожне вхідне повідомлення клієнта рендерилось з ім'ям двічі — один раз у header bubble (його Discuss малює з `author_id`), другий раз всередині тексту повідомлення як `<b>👤 {name}</b><br/>`. Виглядало як шум у кожному bubble; крім того, preview reply-message у Discuss показував цей префікс замість реального тексту, через що функція reply виглядала поламано.
+
+**Причина:** модуль у webhook handler вставляв у `body` message_post-у префікс `<b>👤 {contact_name}</b>`, хоча Discuss уже показує ім'я автора з `author_id.name`.
+
+**Фікс** у `models/sendpulse_connect.py`:
+- Чотири гілки incoming-handler-у (image/media-with-attachment/media-fallback/text) — прибрано префікс з `body`. Тепер у body тільки attachment або чистий escape(text).
+- Backfill flow (`_process_outgoing_event` → incoming backfill) — також без ім'я; залишено позначку `(backfill — SendPulse пропустив webhook)`.
+
+**Старі повідомлення** у БД залишаються з дублем (історія). Якщо треба почистити — одноразовий UPDATE по `mail_message.body` з regex.
+
+**Також додано (підготовка до v17.0.15 badge-фічі, без JS-активації):**
+- `get_connect_for_channel` повертає `partner.active` у dict.
+- Новий RPC-метод `unarchive_partner_for_channel(channel_id)` — для майбутньої кнопки "Розархівувати" в InfoPanel.
+
+Ці два додатки поки не використовуються фронтендом (JS/XML зміни підуть окремо через staging).
+
+---
+
 ## [2026-04-21] — v17.0.13.0
 
 ### F13b: RODO/GDPR consent audit log + enforcement
