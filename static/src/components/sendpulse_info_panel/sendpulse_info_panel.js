@@ -40,6 +40,7 @@ export class SendpulseInfoPanel extends Component {
             smsLoading: false,
             smsError: "",
             smsSuccess: null,
+            unarchiveLoading: false,
         });
 
         onWillStart(async () => {
@@ -170,6 +171,34 @@ export class SendpulseInfoPanel extends Component {
             await this._loadConnect(this.props.thread.id);
         } catch (e) {
             console.error("SendpulseInfoPanel: refresh failed", e);
+        }
+    }
+
+    async onUnarchivePartner() {
+        if (!this.props.thread?.id) return;
+        this.state.unarchiveLoading = true;
+        try {
+            const result = await this.orm.call(
+                "sendpulse.connect",
+                "unarchive_partner_for_channel",
+                [this.props.thread.id],
+            );
+            if (result?.ok) {
+                this.notification.add(
+                    result.already_active
+                        ? "Контакт вже активний"
+                        : `Розархівовано: ${result.partner_name || "контакт"}`,
+                    { type: "success" }
+                );
+                await this._loadConnect(this.props.thread.id);
+            } else {
+                this.notification.add("Не вдалося розархівувати", { type: "danger" });
+            }
+        } catch (e) {
+            console.error("SendpulseInfoPanel: unarchive failed", e);
+            this.notification.add("Помилка RPC", { type: "danger" });
+        } finally {
+            this.state.unarchiveLoading = false;
         }
     }
 

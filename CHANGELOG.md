@@ -4,6 +4,30 @@
 
 ---
 
+## [2026-04-22] — v17.0.14.2
+
+### UX: badge "Контакт в архіві" у SendPulse InfoPanel + one-click "Розархівувати"
+
+**Контекст:** пару днів тому запроваджена категорія тегу "порожні картки" + bulk-архівація контактів без даних. Через неї у архіві опинилось багато **живих клієнтів** SendPulse (напр. `res.partner.id=13973` «Психотерапевт Тетяна Шапошник»). Odoo Discuss не показує аватар archived partner-а у bubble — виглядає як "пропало фото у чаті".
+
+**Що додано:**
+- У правій InfoPanel (поруч з фото/ПЕРЕКЛАД/PDF-каталог/SMS-купон) у блоці "Клієнт Odoo":
+  - Якщо `partner.active = False` — ім'я і іконка підсвічуються червоним.
+  - Показується `alert-danger` з текстом «📦 Контакт в архіві» + пояснення «Фото клієнта не відображається у чаті, поки картка архівована».
+  - Кнопка «↩ Розархівувати» → RPC → `partner.write({'active': True})` → panel reloads → фото повертається у bubble відразу.
+- Клієнт цього **не бачить** — це Odoo backend UI, не SendPulse. У SendPulse йдуть тільки звичайні повідомлення оператора.
+
+**Файли:**
+- `static/src/components/sendpulse_info_panel/sendpulse_info_panel.js` — state `unarchiveLoading` + action `onUnarchivePartner()`.
+- `static/src/components/sendpulse_info_panel/sendpulse_info_panel.xml` — червона alert-секція з кнопкою.
+- Serverний RPC `unarchive_partner_for_channel()` і поле `partner.active` у `get_connect_for_channel()` уже були задеплоєні в v17.0.14.1.
+
+**Future work:**
+- Увімкнути tracking на `res.partner.active` (`ir.model.fields`) щоб бачити хто архівує і коли.
+- Розібратись з bulk-правилом "порожні картки" — щоб не захоплювало активних чат-контактів.
+
+---
+
 ## [2026-04-22] — v17.0.14.1
 
 ### Bugfix: прибрано дубль імені контакта в Discuss bubble
