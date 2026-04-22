@@ -1213,10 +1213,10 @@ class SendpulseConnect(models.Model):
                     att = connect._download_media_as_attachment(last_message)
 
                 if is_image and att:
-                    # Фото/стікер — скачали і показуємо як attachment
-                    body = Markup("<b>👤 {}</b>").format(escape(contact_name))
+                    # Фото/стікер — скачали і показуємо як attachment.
+                    # Імʼя автора Discuss малює у header bubble з author_id — у body дублювати не треба.
                     connect.channel_id.with_context(sendpulse_incoming=True).message_post(
-                        body=body,
+                        body='',
                         attachment_ids=[att.id],
                         author_id=author_partner.id if author_partner else False,
                         message_type='comment',
@@ -1226,9 +1226,7 @@ class SendpulseConnect(models.Model):
                     icon = media_icons.get(msg_type, '📎')
                     base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
                     file_url = f"{base_url}/web/content/{att.id}?access_token={att.access_token}"
-                    body = Markup("<b>👤 {}</b><br/>{} <a href='{}' target='_blank'>Вкладення</a>").format(
-                        escape(contact_name), icon, file_url,
-                    )
+                    body = Markup("{} <a href='{}' target='_blank'>Вкладення</a>").format(icon, file_url)
                     connect.channel_id.with_context(sendpulse_incoming=True).message_post(
                         body=body,
                         author_id=author_partner.id if author_partner else False,
@@ -1239,11 +1237,9 @@ class SendpulseConnect(models.Model):
                     # Текст або fallback якщо медіа не вдалося завантажити
                     if is_media:
                         icon = media_icons.get(msg_type, '📎')
-                        body = Markup("<b>👤 {}</b><br/>{} <a href='{}' target='_blank'>Вкладення</a>").format(
-                            escape(contact_name), icon, last_message,
-                        )
+                        body = Markup("{} <a href='{}' target='_blank'>Вкладення</a>").format(icon, last_message)
                     else:
-                        body = Markup("<b>👤 {}</b><br/>{}").format(escape(contact_name), escape(last_message))
+                        body = escape(last_message)
                     connect.channel_id.with_context(sendpulse_incoming=True).message_post(
                         body=body,
                         author_id=author_partner.id if author_partner else False,
@@ -4108,8 +4104,8 @@ class SendpulseConnect(models.Model):
                 sendpulse_incoming=True
             ).message_post(
                 body=Markup(
-                    "<p>👤 <strong>{}</strong> <em>(backfill — SendPulse пропустив webhook)</em><br/>{}</p>"
-                ).format(escape(connect.name or 'Клієнт'), escape(last_message)),
+                    "<p><em>(backfill — SendPulse пропустив webhook)</em><br/>{}</p>"
+                ).format(escape(last_message)),
                 author_id=author_id,
                 message_type='comment',
                 subtype_xmlid='mail.mt_comment',
@@ -4449,12 +4445,13 @@ class SendpulseConnect(models.Model):
             'coupon_sent_to_phone': connect.sp_coupon_sent_to_phone or '',
         }
         if connect.partner_id:
-            p = connect.partner_id
+            p = connect.partner_id.sudo().with_context(active_test=False)
             result['partner'] = {
                 'id': p.id,
                 'name': p.name,
                 'email': p.email or '',
                 'phone': p.phone or p.mobile or '',
+                'active': bool(p.active),
             }
         # F13: prefill values для кнопок — беремо існуючий email/phone
         result['prefill_email'] = (
@@ -4472,6 +4469,21 @@ class SendpulseConnect(models.Model):
             ICP.get_param('odoo_chatwoot_connector.lead_magnet_enabled', 'False') == 'True'
         )
         return result
+
+    def unarchive_partner_for_channel(self, channel_id):
+        """
+        Розархівує partner прив'язаний до SendPulse-каналу. Викликається з InfoPanel,
+        коли оператор клацає «Розархівувати» над badge "Контакт в архіві".
+        Discuss не показує аватар archived партнера у bubble — цей метод повертає видимість.
+        """
+        connect = self.search([('channel_id', '=', channel_id)], limit=1)
+        if not connect or not connect.partner_id:
+            return {'ok': False, 'error': 'no_partner'}
+        p = connect.partner_id.sudo().with_context(active_test=False)
+        if p.active:
+            return {'ok': True, 'already_active': True}
+        p.write({'active': True})
+        return {'ok': True, 'partner_id': p.id, 'partner_name': p.name}
 
     # Ліміти SendPulse API по довжині тексту (chars). Перевищення → 400 (#100).
     _SERVICE_TEXT_LIMITS = {
