@@ -174,6 +174,27 @@ class SendpulsePrivacyConsentLog(models.Model):
             'GRANTED' if consent_given else 'WITHDRAWN',
             purpose, channel, partner_id, email, phone, rec.id,
         )
+        # Dual-write: mirror у generic fayna.rodo.consent.log.
+        # Покрокова міграція — generic модель єдине джерело правди
+        # для нових інтеграцій, legacy таблиця ще підтримується
+        # для backward-compat поточного flow.
+        generic = self.env.get('fayna.rodo.consent.log')
+        if generic is not None:
+            try:
+                generic.sudo().record_consent(
+                    purpose=purpose, channel=channel,
+                    partner_id=partner_id or False,
+                    email=email or False, phone=phone or False,
+                    consent_given=consent_given,
+                    exact_response=exact_response or '',
+                    legal_basis=legal_basis,
+                    source=source,
+                    evidence_model='sendpulse.message' if message_id else False,
+                    evidence_id=message_id or False,
+                    notes=notes or '',
+                )
+            except Exception as e:
+                _logger.warning('fayna.rodo mirror failed (non-fatal): %s', e)
         return rec
 
     @api.model
