@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 import logging
-import requests
 
-from odoo import models, fields, api, _
+import requests
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -42,10 +41,12 @@ class SendpulseFacebookPage(models.Model):
     def _check_single_default(self):
         for rec in self:
             if rec.is_default:
-                others = self.search([
-                    ('id', '!=', rec.id),
-                    ('is_default', '=', True),
-                ])
+                others = self.search(
+                    [
+                        ('id', '!=', rec.id),
+                        ('is_default', '=', True),
+                    ]
+                )
                 if others:
                     others.write({'is_default': False})
 

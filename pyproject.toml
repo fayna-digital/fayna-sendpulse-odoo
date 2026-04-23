@@ -1,0 +1,80 @@
+# Dev tooling config для Odoo 17 module `fayna_rodo_compliance`.
+# Sama модуль не є Python-пакетом (він Odoo module), тому [project] відсутній.
+# Тут тільки налаштування для ruff / pytest / coverage.
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+    "__pycache__",
+    "*.pot",
+    "*.po",
+    "migrations",
+    "static/lib",
+]
+
+[tool.ruff.lint]
+# E,F,W   — pycodestyle + pyflakes (baseline)
+# I       — isort (import ordering)
+# N       — pep8-naming
+# UP      — pyupgrade (modern syntax)
+# B       — flake8-bugbear (common bugs)
+# S       — flake8-bandit (security)
+# C4      — flake8-comprehensions
+# SIM     — flake8-simplify
+select = ["E", "F", "W", "I", "N", "UP", "B", "S", "C4", "SIM"]
+# Allow `assert` (S101) у тестах та стандартних Odoo ідіомах
+# E501 — line length, Odoo legacy має довгі рядки; ruff сам форматує через line-length
+# N806,N815 — Odoo domain-specific camelCase у деяких API (tree_views, _name)
+ignore = [
+    "E501",   # line-length handled by formatter
+    "N806",   # variable у функції — Odoo pattern `Partner = self.env['res.partner']` (model aliases)
+    "N815",   # mixedCase у class attributes (Odoo fields можуть бути camelCase у old style)
+    "S110",   # try/except/pass — defensive pattern у webhooks/cron (поступово замінюємо на logger.warning)
+    "S105",   # hardcoded password string — багато false positives у Odoo (field names contain 'password')
+    "S311",   # random — для A/B testing, не crypto
+    "S324",   # MD5 hash — SendPulse/Zadarma API signatures use MD5 (protocol requirement)
+    # TODO (tech debt — 2026-04-23):
+    "SIM102", # nested if → and — refactor gradually
+    "SIM105", # try/except/pass → contextlib.suppress
+    "SIM110", # for-loop → any() — readability improvement
+    "B023",   # closure in loop — audit за logic correctness
+    "B904",   # raise without from — exception chaining
+    "F841",   # unused variable — dead code cleanup
+]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fields.Char", "fields.Many2one", "fields.One2many"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S105", "S106", "S107"]  # asserts + hardcoded passwords у тестах ок
+"__manifest__.py" = ["S", "B018"]              # manifest file — bare dict literal (Odoo convention)
+"__init__.py" = ["F401", "N999"]               # Odoo init: F401 re-exports; N999 GitHub repo uses dashes у folder name, Python module use underscores у technical name
+"*/migrations/*" = ["ALL"]                     # migration scripts мають власну структуру
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra -q --strict-markers"
+markers = [
+    "slow: marks tests as slow",
+    "integration: Odoo integration tests requiring database",
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "*/tests/*",
+    "*/migrations/*",
+    "__manifest__.py",
+]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
+skip_covered = true

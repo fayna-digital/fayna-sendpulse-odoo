@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
-import logging
 import json
+import logging
 
 from odoo import http
-from odoo.http import request, Response
+from odoo.http import Response, request
 
 _logger = logging.getLogger(__name__)
 
@@ -13,13 +12,12 @@ EVENT_INCOMING_MSG = 'incoming_message'
 EVENT_OUTGOING_MSG = 'outbound_message'
 EVENT_OUTGOING_MSG2 = 'outgoing_message'
 EVENT_LIVE_CHAT = 'opened_live_chat'
-EVENT_OPEN_CHAT = 'open_chat'       # Messenger використовує 'open_chat' замість 'opened_live_chat'
+EVENT_OPEN_CHAT = 'open_chat'  # Messenger використовує 'open_chat' замість 'opened_live_chat'
 EVENT_UNSUBSCRIBE = 'bot_unsubscribe'
 EVENT_BLOCKED = 'bot_blocked'
 
 
 class SendpulseWebhookController(http.Controller):
-
     @http.route(
         '/sendpulse/webhook',
         type='http',
@@ -57,14 +55,17 @@ class SendpulseWebhookController(http.Controller):
           "date": 1617401679000
         }
         """
+
         def _json(data):
             return Response(json.dumps(data), content_type='application/json', status=200)
 
         try:
             # Token auth: налаштовується у ir.config_parameter → odoo_chatwoot_connector.webhook_token
             # Додай ?token=SECRET до webhook URL в SendPulse
-            expected_token = request.env['ir.config_parameter'].sudo().get_param(
-                'odoo_chatwoot_connector.webhook_token', ''
+            expected_token = (
+                request.env['ir.config_parameter']
+                .sudo()
+                .get_param('odoo_chatwoot_connector.webhook_token', '')
             )
             if expected_token:
                 provided_token = request.params.get('token', '')
@@ -95,22 +96,31 @@ class SendpulseWebhookController(http.Controller):
 
             _logger.info(
                 'SendPulse Odoo webhook: event=%s service=%s contact_id=%s',
-                event_type, service, contact.get('id'),
+                event_type,
+                service,
+                contact.get('id'),
             )
 
             # Зберігаємо сирі дані для відлагодження
-            request.env['sendpulse.webhook.data'].sudo().create({
-                'name': contact.get('name', 'Unknown'),
-                'sendpulse_contact_id': contact.get('id', ''),
-                'service': service,
-                'event_type': event_type,
-                'raw_data': json.dumps(data, ensure_ascii=False),
-                'bot_id': bot.get('id', ''),
-                'bot_name': bot.get('name', ''),
-            })
+            request.env['sendpulse.webhook.data'].sudo().create(
+                {
+                    'name': contact.get('name', 'Unknown'),
+                    'sendpulse_contact_id': contact.get('id', ''),
+                    'service': service,
+                    'event_type': event_type,
+                    'raw_data': json.dumps(data, ensure_ascii=False),
+                    'bot_id': bot.get('id', ''),
+                    'bot_name': bot.get('name', ''),
+                }
+            )
 
             # Обробляємо події
-            if event_type in (EVENT_NEW_SUBSCRIBER, EVENT_INCOMING_MSG, EVENT_LIVE_CHAT, EVENT_OPEN_CHAT):
+            if event_type in (
+                EVENT_NEW_SUBSCRIBER,
+                EVENT_INCOMING_MSG,
+                EVENT_LIVE_CHAT,
+                EVENT_OPEN_CHAT,
+            ):
                 request.env['sendpulse.connect'].sudo()._process_incoming_event(
                     data=data,
                     contact=contact,
