@@ -1,14 +1,12 @@
-# -*- coding: utf-8 -*-
 import base64
 import hashlib
 import logging
 import time
-import requests
 from datetime import datetime, timedelta
 
+import requests
 from markupsafe import Markup, escape
-
-from odoo import models, fields, api, _
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 from odoo.tools import plaintext2html
 
@@ -67,6 +65,7 @@ class SendpulseConnect(models.Model):
     Центральна модель розмови SendPulse.
     Кожна розмова = один запис тут + один discuss.channel в Odoo.
     """
+
     _name = 'sendpulse.connect'
     _description = 'SendPulse Розмова'
     _order = 'stage_sort asc, last_message_date desc'
@@ -88,13 +87,18 @@ class SendpulseConnect(models.Model):
 
     # ── Основні поля ────────────────────────────────────────────────────
     active = fields.Boolean(
-        string='Активна', default=True, index=True,
+        string='Активна',
+        default=True,
+        index=True,
         help='Знімається для soft-archive — запис ховається з default views '
-             'але зберігається у БД для історії.',
+        'але зберігається у БД для історії.',
     )
-    name = fields.Char(string='Ім\'я контакту', required=True, index=True)
+    name = fields.Char(string="Ім'я контакту", required=True, index=True)
     partner_id = fields.Many2one(
-        'res.partner', string='Клієнт', index=True, ondelete='set null',
+        'res.partner',
+        string='Клієнт',
+        index=True,
+        ondelete='set null',
         help='Порожньо = контакт ще не ідентифікований',
     )
     stage = fields.Selection(STAGE_SELECTION, string='Статус', default='new', index=True)
@@ -102,7 +106,8 @@ class SendpulseConnect(models.Model):
 
     # ── Дані з SendPulse ────────────────────────────────────────────────
     sendpulse_contact_id = fields.Char(
-        string='SendPulse Contact ID', index=True,
+        string='SendPulse Contact ID',
+        index=True,
         help='UUID контакту в SendPulse — головний ключ ідентифікації',
     )
     bot_id = fields.Char(string='Bot ID')
@@ -113,7 +118,7 @@ class SendpulseConnect(models.Model):
     # ── Ідентифікаційні дані соцмереж ───────────────────────────────────
     social_username = fields.Char(
         string='Username / Профіль',
-        help='Ім\'я користувача або посилання на профіль у соцмережах',
+        help="Ім'я користувача або посилання на профіль у соцмережах",
     )
     social_profile_url = fields.Char(
         string='URL профілю',
@@ -128,7 +133,7 @@ class SendpulseConnect(models.Model):
     # ── Змінні бота SendPulse ────────────────────────────────────────────
     sp_child_name = fields.Char(
         string="Ім'я дитини",
-        help="Змінна child_name зібрана ботом SendPulse",
+        help='Змінна child_name зібрана ботом SendPulse',
     )
     sp_booking_email = fields.Char(
         string='Email бронювання',
@@ -144,30 +149,38 @@ class SendpulseConnect(models.Model):
         string='Мова',
         help='Код мови контакту (наприклад: uk, en, ru)',
     )
-    subscription_status = fields.Selection([
-        ('active', 'Активний'),
-        ('unsubscribed', 'Відписаний'),
-        ('deleted', 'Видалений'),
-        ('unconfirmed', 'Непідтверджений'),
-    ], string='Статус підписки')
+    subscription_status = fields.Selection(
+        [
+            ('active', 'Активний'),
+            ('unsubscribed', 'Відписаний'),
+            ('deleted', 'Видалений'),
+            ('unconfirmed', 'Непідтверджений'),
+        ],
+        string='Статус підписки',
+    )
 
     # ── Odoo Discuss ────────────────────────────────────────────────────
     channel_id = fields.Many2one(
-        'discuss.channel', string='Discuss Канал',
+        'discuss.channel',
+        string='Discuss Канал',
         ondelete='set null',
     )
     user_ids = fields.Many2many(
-        'res.users', string='Оператори',
+        'res.users',
+        string='Оператори',
         domain=[('share', '=', False), ('active', '=', True)],
         help='Оператори, призначені на цю розмову',
     )
 
     # ── Повідомлення ────────────────────────────────────────────────────
     message_ids = fields.One2many(
-        'sendpulse.message', 'connect_id', string='Повідомлення',
+        'sendpulse.message',
+        'connect_id',
+        string='Повідомлення',
     )
     message_count = fields.Integer(
-        string='Кількість повідомлень', compute='_compute_message_count',
+        string='Кількість повідомлень',
+        compute='_compute_message_count',
     )
 
     # ── Допоміжні ───────────────────────────────────────────────────────
@@ -176,7 +189,8 @@ class SendpulseConnect(models.Model):
 
     # ── Коментар (Facebook / Instagram) ─────────────────────────────────
     sp_is_comment = fields.Boolean(
-        string='Ініційовано з коментаря', default=False,
+        string='Ініційовано з коментаря',
+        default=False,
         help='True якщо розмову відкрито автоматично після коментаря під постом',
     )
     sp_comment_id = fields.Char(
@@ -185,7 +199,8 @@ class SendpulseConnect(models.Model):
         index=True,
     )
     sp_comment_text = fields.Char(
-        string='Текст коментаря', size=500,
+        string='Текст коментаря',
+        size=500,
         help='Текст коментаря клієнта під постом',
     )
     sp_post_id = fields.Char(string='Post ID')
@@ -196,48 +211,59 @@ class SendpulseConnect(models.Model):
         help='ID сторінки з webhook — для multi-page маршрутизації на sendpulse.facebook.page.',
     )
     sp_replied_public = fields.Boolean(
-        string='Публічна відповідь надіслана', default=False,
+        string='Публічна відповідь надіслана',
+        default=False,
         help='True якщо публічна відповідь під коментарем успішно опублікована',
     )
     sp_public_template_id = fields.Many2one(
-        'sendpulse.public.template', string='Публічний шаблон', ondelete='set null',
+        'sendpulse.public.template',
+        string='Публічний шаблон',
+        ondelete='set null',
         help='Який шаблон (A/B) використано для публічної відповіді — для conversion tracking.',
     )
     sp_public_template_conversion_counted = fields.Boolean(
-        default=False, readonly=True,
+        default=False,
+        readonly=True,
         help='True якщо конверсія customer_replied вже зарахована цьому шаблону (щоб не дублювати).',
     )
     # F13 Lead magnet tracking
     sp_pdf_sent_at = fields.Datetime(
-        string='PDF-каталог надіслано', readonly=True,
+        string='PDF-каталог надіслано',
+        readonly=True,
         help='Коли було надіслано lead-magnet PDF на email клієнта.',
     )
     sp_pdf_sent_to_email = fields.Char(
-        string='Email для PDF', readonly=True,
+        string='Email для PDF',
+        readonly=True,
     )
     sp_coupon_code = fields.Char(
-        string='Купон-код', readonly=True,
+        string='Купон-код',
+        readonly=True,
         help='Згенерований промокод (loyalty.card) — відправлений SMS-ом.',
     )
     sp_coupon_sent_at = fields.Datetime(
-        string='Купон надіслано SMS', readonly=True,
+        string='Купон надіслано SMS',
+        readonly=True,
     )
     sp_coupon_sent_to_phone = fields.Char(
-        string='Телефон для купона', readonly=True,
+        string='Телефон для купона',
+        readonly=True,
     )
     sp_replied_private = fields.Boolean(
-        string='Приватне повідомлення надіслано', default=False,
+        string='Приватне повідомлення надіслано',
+        default=False,
         help='True якщо private_reply успішно надіслано через Graph API',
     )
     sp_messenger_window_expires_at = fields.Datetime(
         string='Messenger 24h вікно до',
         help='Коли закривається 24-годинне вікно Meta для вільного обміну повідомленнями. '
-             'Після цього менеджер не може писати клієнту (поки той не відповість).',
+        'Після цього менеджер не може писати клієнту (поки той не відповість).',
     )
     sp_window_alert_sent = fields.Boolean(
-        string='Алерт про закриття вікна надіслано', default=False,
+        string='Алерт про закриття вікна надіслано',
+        default=False,
         help='True якщо Telegram-сповіщення за 2h до закриття вікна вже надіслано. '
-             'Скидається при новому inbound від клієнта.',
+        'Скидається при новому inbound від клієнта.',
     )
     sp_comment_category = fields.Selection(
         selection=[
@@ -283,7 +309,8 @@ class SendpulseConnect(models.Model):
         help='Скільки секунд між першим повідомленням клієнта і першою відповіддю оператора',
     )
     sp_lead_id = fields.Many2one(
-        'crm.lead', string='Лід',
+        'crm.lead',
+        string='Лід',
         help='CRM-лід створений з цієї розмови',
     )
 
@@ -330,13 +357,17 @@ class SendpulseConnect(models.Model):
         string='Opt-out drip',
         default=False,
         help='True якщо клієнт написав STOP / "не писати" / unsubscribe — '
-             'модуль не шле більше автоматичних нагадувань.',
+        'модуль не шле більше автоматичних нагадувань.',
     )
 
     @api.depends('sp_first_inbound_at', 'sp_first_reply_at')
     def _compute_first_reply_time(self):
         for rec in self:
-            if rec.sp_first_inbound_at and rec.sp_first_reply_at and rec.sp_first_reply_at > rec.sp_first_inbound_at:
+            if (
+                rec.sp_first_inbound_at
+                and rec.sp_first_reply_at
+                and rec.sp_first_reply_at > rec.sp_first_inbound_at
+            ):
                 rec.sp_first_reply_time_sec = int(
                     (rec.sp_first_reply_at - rec.sp_first_inbound_at).total_seconds()
                 )
@@ -345,10 +376,13 @@ class SendpulseConnect(models.Model):
 
     # ── Computed ────────────────────────────────────────────────────────
     is_unidentified = fields.Boolean(
-        string='Не ідентифікований', compute='_compute_is_unidentified', store=True,
+        string='Не ідентифікований',
+        compute='_compute_is_unidentified',
+        store=True,
     )
     service_icon = fields.Char(
-        string='Іконка каналу', compute='_compute_service_icon',
+        string='Іконка каналу',
+        compute='_compute_service_icon',
     )
     stage_sort = fields.Integer(
         string='Порядок сортування',
@@ -365,9 +399,14 @@ class SendpulseConnect(models.Model):
     @api.depends('service')
     def _compute_service_icon(self):
         icons = {
-            'telegram': '✈️', 'instagram': '📸', 'facebook': '👍',
-            'messenger': '💬', 'viber': '📳', 'whatsapp': '🟢',
-            'tiktok': '🎵', 'livechat': '🌐',
+            'telegram': '✈️',
+            'instagram': '📸',
+            'facebook': '👍',
+            'messenger': '💬',
+            'viber': '📳',
+            'whatsapp': '🟢',
+            'tiktok': '🎵',
+            'livechat': '🌐',
         }
         for rec in self:
             rec.service_icon = icons.get(rec.service, '💬')
@@ -417,10 +456,13 @@ class SendpulseConnect(models.Model):
             raise UserError(_('Не вдалося відкрити чат. Спробуйте ще раз.'))
 
         # Перевіряємо чи поточний юзер є учасником
-        member = self.env['discuss.channel.member'].search([
-            ('channel_id', '=', self.channel_id.id),
-            ('partner_id', '=', self.env.user.partner_id.id),
-        ], limit=1)
+        member = self.env['discuss.channel.member'].search(
+            [
+                ('channel_id', '=', self.channel_id.id),
+                ('partner_id', '=', self.env.user.partner_id.id),
+            ],
+            limit=1,
+        )
         if not member:
             self.channel_id.add_members(partner_ids=[self.env.user.partner_id.id])
 
@@ -471,14 +513,16 @@ class SendpulseConnect(models.Model):
         send_greeting=True → надсилає авто-привітання клієнту через SendPulse.
         """
         self.ensure_one()
-        channel_name = f"[{self._get_service_label()}] {self.name}"
+        channel_name = f'[{self._get_service_label()}] {self.name}'
 
-        channel = self.env['discuss.channel'].create({
-            'name': channel_name,
-            'channel_type': 'group',
-            'sendpulse_connect_id': self.id,
-            'description': self._get_channel_description(),
-        })
+        channel = self.env['discuss.channel'].create(
+            {
+                'name': channel_name,
+                'channel_type': 'group',
+                'sendpulse_connect_id': self.id,
+                'description': self._get_channel_description(),
+            }
+        )
 
         # Додаємо тільки явно призначених операторів цієї розмови.
         # Ніякого fallback на всіх внутрішніх користувачів — менеджер долучається сам.
@@ -491,12 +535,18 @@ class SendpulseConnect(models.Model):
         # ці повідомлення назад у SendPulse і НЕ створював дублікати sendpulse.message
         for msg in self.message_ids.sorted('date'):
             direction_label = '👤 Клієнт' if msg.direction == 'incoming' else '🧑‍💼 Оператор'
-            body = Markup("<b>{}</b><br/>{}").format(direction_label, escape(msg.text_message or ''))
+            body = Markup('<b>{}</b><br/>{}').format(
+                direction_label, escape(msg.text_message or '')
+            )
             if msg.attachment_url:
-                body += Markup('<br/><a href="{}" target="_blank">📎 Вкладення</a>').format(msg.attachment_url)
+                body += Markup('<br/><a href="{}" target="_blank">📎 Вкладення</a>').format(
+                    msg.attachment_url
+                )
             if msg.direction == 'incoming':
                 # Клієнт — підставляємо партнера, щоб не було Public User (Olha Lipowa)
-                author_id = self.partner_id.id if self.partner_id else self.env.ref('base.partner_root').id
+                author_id = (
+                    self.partner_id.id if self.partner_id else self.env.ref('base.partner_root').id
+                )
             else:
                 # Оператор — використовуємо OdooBot (менеджер невідомий)
                 author_id = self.env.ref('base.partner_root').id
@@ -507,10 +557,12 @@ class SendpulseConnect(models.Model):
                 subtype_xmlid='mail.mt_comment',
             )
 
-        self.write({
-            'channel_id': channel.id,
-            'stage': 'in_progress',
-        })
+        self.write(
+            {
+                'channel_id': channel.id,
+                'stage': 'in_progress',
+            }
+        )
 
         if send_greeting:
             self._send_autoreply_greeting(channel)
@@ -551,16 +603,18 @@ class SendpulseConnect(models.Model):
         for text in messages:
             # Зберігаємо ДО відправки — щоб outbound_message webhook одразу знайшов запис
             # і не задублював повідомлення у discuss.channel
-            self.env['sendpulse.message'].create({
-                'name': now.strftime('%Y-%m-%d %H:%M'),
-                'date': now,
-                'connect_id': self.id,
-                'sendpulse_contact_id': self.sendpulse_contact_id,
-                'direction': 'outgoing',
-                'message_type': 'text',
-                'text_message': text,
-                'raw_json': str({'text': text, 'source': 'auto_greeting'}),
-            })
+            self.env['sendpulse.message'].create(
+                {
+                    'name': now.strftime('%Y-%m-%d %H:%M'),
+                    'date': now,
+                    'connect_id': self.id,
+                    'sendpulse_contact_id': self.sendpulse_contact_id,
+                    'direction': 'outgoing',
+                    'message_type': 'text',
+                    'text_message': text,
+                    'raw_json': str({'text': text, 'source': 'auto_greeting'}),
+                }
+            )
 
             # Надсилаємо клієнту через SendPulse
             try:
@@ -579,16 +633,21 @@ class SendpulseConnect(models.Model):
 
     def _get_service_label(self):
         labels = {
-            'telegram': 'TG', 'instagram': 'IG', 'facebook': 'FB',
-            'messenger': 'MSG', 'viber': 'VB', 'whatsapp': 'WA',
-            'tiktok': 'TT', 'livechat': 'LC',
+            'telegram': 'TG',
+            'instagram': 'IG',
+            'facebook': 'FB',
+            'messenger': 'MSG',
+            'viber': 'VB',
+            'whatsapp': 'WA',
+            'tiktok': 'TT',
+            'livechat': 'LC',
         }
         return labels.get(self.service, self.service or '?')
 
     def _get_channel_description(self):
         parts = [f"SendPulse | {self.service or '?'}"]
         if self.social_username:
-            parts.append(f"@{self.social_username}")
+            parts.append(f'@{self.social_username}')
         if self.social_profile_url:
             parts.append(self.social_profile_url)
         if self.unidentified_email:
@@ -635,10 +694,12 @@ class SendpulseConnect(models.Model):
         Автоматична синхронізація Discuss-каналів (планувальник задач).
         Знаходить активні розмови без каналу та створює їх.
         """
-        connects_without_channel = self.search([
-            ('stage', '!=', 'close'),
-            ('channel_id', '=', False),
-        ])
+        connects_without_channel = self.search(
+            [
+                ('stage', '!=', 'close'),
+                ('channel_id', '=', False),
+            ]
+        )
         if connects_without_channel:
             _logger.info(
                 'SendPulse Odoo cron: знайдено %d розмов без каналу, синхронізуємо...',
@@ -652,20 +713,24 @@ class SendpulseConnect(models.Model):
         if not self.partner_id:
             return
         # Дедуплікація: не дублювати якщо викликається повторно (assign + close)
-        existing = self.env['partner.sendpulse.message'].search([
-            ('partner_id', '=', self.partner_id.id),
-            ('service', '=', self.service),
-        ])
+        existing = self.env['partner.sendpulse.message'].search(
+            [
+                ('partner_id', '=', self.partner_id.id),
+                ('service', '=', self.service),
+            ]
+        )
         existing_keys = {(r.date, r.direction) for r in existing}
         for msg in self.message_ids.sorted('date'):
             if (msg.date, msg.direction) not in existing_keys:
-                self.env['partner.sendpulse.message'].create({
-                    'partner_id': self.partner_id.id,
-                    'date': msg.date,
-                    'text_message': plaintext2html(msg.text_message or ''),
-                    'service': self.service,
-                    'direction': msg.direction,
-                })
+                self.env['partner.sendpulse.message'].create(
+                    {
+                        'partner_id': self.partner_id.id,
+                        'date': msg.date,
+                        'text_message': plaintext2html(msg.text_message or ''),
+                        'service': self.service,
+                        'direction': msg.direction,
+                    }
+                )
 
     def assign_partner(self, partner_id):
         """
@@ -680,9 +745,11 @@ class SendpulseConnect(models.Model):
         # Оновлюємо назву каналу
         if self.channel_id:
             partner = self.env['res.partner'].browse(partner_id)
-            self.channel_id.write({
-                'name': f"[{self._get_service_label()}] {partner.name}",
-            })
+            self.channel_id.write(
+                {
+                    'name': f'[{self._get_service_label()}] {partner.name}',
+                }
+            )
         # Синхронізуємо аватар у картку партнера якщо він є
         if self.avatar_url:
             self._sync_avatar_to_partner()
@@ -723,22 +790,24 @@ class SendpulseConnect(models.Model):
                 update_vals['social_profile_url'] = self.social_profile_url
             existing.write(update_vals)
             existing._cr.execute(
-                "UPDATE partner_sendpulse_channel SET message_count = message_count + 1 WHERE id = %s",
-                (existing.id,)
+                'UPDATE partner_sendpulse_channel SET message_count = message_count + 1 WHERE id = %s',
+                (existing.id,),
             )
         else:
             # Новий канал для цього партнера — створюємо запис
-            self.env['partner.sendpulse.channel'].create({
-                'partner_id': self.partner_id.id,
-                'service': self.service,
-                'sendpulse_contact_id': self.sendpulse_contact_id or False,
-                'social_username': self.social_username or False,
-                'social_profile_url': self.social_profile_url or False,
-                'source_id': source_id or False,
-                'first_contact_date': fields.Datetime.now(),
-                'last_contact_date': fields.Datetime.now(),
-                'message_count': 1,
-            })
+            self.env['partner.sendpulse.channel'].create(
+                {
+                    'partner_id': self.partner_id.id,
+                    'service': self.service,
+                    'sendpulse_contact_id': self.sendpulse_contact_id or False,
+                    'social_username': self.social_username or False,
+                    'social_profile_url': self.social_profile_url or False,
+                    'source_id': source_id or False,
+                    'first_contact_date': fields.Datetime.now(),
+                    'last_contact_date': fields.Datetime.now(),
+                    'message_count': 1,
+                }
+            )
 
     # ════════════════════════════════════════════════════════════════════
     # Сповіщення
@@ -746,19 +815,27 @@ class SendpulseConnect(models.Model):
 
     def _notify_operators_new_conversation(self):
         """Сповіщає операторів про нову розмову через Odoo Discuss."""
-        group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_officer', raise_if_not_found=False)
+        group = self.env.ref(
+            'odoo_chatwoot_connector.group_sendpulse_officer', raise_if_not_found=False
+        )
         if not group:
             return
         partner_ids = group.users.mapped('partner_id').ids
         if partner_ids:
-            self.env['bus.bus']._sendmany([
-                (partner_id, 'simple_notification', {
-                    'title': _('SendPulse: Нова розмова'),
-                    'message': f"{self.service_icon} {self.name}: нова розмова з {self.service or 'SendPulse'}",
-                    'sticky': False,
-                })
-                for partner_id in partner_ids
-            ])
+            self.env['bus.bus']._sendmany(
+                [
+                    (
+                        partner_id,
+                        'simple_notification',
+                        {
+                            'title': _('SendPulse: Нова розмова'),
+                            'message': f"{self.service_icon} {self.name}: нова розмова з {self.service or 'SendPulse'}",
+                            'sticky': False,
+                        },
+                    )
+                    for partner_id in partner_ids
+                ]
+            )
 
     def _notify_operators_new_message(self):
         """Сповіщає операторів про нове повідомлення (throttle: 1/год)."""
@@ -770,18 +847,26 @@ class SendpulseConnect(models.Model):
         if self.user_ids:
             target_partners = self.user_ids.mapped('partner_id').ids
         else:
-            group = self.env.ref('odoo_chatwoot_connector.group_sendpulse_officer', raise_if_not_found=False)
+            group = self.env.ref(
+                'odoo_chatwoot_connector.group_sendpulse_officer', raise_if_not_found=False
+            )
             if group:
                 target_partners = group.users.mapped('partner_id').ids
         if target_partners:
-            self.env['bus.bus']._sendmany([
-                (pid, 'simple_notification', {
-                    'title': _('SendPulse: Нове повідомлення'),
-                    'message': f"{self.service_icon} {self.name}: {self.last_message_preview or '...'}",
-                    'sticky': False,
-                })
-                for pid in target_partners
-            ])
+            self.env['bus.bus']._sendmany(
+                [
+                    (
+                        pid,
+                        'simple_notification',
+                        {
+                            'title': _('SendPulse: Нове повідомлення'),
+                            'message': f"{self.service_icon} {self.name}: {self.last_message_preview or '...'}",
+                            'sticky': False,
+                        },
+                    )
+                    for pid in target_partners
+                ]
+            )
 
     # ════════════════════════════════════════════════════════════════════
     # SendPulse API — відправка повідомлень
@@ -833,10 +918,12 @@ class SendpulseConnect(models.Model):
                     except ValueError:
                         wait = None
                     if wait is None or wait <= 0:
-                        wait = min(2.0 ** attempt, 30.0)
+                        wait = min(2.0**attempt, 30.0)
                     _logger.warning(
                         'SendPulse Odoo: OAuth 429 Too Many Requests, sleep %.1fs (attempt %s/%s)',
-                        wait, attempt + 1, max_attempts,
+                        wait,
+                        attempt + 1,
+                        max_attempts,
                     )
                     time.sleep(wait)
                     continue
@@ -860,9 +947,11 @@ class SendpulseConnect(models.Model):
                 last_err = e
                 _logger.error('SendPulse Odoo: помилка отримання токена: %s', e)
                 if attempt < max_attempts - 1:
-                    time.sleep(min(2.0 ** attempt, 10.0))
+                    time.sleep(min(2.0**attempt, 10.0))
         if last_err:
-            _logger.error('SendPulse Odoo: OAuth після %s спроб не вдався: %s', max_attempts, last_err)
+            _logger.error(
+                'SendPulse Odoo: OAuth після %s спроб не вдався: %s', max_attempts, last_err
+            )
         return None
 
     @api.model
@@ -913,19 +1002,15 @@ class SendpulseConnect(models.Model):
         """
         # ── Перевірка: чи це коментар під постом FB/IG ─────────────────────
         channel_data_msg = (
-            (((data.get('info') or {})
-            .get('message') or {})
-            .get('channel_data') or {})
-            .get('message') or {}
-        )
-        is_comment = (
-            isinstance(channel_data_msg, dict)
-            and (
-                # Facebook format: item/verb
-                (channel_data_msg.get('item') == 'comment' and channel_data_msg.get('verb') == 'add')
-                # Instagram via SendPulse: media.media_product_type == FEED
-                or (isinstance(channel_data_msg.get('media'), dict)
-                    and channel_data_msg['media'].get('media_product_type') == 'FEED')
+            ((data.get('info') or {}).get('message') or {}).get('channel_data') or {}
+        ).get('message') or {}
+        is_comment = isinstance(channel_data_msg, dict) and (
+            # Facebook format: item/verb
+            (channel_data_msg.get('item') == 'comment' and channel_data_msg.get('verb') == 'add')
+            # Instagram via SendPulse: media.media_product_type == FEED
+            or (
+                isinstance(channel_data_msg.get('media'), dict)
+                and channel_data_msg['media'].get('media_product_type') == 'FEED'
             )
         )
         if is_comment:
@@ -946,31 +1031,35 @@ class SendpulseConnect(models.Model):
 
         # Визначаємо тип медіа з last_message_data (якщо є)
         last_message_data = contact.get('last_message_data', {}) or {}
-        msg_data = (last_message_data.get('message', {}) or {})
-        msg_type = msg_data.get('type', 'text') or 'text'  # text, image, sticker, audio, video, document
+        msg_data = last_message_data.get('message', {}) or {}
+        msg_type = (
+            msg_data.get('type', 'text') or 'text'
+        )  # text, image, sticker, audio, video, document
 
         # Fallback: якщо last_message виглядає як media URL — вважаємо image
         _MEDIA_URL_PATTERNS = ('lookaside.fbsbx.com', '/messages/media', 'chatbots-service')
         _MEDIA_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.mp3', '.ogg')
         if msg_type == 'text' and last_message.startswith('http'):
-            if any(p in last_message for p in _MEDIA_URL_PATTERNS) or \
-               any(last_message.lower().endswith(e) for e in _MEDIA_EXTENSIONS):
+            if any(p in last_message for p in _MEDIA_URL_PATTERNS) or any(
+                last_message.lower().endswith(e) for e in _MEDIA_EXTENSIONS
+            ):
                 msg_type = 'image'
 
         # Соціальні ідентифікатори
         social_username = (
-            variables.get('username') or
-            variables.get('telegram_username') or
-            contact.get('username', '')
+            variables.get('username')
+            or variables.get('telegram_username')
+            or contact.get('username', '')
         )
         social_profile_url = (
-            variables.get('profile_url') or
-            variables.get('facebook_url') or
-            variables.get('instagram_url') or ''
+            variables.get('profile_url')
+            or variables.get('facebook_url')
+            or variables.get('instagram_url')
+            or ''
         )
         # Для Telegram будуємо URL профілю з username якщо немає
         if not social_profile_url and social_username and service == 'telegram':
-            social_profile_url = f"https://t.me/{social_username}"
+            social_profile_url = f'https://t.me/{social_username}'
 
         # Фото контакту з webhook
         photo_url = (contact.get('photo') or contact.get('profile_pic') or '').strip() or ''
@@ -991,9 +1080,10 @@ class SendpulseConnect(models.Model):
         # замість створення дублю. Авто-привітання теж не дублюється бо
         # is_brand_new=False у другого.
         if contact_id:
-            lock_key1 = int(
-                hashlib.md5(f'{contact_id}|{service}'.encode('utf-8')).hexdigest()[:8], 16
-            ) & 0x7FFFFFFF
+            lock_key1 = (
+                int(hashlib.md5(f'{contact_id}|{service}'.encode()).hexdigest()[:8], 16)
+                & 0x7FFFFFFF
+            )
             self.env.cr.execute(
                 'SELECT pg_advisory_xact_lock(%s, %s)',
                 (lock_key1, _SENDPULSE_INBOUND_LOCK_KEY2),
@@ -1006,32 +1096,43 @@ class SendpulseConnect(models.Model):
 
         # ── Крок 2: Знаходимо або створюємо розмову ─────────────────────
         # Пріоритет 1: активна розмова по sendpulse_contact_id + service
-        connect = self.search([
-            ('sendpulse_contact_id', '=', contact_id),
-            ('service', '=', service),
-            ('stage', '!=', 'close'),
-        ], limit=1)
+        connect = self.search(
+            [
+                ('sendpulse_contact_id', '=', contact_id),
+                ('service', '=', service),
+                ('stage', '!=', 'close'),
+            ],
+            limit=1,
+        )
 
         # Пріоритет 2: якщо партнер відомий — шукаємо активний чат по partner_id + service.
         # Це запобігає створенню дублікатів коли один реальний клієнт має кілька
         # контактів у SendPulse (наприклад, тестовий + реальний).
         if not connect and partner:
-            connect = self.search([
-                ('partner_id', '=', partner.id),
-                ('service', '=', service),
-                ('stage', '!=', 'close'),
-            ], order='write_date desc', limit=1)
+            connect = self.search(
+                [
+                    ('partner_id', '=', partner.id),
+                    ('service', '=', service),
+                    ('stage', '!=', 'close'),
+                ],
+                order='write_date desc',
+                limit=1,
+            )
             if connect and connect.sendpulse_contact_id != contact_id:
                 # Оновлюємо contact_id на актуальний
                 connect.write({'sendpulse_contact_id': contact_id})
 
         # Пріоритет 3: закрита розмова того ж контакту — перевідкриваємо замість створення нової
         if not connect:
-            connect = self.search([
-                ('sendpulse_contact_id', '=', contact_id),
-                ('service', '=', service),
-                ('stage', '=', 'close'),
-            ], order='write_date desc', limit=1)
+            connect = self.search(
+                [
+                    ('sendpulse_contact_id', '=', contact_id),
+                    ('service', '=', service),
+                    ('stage', '=', 'close'),
+                ],
+                order='write_date desc',
+                limit=1,
+            )
             if connect:
                 connect.write({'stage': 'new'})
                 # Розархівовуємо discuss.channel якщо він був архівований при закритті
@@ -1039,7 +1140,7 @@ class SendpulseConnect(models.Model):
                     connect.channel_id.write({'active': True})
 
         now = fields.Datetime.now()
-        is_brand_new = not connect   # True тільки якщо connect щойно буде створено
+        is_brand_new = not connect  # True тільки якщо connect щойно буде створено
         if not connect:
             create_vals = {
                 'name': contact_name,
@@ -1062,32 +1163,41 @@ class SendpulseConnect(models.Model):
             # IntegrityError через savepoint, якщо випадково створюємо дубль —
             # відкочуємо create і підхоплюємо existing запис.
             from psycopg2 import IntegrityError
+
             try:
                 with self.env.cr.savepoint():
                     connect = self.create(create_vals)
             except IntegrityError:
                 _logger.info(
                     'SendPulse Odoo: race duplicate intercepted by unique index — '
-                    'contact=%s service=%s', contact_id, service,
+                    'contact=%s service=%s',
+                    contact_id,
+                    service,
                 )
                 self.env.invalidate_all()
-                connect = self.search([
-                    ('sendpulse_contact_id', '=', contact_id),
-                    ('service', '=', service),
-                    ('stage', '!=', 'close'),
-                ], limit=1)
+                connect = self.search(
+                    [
+                        ('sendpulse_contact_id', '=', contact_id),
+                        ('service', '=', service),
+                        ('stage', '!=', 'close'),
+                    ],
+                    limit=1,
+                )
                 if not connect:
                     # Дуже дивний стан — IntegrityError на unique, але search не знаходить
                     raise
                 is_brand_new = False
             else:
                 # Fallback race-guard (backup до unique index): find older duplicate
-                duplicate = self.search([
-                    ('sendpulse_contact_id', '=', contact_id),
-                    ('service', '=', service),
-                    ('stage', '!=', 'close'),
-                    ('id', '<', connect.id),
-                ], limit=1)
+                duplicate = self.search(
+                    [
+                        ('sendpulse_contact_id', '=', contact_id),
+                        ('service', '=', service),
+                        ('stage', '!=', 'close'),
+                        ('id', '<', connect.id),
+                    ],
+                    limit=1,
+                )
                 if duplicate:
                     connect.unlink()
                     connect = duplicate
@@ -1112,7 +1222,9 @@ class SendpulseConnect(models.Model):
 
             # Оновлюємо існуючу розмову
             update_vals = {
-                'last_message_preview': last_message[:100] if last_message else connect.last_message_preview,
+                'last_message_preview': last_message[:100]
+                if last_message
+                else connect.last_message_preview,
                 'last_message_date': now,
                 'stage': 'new_message' if connect.stage == 'in_progress' else connect.stage,
                 # Клієнт написав → вікно 24h відновлюється
@@ -1189,17 +1301,19 @@ class SendpulseConnect(models.Model):
             is_media = is_image or msg_type in ('audio', 'video', 'document')
             media_icons = {'audio': '🎵', 'video': '🎥', 'document': '📄'}
 
-            new_msg = self.env['sendpulse.message'].create({
-                'name': now.strftime('%Y-%m-%d %H:%M'),
-                'date': now,
-                'connect_id': connect.id,
-                'sendpulse_contact_id': contact_id,
-                'direction': 'incoming',
-                'message_type': 'image' if is_image else ('file' if is_media else 'text'),
-                'text_message': '' if is_media else last_message,
-                'attachment_url': last_message if is_media else False,
-                'raw_json': str({'text': last_message, 'contact': contact}),
-            })
+            new_msg = self.env['sendpulse.message'].create(
+                {
+                    'name': now.strftime('%Y-%m-%d %H:%M'),
+                    'date': now,
+                    'connect_id': connect.id,
+                    'sendpulse_contact_id': contact_id,
+                    'direction': 'incoming',
+                    'message_type': 'image' if is_image else ('file' if is_media else 'text'),
+                    'text_message': '' if is_media else last_message,
+                    'attachment_url': last_message if is_media else False,
+                    'raw_json': str({'text': last_message, 'contact': contact}),
+                }
+            )
 
             # RODO: детектим unsubscribe-фрази — фіксуємо withdrawal для
             # усіх lead-magnet purposes на цьому connect.
@@ -1225,8 +1339,10 @@ class SendpulseConnect(models.Model):
                 elif is_media and att:
                     icon = media_icons.get(msg_type, '📎')
                     base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
-                    file_url = f"{base_url}/web/content/{att.id}?access_token={att.access_token}"
-                    body = Markup("{} <a href='{}' target='_blank'>Вкладення</a>").format(icon, file_url)
+                    file_url = f'{base_url}/web/content/{att.id}?access_token={att.access_token}'
+                    body = Markup("{} <a href='{}' target='_blank'>Вкладення</a>").format(
+                        icon, file_url
+                    )
                     connect.channel_id.with_context(sendpulse_incoming=True).message_post(
                         body=body,
                         author_id=author_partner.id if author_partner else False,
@@ -1237,7 +1353,9 @@ class SendpulseConnect(models.Model):
                     # Текст або fallback якщо медіа не вдалося завантажити
                     if is_media:
                         icon = media_icons.get(msg_type, '📎')
-                        body = Markup("{} <a href='{}' target='_blank'>Вкладення</a>").format(icon, last_message)
+                        body = Markup("{} <a href='{}' target='_blank'>Вкладення</a>").format(
+                            icon, last_message
+                        )
                     else:
                         body = escape(last_message)
                     connect.channel_id.with_context(sendpulse_incoming=True).message_post(
@@ -1255,14 +1373,16 @@ class SendpulseConnect(models.Model):
                     icon = media_icons.get(msg_type, '📎')
                     partner_body = f"<p>{icon} <a href='{last_message}'>Вкладення</a></p>"
                 else:
-                    partner_body = f"<p>{last_message}</p>"
-                self.env['partner.sendpulse.message'].create({
-                    'partner_id': connect.partner_id.id,
-                    'date': now,
-                    'text_message': partner_body,
-                    'service': service,
-                    'direction': 'incoming',
-                })
+                    partner_body = f'<p>{last_message}</p>'
+                self.env['partner.sendpulse.message'].create(
+                    {
+                        'partner_id': connect.partner_id.id,
+                        'date': now,
+                        'text_message': partner_body,
+                        'service': service,
+                        'direction': 'incoming',
+                    }
+                )
 
         # ── Крок 4: Оновлюємо канали партнера ───────────────────────────
         if connect.partner_id:
@@ -1281,16 +1401,14 @@ class SendpulseConnect(models.Model):
     # Ротаційні шаблони публічної відповіді.
     # {landing_url} і {tg_url} підставляються з ir.config_parameter.
     _COMMENT_PUBLIC_TEMPLATES = [
-        "Дякуємо за коментар! 🏕️ Написали вам детальніше у приватні — перевірте вхідні 😊 Або одразу: {landing_url}",
-        "Дякуємо! 🌟 Всі деталі надіслали в особисті. Також можна одразу глянути програму: {landing_url}",
-        "Радіємо вашій зацікавленості! ✨ Написали в приват — там детальна відповідь. Підписуйтесь на наш ТГ-канал і отримайте -5% на табір: {tg_url} 🎁",
-        "Привіт! Відповіли вам у повідомленнях 📩 Актуальні табори 2026 та знижка -5% за підписку: {tg_url}",
-        "Дякуємо за інтерес! 🏕️ Детальніше написали у приватних. Все про табори 2026: {landing_url}",
+        'Дякуємо за коментар! 🏕️ Написали вам детальніше у приватні — перевірте вхідні 😊 Або одразу: {landing_url}',
+        'Дякуємо! 🌟 Всі деталі надіслали в особисті. Також можна одразу глянути програму: {landing_url}',
+        'Радіємо вашій зацікавленості! ✨ Написали в приват — там детальна відповідь. Підписуйтесь на наш ТГ-канал і отримайте -5% на табір: {tg_url} 🎁',
+        'Привіт! Відповіли вам у повідомленнях 📩 Актуальні табори 2026 та знижка -5% за підписку: {tg_url}',
+        'Дякуємо за інтерес! 🏕️ Детальніше написали у приватних. Все про табори 2026: {landing_url}',
     ]
 
-    _COMMENT_PUBLIC_REPEAT_TEMPLATE = (
-        "Раді бачити вас знову! 😊 Наш менеджер вже напише вам у повідомленнях — слідкуйте за вхідними 🏕️"
-    )
+    _COMMENT_PUBLIC_REPEAT_TEMPLATE = 'Раді бачити вас знову! 😊 Наш менеджер вже напише вам у повідомленнях — слідкуйте за вхідними 🏕️'
 
     @api.model
     def _process_comment_event(self, data, contact, bot, service, channel_data_msg):
@@ -1306,16 +1424,8 @@ class SendpulseConnect(models.Model):
         contact_name = contact.get('name', 'Невідомий')
         channel_data = data.get('info', {}).get('message', {}).get('channel_data', {})
         # FB: comment_id/message; IG via SendPulse: id/text
-        comment_id = str(
-            channel_data_msg.get('comment_id')
-            or channel_data_msg.get('id')
-            or ''
-        )
-        comment_text = (
-            channel_data_msg.get('message')
-            or channel_data_msg.get('text')
-            or ''
-        )
+        comment_id = str(channel_data_msg.get('comment_id') or channel_data_msg.get('id') or '')
+        comment_text = channel_data_msg.get('message') or channel_data_msg.get('text') or ''
         post_id = str(
             channel_data_msg.get('post_id')
             or (channel_data_msg.get('media') or {}).get('id')
@@ -1330,7 +1440,7 @@ class SendpulseConnect(models.Model):
 
         # Перевіряємо чи увімкнена автовідповідь
         ICP = self.env['ir.config_parameter'].sudo()
-        if not ICP.get_param('odoo_chatwoot_connector.sp_comment_autoreply_enabled', 'True') == 'True':
+        if ICP.get_param('odoo_chatwoot_connector.sp_comment_autoreply_enabled', 'True') != 'True':
             _logger.info('SendPulse Odoo: comment autoreply disabled, skipping %s', comment_id)
             return None
 
@@ -1355,16 +1465,17 @@ class SendpulseConnect(models.Model):
         if from_id and from_id in own_ids:
             _logger.info(
                 'SendPulse Odoo: self-comment detected (from=%s == own), skipping %s',
-                from_id, comment_id,
+                from_id,
+                comment_id,
             )
             return None
 
         # Race-guard: advisory lock на comment_id — якщо той самий webhook
         # прийде двічі одночасно (SendPulse іноді ретраїть), другий чекає.
         if comment_id:
-            lock_key1 = int(
-                hashlib.md5(f'comment|{comment_id}'.encode('utf-8')).hexdigest()[:8], 16
-            ) & 0x7FFFFFFF
+            lock_key1 = (
+                int(hashlib.md5(f'comment|{comment_id}'.encode()).hexdigest()[:8], 16) & 0x7FFFFFFF
+            )
             self.env.cr.execute(
                 'SELECT pg_advisory_xact_lock(%s, %s)',
                 (lock_key1, _SENDPULSE_INBOUND_LOCK_KEY2),
@@ -1378,42 +1489,53 @@ class SendpulseConnect(models.Model):
                 return existing
 
         # Знаходимо/створюємо розмову
-        connect = self.search([
-            ('sendpulse_contact_id', '=', contact_id),
-            ('service', '=', service),
-            ('stage', '!=', 'close'),
-            ('sp_is_comment', '=', True),
-        ], limit=1)
+        connect = self.search(
+            [
+                ('sendpulse_contact_id', '=', contact_id),
+                ('service', '=', service),
+                ('stage', '!=', 'close'),
+                ('sp_is_comment', '=', True),
+            ],
+            limit=1,
+        )
 
         now = fields.Datetime.now()
         if not connect:
-            connect = self.create({
-                'name': contact_name,
-                'sendpulse_contact_id': contact_id,
-                'service': service,
-                'bot_id': bot.get('id', ''),
-                'bot_name': bot.get('name', ''),
-                'stage': 'new',
-                'sp_is_comment': True,
-                'sp_comment_id': comment_id,
-                'sp_comment_text': comment_text[:500] if comment_text else '',
-                'sp_post_id': post_id,
-                'sp_post_url': post_url,
-                'sp_page_id': page_id_from_payload or (page.page_id if page else ''),
-                'last_message_preview': f'💬 Коментар: {comment_text[:80]}' if comment_text else '💬 Коментар',
-                'last_message_date': now,
-                'sp_funnel_stage': 'comment_only',
-            })
+            connect = self.create(
+                {
+                    'name': contact_name,
+                    'sendpulse_contact_id': contact_id,
+                    'service': service,
+                    'bot_id': bot.get('id', ''),
+                    'bot_name': bot.get('name', ''),
+                    'stage': 'new',
+                    'sp_is_comment': True,
+                    'sp_comment_id': comment_id,
+                    'sp_comment_text': comment_text[:500] if comment_text else '',
+                    'sp_post_id': post_id,
+                    'sp_post_url': post_url,
+                    'sp_page_id': page_id_from_payload or (page.page_id if page else ''),
+                    'last_message_preview': f'💬 Коментар: {comment_text[:80]}'
+                    if comment_text
+                    else '💬 Коментар',
+                    'last_message_date': now,
+                    'sp_funnel_stage': 'comment_only',
+                }
+            )
         else:
-            connect.write({
-                'sp_comment_id': comment_id,
-                'sp_comment_text': comment_text[:500] if comment_text else '',
-                'sp_post_id': post_id,
-                'sp_post_url': post_url,
-                'sp_page_id': page_id_from_payload or connect.sp_page_id,
-                'last_message_preview': f'💬 Коментар: {comment_text[:80]}' if comment_text else '💬 Коментар',
-                'last_message_date': now,
-            })
+            connect.write(
+                {
+                    'sp_comment_id': comment_id,
+                    'sp_comment_text': comment_text[:500] if comment_text else '',
+                    'sp_post_id': post_id,
+                    'sp_post_url': post_url,
+                    'sp_page_id': page_id_from_payload or connect.sp_page_id,
+                    'last_message_preview': f'💬 Коментар: {comment_text[:80]}'
+                    if comment_text
+                    else '💬 Коментар',
+                    'last_message_date': now,
+                }
+            )
 
         if not connect.channel_id:
             connect._create_discuss_channel()
@@ -1424,19 +1546,26 @@ class SendpulseConnect(models.Model):
         _logger.info('SendPulse Odoo: comment %s classified as "%s"', comment_id, category)
 
         # Визначаємо чи надсилати приватне (тільки перший раз для цього контакту)
-        already_private = self.search([
-            ('sendpulse_contact_id', '=', contact_id),
-            ('sp_replied_private', '=', True),
-        ], limit=1)
+        already_private = self.search(
+            [
+                ('sendpulse_contact_id', '=', contact_id),
+                ('sp_replied_private', '=', True),
+            ],
+            limit=1,
+        )
         # Не спамимо людей у яких вже є прямий діалог (не comment)
-        has_direct_dialog = self.search([
-            ('sendpulse_contact_id', '=', contact_id),
-            ('sp_is_comment', '=', False),
-        ], limit=1)
+        has_direct_dialog = self.search(
+            [
+                ('sendpulse_contact_id', '=', contact_id),
+                ('sp_is_comment', '=', False),
+            ],
+            limit=1,
+        )
         send_private = (
             not bool(already_private)
             and not bool(has_direct_dialog)
-            and ICP.get_param('odoo_chatwoot_connector.sp_comment_private_enabled', 'True') == 'True'
+            and ICP.get_param('odoo_chatwoot_connector.sp_comment_private_enabled', 'True')
+            == 'True'
         )
 
         send_public = (
@@ -1448,13 +1577,18 @@ class SendpulseConnect(models.Model):
         # - complaint: не автовідповідь, лише нотатка оператору з мітою 🚨 (ескалація)
         # - question_*: поточна логіка (публічна + приватна) — без змін
         if category in ('thanks', 'spam'):
-            _logger.info('SendPulse Odoo: category=%s → skip auto-reply for %s', category, comment_id)
+            _logger.info(
+                'SendPulse Odoo: category=%s → skip auto-reply for %s', category, comment_id
+            )
             send_public = False
             send_private = False
             # Для spam — приховуємо коментар через Graph API (якщо увімкнено)
-            if category == 'spam' and ICP.get_param(
-                'odoo_chatwoot_connector.sp_comment_hide_spam_enabled', 'True'
-            ) == 'True' and comment_id:
+            if (
+                category == 'spam'
+                and ICP.get_param('odoo_chatwoot_connector.sp_comment_hide_spam_enabled', 'True')
+                == 'True'
+                and comment_id
+            ):
                 hide_ok, hide_err = connect._hide_comment(comment_id, service, page=page)
                 if hide_ok:
                     _logger.info('SendPulse Odoo: spam comment %s hidden', comment_id)
@@ -1466,9 +1600,13 @@ class SendpulseConnect(models.Model):
                         silent=True,
                     )
                 else:
-                    _logger.warning('SendPulse Odoo: failed to hide spam %s: %s', comment_id, hide_err)
+                    _logger.warning(
+                        'SendPulse Odoo: failed to hide spam %s: %s', comment_id, hide_err
+                    )
         elif category == 'complaint':
-            _logger.warning('SendPulse Odoo: complaint detected → escalation, no auto-reply for %s', comment_id)
+            _logger.warning(
+                'SendPulse Odoo: complaint detected → escalation, no auto-reply for %s', comment_id
+            )
             send_public = False
             send_private = False
             self._notify_telegram(
@@ -1479,13 +1617,11 @@ class SendpulseConnect(models.Model):
             )
 
         # Тексти з підстановкою URL (per-page override → глобальний ICP → дефолт)
-        landing_url = (
-            (page.landing_url if page else '')
-            or ICP.get_param('odoo_chatwoot_connector.sp_comment_landing_url', 'https://lato2026.campscout.eu')
+        landing_url = (page.landing_url if page else '') or ICP.get_param(
+            'odoo_chatwoot_connector.sp_comment_landing_url', 'https://lato2026.campscout.eu'
         )
-        tg_url = (
-            (page.tg_url if page else '')
-            or ICP.get_param('odoo_chatwoot_connector.sp_comment_tg_url', 'https://t.me/campscouting')
+        tg_url = (page.tg_url if page else '') or ICP.get_param(
+            'odoo_chatwoot_connector.sp_comment_tg_url', 'https://t.me/campscouting'
         )
 
         # Публічна відповідь
@@ -1507,11 +1643,13 @@ class SendpulseConnect(models.Model):
             else:
                 # Fallback: старий round-robin по константах
                 if post_id:
-                    count = self.search_count([
-                        ('sp_is_comment', '=', True),
-                        ('sp_post_id', '=', post_id),
-                        ('sp_replied_public', '=', True),
-                    ])
+                    count = self.search_count(
+                        [
+                            ('sp_is_comment', '=', True),
+                            ('sp_post_id', '=', post_id),
+                            ('sp_replied_public', '=', True),
+                        ]
+                    )
                 else:
                     count = self.search_count([('sp_is_comment', '=', True)])
                 tmpl = self._COMMENT_PUBLIC_TEMPLATES[count % len(self._COMMENT_PUBLIC_TEMPLATES)]
@@ -1519,7 +1657,9 @@ class SendpulseConnect(models.Model):
                     landing_url=landing_url or 'https://lato2026.campscout.eu',
                     tg_url=tg_url or 'https://t.me/campscouting',
                 )
-            public_ok, public_error = connect._send_comment_public_reply(comment_id, service, public_text, page=page)
+            public_ok, public_error = connect._send_comment_public_reply(
+                comment_id, service, public_text, page=page
+            )
             if public_ok:
                 vals = {'sp_replied_public': True}
                 if template:
@@ -1542,27 +1682,33 @@ class SendpulseConnect(models.Model):
             )
             if not private_text_tmpl:
                 private_text_tmpl = (
-                    "Вітаємо! 🏕️ Дякуємо за ваш коментар під нашим постом.\n\n"
-                    "Підготували для вас відповіді на найпоширеніші запитання — "
-                    "безпека, програма, харчування, вартість, терміни:\n"
-                    "🎬 {yt_url}\n\n"
-                    "Вся актуальна інформація про табори 2026 також тут:\n"
-                    "🌐 {landing_url}\n\n"
-                    "Якщо залишились питання — пишіть тут, відповімо особисто! 😊"
+                    'Вітаємо! 🏕️ Дякуємо за ваш коментар під нашим постом.\n\n'
+                    'Підготували для вас відповіді на найпоширеніші запитання — '
+                    'безпека, програма, харчування, вартість, терміни:\n'
+                    '🎬 {yt_url}\n\n'
+                    'Вся актуальна інформація про табори 2026 також тут:\n'
+                    '🌐 {landing_url}\n\n'
+                    'Якщо залишились питання — пишіть тут, відповімо особисто! 😊'
                 )
             private_text = private_text_tmpl.format(
                 landing_url=landing_url or 'https://lato2026.campscout.eu',
                 tg_url=tg_url or 'https://t.me/campscouting',
-                yt_url=yt_url or 'https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV',
+                yt_url=yt_url
+                or 'https://www.youtube.com/playlist?list=PLgc9vcdbFyLQZaeghL7ffKVr2P4y4aVHV',
             )
-            private_ok, private_error = connect._send_comment_private_reply(comment_id, private_text, service, page=page)
+            private_ok, private_error = connect._send_comment_private_reply(
+                comment_id, private_text, service, page=page
+            )
             if private_ok:
-                connect.write({
-                    'sp_replied_private': True,
-                    'sp_messenger_window_expires_at': fields.Datetime.now() + timedelta(hours=24),
-                    'sp_window_alert_sent': False,
-                    'sp_funnel_stage': 'private_sent',
-                })
+                connect.write(
+                    {
+                        'sp_replied_private': True,
+                        'sp_messenger_window_expires_at': fields.Datetime.now()
+                        + timedelta(hours=24),
+                        'sp_window_alert_sent': False,
+                        'sp_funnel_stage': 'private_sent',
+                    }
+                )
 
         # Нотатка оператору
         connect._notify_operator_comment(
@@ -1579,8 +1725,14 @@ class SendpulseConnect(models.Model):
         return connect
 
     _COMMENT_CATEGORIES = (
-        'question_price', 'question_dates', 'question_age', 'question_general',
-        'thanks', 'complaint', 'spam', 'other',
+        'question_price',
+        'question_dates',
+        'question_age',
+        'question_general',
+        'thanks',
+        'complaint',
+        'spam',
+        'other',
     )
 
     def _classify_comment(self, text, service='facebook'):
@@ -1599,17 +1751,17 @@ class SendpulseConnect(models.Model):
         model = ICP.get_param('odoo_chatwoot_connector.llm_model', 'claude-haiku-4-5')
 
         prompt = (
-            "Класифікуй коментар під постом літнього дитячого табору CampScout в одну з категорій:\n"
-            "- question_price (питання про ціну, вартість, знижки)\n"
-            "- question_dates (питання про терміни, дати заїздів, коли)\n"
-            "- question_age (питання про вік дітей, з якого віку)\n"
-            "- question_general (інше питання: програма, харчування, безпека, місце, документи)\n"
-            "- thanks (подяка, позитивні емодзі без питання, лайк)\n"
-            "- complaint (скарга, негатив, претензія)\n"
-            "- spam (спам, реклама, шкідливе посилання, провокація)\n"
-            "- other (не вдалось класифікувати)\n\n"
-            f"Коментар: \"{text[:400]}\"\n\n"
-            "Відповідай ОДНИМ СЛОВОМ — назвою категорії без пояснень."
+            'Класифікуй коментар під постом літнього дитячого табору CampScout в одну з категорій:\n'
+            '- question_price (питання про ціну, вартість, знижки)\n'
+            '- question_dates (питання про терміни, дати заїздів, коли)\n'
+            '- question_age (питання про вік дітей, з якого віку)\n'
+            '- question_general (інше питання: програма, харчування, безпека, місце, документи)\n'
+            '- thanks (подяка, позитивні емодзі без питання, лайк)\n'
+            '- complaint (скарга, негатив, претензія)\n'
+            '- spam (спам, реклама, шкідливе посилання, провокація)\n'
+            '- other (не вдалось класифікувати)\n\n'
+            f'Коментар: "{text[:400]}"\n\n'
+            'Відповідай ОДНИМ СЛОВОМ — назвою категорії без пояснень.'
         )
         try:
             resp = requests.post(
@@ -1629,7 +1781,8 @@ class SendpulseConnect(models.Model):
             if resp.status_code != 200:
                 _logger.warning(
                     'SendPulse Odoo: LLM classifier HTTP %d — %s',
-                    resp.status_code, resp.text[:200],
+                    resp.status_code,
+                    resp.text[:200],
                 )
                 return 'other'
             data = resp.json()
@@ -1649,7 +1802,10 @@ class SendpulseConnect(models.Model):
         Токен з payload редактується (замінюється на '***REDACTED***').
         """
         try:
-            redacted = {k: ('***REDACTED***' if k == 'access_token' else v) for k, v in (payload or {}).items()}
+            redacted = {
+                k: ('***REDACTED***' if k == 'access_token' else v)
+                for k, v in (payload or {}).items()
+            }
             level = 'INFO' if status_code == 200 else 'WARNING'
             short_resp = (response_text or '')[:500]
             msg = (
@@ -1658,16 +1814,18 @@ class SendpulseConnect(models.Model):
                 f'Payload: {redacted}\n'
                 f'Response: {short_resp}'
             )
-            self.env['ir.logging'].sudo().create({
-                'name': 'odoo_chatwoot_connector.fb_api',
-                'type': 'server',
-                'level': level,
-                'dbname': self.env.cr.dbname,
-                'message': msg,
-                'path': 'sendpulse_connect._fb_post_with_retry',
-                'func': label,
-                'line': '0',
-            })
+            self.env['ir.logging'].sudo().create(
+                {
+                    'name': 'odoo_chatwoot_connector.fb_api',
+                    'type': 'server',
+                    'level': level,
+                    'dbname': self.env.cr.dbname,
+                    'message': msg,
+                    'path': 'sendpulse_connect._fb_post_with_retry',
+                    'func': label,
+                    'line': '0',
+                }
+            )
         except Exception as e:
             # Аудит-лог не повинен ламати основний флоу
             _logger.warning('SendPulse Odoo: audit log write failed — %s', e)
@@ -1697,12 +1855,18 @@ class SendpulseConnect(models.Model):
                     last_err = self._parse_fb_error(resp)
                     _logger.warning(
                         'SendPulse Odoo %s attempt %d/%d → HTTP %d (%s) — retrying',
-                        label, attempt + 1, attempts, resp.status_code, last_err,
+                        label,
+                        attempt + 1,
+                        attempts,
+                        resp.status_code,
+                        last_err,
                     )
                 else:
                     err = self._parse_fb_error(resp)
                     _logger.warning('SendPulse Odoo %s failed (no retry) — %s', label, err)
-                    self._log_fb_audit(label, url, payload, resp.status_code, last_text, attempt + 1)
+                    self._log_fb_audit(
+                        label, url, payload, resp.status_code, last_text, attempt + 1
+                    )
                     # V2 immediate alert: якщо токен протух (code 190) — одразу Telegram,
                     # не чекаємо weekly cron. Rate-limited 1/год щоб не спамити.
                     self._maybe_alert_token_expired(err, last_text)
@@ -1712,14 +1876,17 @@ class SendpulseConnect(models.Model):
                 last_text = f'network error: {e}'
                 _logger.warning(
                     'SendPulse Odoo %s attempt %d/%d → network error (%s) — retrying',
-                    label, attempt + 1, attempts, e,
+                    label,
+                    attempt + 1,
+                    attempts,
+                    e,
                 )
             except Exception as e:
                 _logger.error('SendPulse Odoo %s exception — %s', label, e)
                 self._log_fb_audit(label, url, payload, 0, f'exception: {e}', attempt + 1)
                 return False, str(e), None
             if attempt < attempts - 1:
-                time.sleep(base_delay * (3 ** attempt))
+                time.sleep(base_delay * (3**attempt))
         _logger.error('SendPulse Odoo %s — all %d retries exhausted: %s', label, attempts, last_err)
         self._log_fb_audit(label, url, payload, last_status, last_text, attempts)
         return False, f'retries exhausted: {last_err}', None
@@ -1734,16 +1901,17 @@ class SendpulseConnect(models.Model):
         combined = f'{err_text or ""} {raw_response or ""}'.lower()
         # Meta error code 190 = invalid/expired token (також часті rbacs 102/104)
         is_token_issue = (
-            'код 190' in combined or 'code":190' in combined or 'code": 190' in combined
-            or 'session has expired' in combined or 'invalid oauth' in combined
+            'код 190' in combined
+            or 'code":190' in combined
+            or 'code": 190' in combined
+            or 'session has expired' in combined
+            or 'invalid oauth' in combined
             or 'error validating access token' in combined
         )
         if not is_token_issue:
             return
         ICP = self.env['ir.config_parameter'].sudo()
-        last_alert_iso = ICP.get_param(
-            'odoo_chatwoot_connector.fb_token_invalid_last_alert_at', ''
-        )
+        last_alert_iso = ICP.get_param('odoo_chatwoot_connector.fb_token_invalid_last_alert_at', '')
         now = fields.Datetime.now()
         if last_alert_iso:
             try:
@@ -1757,13 +1925,13 @@ class SendpulseConnect(models.Model):
             fields.Datetime.to_string(now),
         )
         self._notify_telegram(
-            f'🚨 <b>FB Page Token НЕДІЙСНИЙ</b>\n\n'
-            f'API миттєво відхиляє запити — автовідповіді на коменти і '
-            f'приватні повідомлення НЕ проходять.\n\n'
-            f'<b>Терміново:</b> отримай новий User Token у Graph API Explorer '
-            f'і натисни «Синхронізувати з Meta» у Settings.\n\n'
-            f'<b>Довготривало:</b> заповни fb_app_id + fb_app_secret у Settings + '
-            f'увімкни Auto-refresh FB Page tokens — токени автоматично стануть long-lived.',
+            '🚨 <b>FB Page Token НЕДІЙСНИЙ</b>\n\n'
+            'API миттєво відхиляє запити — автовідповіді на коменти і '
+            'приватні повідомлення НЕ проходять.\n\n'
+            '<b>Терміново:</b> отримай новий User Token у Graph API Explorer '
+            'і натисни «Синхронізувати з Meta» у Settings.\n\n'
+            '<b>Довготривало:</b> заповни fb_app_id + fb_app_secret у Settings + '
+            'увімкни Auto-refresh FB Page tokens — токени автоматично стануть long-lived.',
             silent=False,
         )
 
@@ -1796,7 +1964,11 @@ class SendpulseConnect(models.Model):
             )
             if resp.status_code == 200:
                 return True
-            _logger.warning('SendPulse Odoo: Telegram alert failed HTTP %d — %s', resp.status_code, resp.text[:200])
+            _logger.warning(
+                'SendPulse Odoo: Telegram alert failed HTTP %d — %s',
+                resp.status_code,
+                resp.text[:200],
+            )
             return False
         except Exception as e:
             _logger.warning('SendPulse Odoo: Telegram alert exception — %s', e)
@@ -1849,7 +2021,9 @@ class SendpulseConnect(models.Model):
         msg_lines = []
         for m in reversed(list(recent_messages)):
             direction = '👤 Клієнт' if m.direction == 'incoming' else '🧑 Оператор'
-            msg_lines.append(f'{direction} [{m.date:%Y-%m-%d %H:%M}]: {(m.text_message or "")[:200]}')
+            msg_lines.append(
+                f'{direction} [{m.date:%Y-%m-%d %H:%M}]: {(m.text_message or "")[:200]}'
+            )
         description_parts = [
             f'Джерело: {self._get_service_label()} через SendPulse',
             f'Бот: {self.bot_name or self.bot_id or "—"}',
@@ -1881,28 +2055,35 @@ class SendpulseConnect(models.Model):
             'user_id': team.user_id.id if team and team.user_id else False,
         }
         if self.partner_id:
-            lead_vals.update({
-                'partner_id': self.partner_id.id,
-                'contact_name': self.partner_id.name,
-                'email_from': self.partner_id.email or False,
-                'phone': self.partner_id.phone or self.partner_id.mobile or False,
-            })
+            lead_vals.update(
+                {
+                    'partner_id': self.partner_id.id,
+                    'contact_name': self.partner_id.name,
+                    'email_from': self.partner_id.email or False,
+                    'phone': self.partner_id.phone or self.partner_id.mobile or False,
+                }
+            )
         else:
-            lead_vals.update({
-                'contact_name': self.name,
-                'email_from': self.unidentified_email or False,
-                'phone': self.unidentified_phone or False,
-            })
+            lead_vals.update(
+                {
+                    'contact_name': self.name,
+                    'email_from': self.unidentified_email or False,
+                    'phone': self.unidentified_phone or False,
+                }
+            )
 
         try:
             lead = self.env['crm.lead'].sudo().create(lead_vals)
-            self.write({
-                'sp_lead_id': lead.id,
-                'sp_funnel_stage': 'lead_created',
-            })
+            self.write(
+                {
+                    'sp_lead_id': lead.id,
+                    'sp_funnel_stage': 'lead_created',
+                }
+            )
             _logger.info(
                 'SendPulse Odoo: auto-created crm.lead %s from connect %s',
-                lead.id, self.id,
+                lead.id,
+                self.id,
             )
             # Системна нотатка у Discuss-канал
             if self.channel_id:
@@ -1940,11 +2121,13 @@ class SendpulseConnect(models.Model):
         goodbye = ICP.get_param('odoo_chatwoot_connector.auto_close_goodbye_text', '') or ''
         threshold = fields.Datetime.now() - timedelta(days=days)
 
-        candidates = self.search([
-            ('stage', 'in', ['in_progress', 'new_message']),
-            ('last_message_date', '<', threshold),
-            ('sp_first_inbound_at', '<', threshold),
-        ])
+        candidates = self.search(
+            [
+                ('stage', 'in', ['in_progress', 'new_message']),
+                ('last_message_date', '<', threshold),
+                ('sp_first_inbound_at', '<', threshold),
+            ]
+        )
         closed_count = 0
         goodbye_sent = 0
         for rec in candidates:
@@ -1954,8 +2137,7 @@ class SendpulseConnect(models.Model):
             # Goodbye повідомлення (якщо є шаблон + 24h вікно відкрите)
             now = fields.Datetime.now()
             window_open = (
-                not rec.sp_messenger_window_expires_at
-                or rec.sp_messenger_window_expires_at > now
+                not rec.sp_messenger_window_expires_at or rec.sp_messenger_window_expires_at > now
             )
             if goodbye and window_open and not rec.sp_is_comment:
                 try:
@@ -1969,7 +2151,8 @@ class SendpulseConnect(models.Model):
             closed_count += 1
         _logger.info(
             'SendPulse Odoo: cron_auto_close_inactive — closed %d, goodbye sent %d',
-            closed_count, goodbye_sent,
+            closed_count,
+            goodbye_sent,
         )
 
     # ── V2 F7: Bulk-archive old closed comment records ────────────────────
@@ -1981,19 +2164,24 @@ class SendpulseConnect(models.Model):
         для історії, але прибирає з default views.
         """
         ICP = self.env['ir.config_parameter'].sudo()
-        if ICP.get_param('odoo_chatwoot_connector.auto_archive_comments_enabled', 'False') != 'True':
+        if (
+            ICP.get_param('odoo_chatwoot_connector.auto_archive_comments_enabled', 'False')
+            != 'True'
+        ):
             return
         try:
             days = int(ICP.get_param('odoo_chatwoot_connector.auto_archive_comments_days', '30'))
         except (ValueError, TypeError):
             days = 30
         threshold = fields.Datetime.now() - timedelta(days=days)
-        candidates = self.search([
-            ('sp_is_comment', '=', True),
-            ('stage', '=', 'close'),
-            ('active', '=', True),
-            ('write_date', '<', threshold),
-        ])
+        candidates = self.search(
+            [
+                ('sp_is_comment', '=', True),
+                ('stage', '=', 'close'),
+                ('active', '=', True),
+                ('write_date', '<', threshold),
+            ]
+        )
         if candidates:
             candidates.write({'active': False})
         _logger.info(
@@ -2036,31 +2224,43 @@ class SendpulseConnect(models.Model):
 
         # Комент-категорії
         cat_counts = {}
-        for cat in ('question_price', 'question_dates', 'question_age',
-                    'question_general', 'thanks', 'complaint', 'spam', 'other'):
+        for cat in (
+            'question_price',
+            'question_dates',
+            'question_age',
+            'question_general',
+            'thanks',
+            'complaint',
+            'spam',
+            'other',
+        ):
             cat_counts[cat] = Connect.search_count(
                 domain_period + [('sp_is_comment', '=', True), ('sp_comment_category', '=', cat)]
             )
 
         # Funnel — скільки перейшло до кожної стадії (за період створення)
         funnel = {}
-        for stage in ('comment_only', 'private_sent', 'customer_replied',
-                      'operator_engaged', 'lead_created', 'closed_won', 'closed_lost'):
-            funnel[stage] = Connect.search_count(
-                domain_period + [('sp_funnel_stage', '=', stage)]
-            )
+        for stage in (
+            'comment_only',
+            'private_sent',
+            'customer_replied',
+            'operator_engaged',
+            'lead_created',
+            'closed_won',
+            'closed_lost',
+        ):
+            funnel[stage] = Connect.search_count(domain_period + [('sp_funnel_stage', '=', stage)])
 
         # SLA — медіана часу до першої відповіді
-        with_sla = Connect.search(
-            domain_period + [('sp_first_reply_time_sec', '>', 0)]
-        )
+        with_sla = Connect.search(domain_period + [('sp_first_reply_time_sec', '>', 0)])
         sla_values = sorted(with_sla.mapped('sp_first_reply_time_sec'))
         sla_median_sec = sla_values[len(sla_values) // 2] if sla_values else 0
         sla_median_min = sla_median_sec // 60 if sla_median_sec else 0
 
         # Auto-hide spam за період
         spam_hidden = Connect.search_count(
-            domain_period + [
+            domain_period
+            + [
                 ('sp_comment_category', '=', 'spam'),
                 ('sp_replied_public', '=', False),
             ]
@@ -2068,20 +2268,24 @@ class SendpulseConnect(models.Model):
 
         # Leads створені
         Lead = self.env['crm.lead'].sudo()
-        leads_created = Lead.search_count([
-            ('create_date', '>=', period_start),
-            ('create_date', '<', period_end),
-            ('id', 'in', Connect.search(domain_period).mapped('sp_lead_id').ids),
-        ])
+        leads_created = Lead.search_count(
+            [
+                ('create_date', '>=', period_start),
+                ('create_date', '<', period_end),
+                ('id', 'in', Connect.search(domain_period).mapped('sp_lead_id').ids),
+            ]
+        )
 
         # Token статуси
         Page = self.env['sendpulse.facebook.page'].sudo()
-        bad_tokens = Page.search([
-            ('active', '=', True),
-            '|',
-            ('token_status', 'ilike', 'invalid%'),
-            ('token_status', 'ilike', 'expires_soon%'),
-        ])
+        bad_tokens = Page.search(
+            [
+                ('active', '=', True),
+                '|',
+                ('token_status', 'ilike', 'invalid%'),
+                ('token_status', 'ilike', 'expires_soon%'),
+            ]
+        )
 
         return {
             'total': total,
@@ -2109,14 +2313,22 @@ class SendpulseConnect(models.Model):
         if stats['comments']:
             cat = stats['cat_counts']
             lines.append('<b>Категорії коментарів:</b>')
-            if cat['question_price']: lines.append(f'  💰 Ціна: {cat["question_price"]}')
-            if cat['question_dates']: lines.append(f'  📅 Терміни: {cat["question_dates"]}')
-            if cat['question_age']:   lines.append(f'  👶 Вік: {cat["question_age"]}')
-            if cat['question_general']: lines.append(f'  ❓ Загальне: {cat["question_general"]}')
-            if cat['thanks']:   lines.append(f'  🙏 Подяки: {cat["thanks"]}')
-            if cat['complaint']: lines.append(f'  🚨 Скарги: {cat["complaint"]} (ескаловано)')
-            if cat['spam']:     lines.append(f'  🚫 Спам: {cat["spam"]} (приховано: {stats["spam_hidden"]})')
-            if cat['other']:    lines.append(f'  🔸 Інше: {cat["other"]}')
+            if cat['question_price']:
+                lines.append(f'  💰 Ціна: {cat["question_price"]}')
+            if cat['question_dates']:
+                lines.append(f'  📅 Терміни: {cat["question_dates"]}')
+            if cat['question_age']:
+                lines.append(f'  👶 Вік: {cat["question_age"]}')
+            if cat['question_general']:
+                lines.append(f'  ❓ Загальне: {cat["question_general"]}')
+            if cat['thanks']:
+                lines.append(f'  🙏 Подяки: {cat["thanks"]}')
+            if cat['complaint']:
+                lines.append(f'  🚨 Скарги: {cat["complaint"]} (ескаловано)')
+            if cat['spam']:
+                lines.append(f'  🚫 Спам: {cat["spam"]} (приховано: {stats["spam_hidden"]})')
+            if cat['other']:
+                lines.append(f'  🔸 Інше: {cat["other"]}')
             lines.append('')
 
         f = stats['funnel']
@@ -2146,11 +2358,13 @@ class SendpulseConnect(models.Model):
 
         # F9 A/B: топ-3 і worst-1 шаблонів за conversion (мін. 10 використань)
         PublicTemplate = self.env['sendpulse.public.template'].sudo()
-        significant = PublicTemplate.search([
-            ('active', '=', True),
-            ('kind', '=', 'standard'),
-            ('use_count', '>=', 10),
-        ])
+        significant = PublicTemplate.search(
+            [
+                ('active', '=', True),
+                ('kind', '=', 'standard'),
+                ('use_count', '>=', 10),
+            ]
+        )
         if significant:
             sorted_by_conv = significant.sorted(key='conversion_rate', reverse=True)
             lines.append('')
@@ -2175,13 +2389,13 @@ class SendpulseConnect(models.Model):
     UNSUBSCRIBE_PATTERNS = (
         r'\bstop\b',
         r'\bunsubscribe\b',
-        r'\bвідпис',          # відписатися, відпис
-        r'\bотпис',            # отписаться, отпис
+        r'\bвідпис',  # відписатися, відпис
+        r'\bотпис',  # отписаться, отпис
         r'\bне\s+над[іи]слайте',
         r'\bне\s+пиш[іи]ть',
-        r'\bnie\s+chc[ęe]',   # nie chcę / nie chce
-        r'\bwypisz\b',         # wypiszcie / wypisać
-        r'\brezygnuj',         # rezygnuję
+        r'\bnie\s+chc[ęe]',  # nie chcę / nie chce
+        r'\bwypisz\b',  # wypiszcie / wypisać
+        r'\brezygnuj',  # rezygnuję
         r'\busuńcie\s+mnie',
         r'\bвидаліть\s+мене',
         r'\bудалите\s+меня',
@@ -2196,6 +2410,7 @@ class SendpulseConnect(models.Model):
         if not text:
             return False
         import re
+
         lower = text.lower()
         matched = None
         for pat in self.UNSUBSCRIBE_PATTERNS:
@@ -2205,10 +2420,12 @@ class SendpulseConnect(models.Model):
         if not matched:
             return False
         ConsentLog = self.env['sendpulse.privacy.consent.log'].sudo()
-        email = (self.sp_booking_email or
-                 (self.partner_id.email if self.partner_id else '') or '').strip().lower()
-        phone = ((self.partner_id.mobile or self.partner_id.phone)
-                 if self.partner_id else '') or ''
+        email = (
+            (self.sp_booking_email or (self.partner_id.email if self.partner_id else '') or '')
+            .strip()
+            .lower()
+        )
+        phone = ((self.partner_id.mobile or self.partner_id.phone) if self.partner_id else '') or ''
         phone = phone.strip()
         recorded = []
         # Email withdrawal
@@ -2254,7 +2471,9 @@ class SendpulseConnect(models.Model):
             recorded.append('messenger')
         _logger.info(
             'SendPulse Odoo: RODO unsubscribe detected у connect %s — записав withdrawals: %s (pattern: %s)',
-            self.id, recorded, matched,
+            self.id,
+            recorded,
+            matched,
         )
         return True
 
@@ -2270,17 +2489,24 @@ class SendpulseConnect(models.Model):
         активних подій.
         """
         ICP = self.env['ir.config_parameter'].sudo()
-        if ICP.get_param(
-            'odoo_chatwoot_connector.event_seats_awareness_enabled', 'True'
-        ) != 'True':
+        if ICP.get_param('odoo_chatwoot_connector.event_seats_awareness_enabled', 'True') != 'True':
             return ''
         from datetime import datetime
+
         try:
-            events = self.env['event.event'].sudo().search([
-                ('active', '=', True),
-                ('date_begin', '>', datetime.now()),
-                ('stage_id.pipe_end', '=', False),
-            ], order='date_begin', limit=limit)
+            events = (
+                self.env['event.event']
+                .sudo()
+                .search(
+                    [
+                        ('active', '=', True),
+                        ('date_begin', '>', datetime.now()),
+                        ('stage_id.pipe_end', '=', False),
+                    ],
+                    order='date_begin',
+                    limit=limit,
+                )
+            )
         except Exception as e:
             _logger.warning('SendPulse Odoo: F14 events query failed — %s', e)
             return ''
@@ -2344,31 +2570,38 @@ class SendpulseConnect(models.Model):
         # Контекст профілю (базовий)
         profile_parts = [f"Ім'я клієнта: {self.name or '—'}"]
         if self.sp_child_name:
-            profile_parts.append(f"Дитина (з бота): {self.sp_child_name}")
+            profile_parts.append(f'Дитина (з бота): {self.sp_child_name}')
         if self.sp_booking_email:
-            profile_parts.append(f"Email: {self.sp_booking_email}")
+            profile_parts.append(f'Email: {self.sp_booking_email}')
         if self.social_username:
-            profile_parts.append(f"Username: @{self.social_username}")
-        profile_parts.append(f"Канал: {self._get_service_label()}")
+            profile_parts.append(f'Username: @{self.social_username}')
+        profile_parts.append(f'Канал: {self._get_service_label()}')
 
         # F12: Розширений контекст — якщо є linked partner
         partner = self.partner_id
         if partner:
             profile_parts.append('')
             profile_parts.append('── ІДЕНТИФІКОВАНИЙ КЛІЄНТ ──')
-            profile_parts.append(f"Partner ID: {partner.id}, створено: {partner.create_date.strftime('%Y-%m-%d') if partner.create_date else '—'}")
+            profile_parts.append(
+                f"Partner ID: {partner.id}, створено: {partner.create_date.strftime('%Y-%m-%d') if partner.create_date else '—'}"
+            )
             if partner.email and partner.email != self.sp_booking_email:
-                profile_parts.append(f"Email у партнера: {partner.email}")
+                profile_parts.append(f'Email у партнера: {partner.email}')
             if partner.phone or partner.mobile:
-                profile_parts.append(f"Телефон: {partner.phone or partner.mobile}")
+                profile_parts.append(f'Телефон: {partner.phone or partner.mobile}')
             if partner.city or partner.street:
                 addr = ', '.join(filter(None, [partner.street, partner.city]))
-                profile_parts.append(f"Адреса: {addr}")
+                profile_parts.append(f'Адреса: {addr}')
 
             # crm.lead контекст — відкриті + останні закриті
-            leads = self.env['crm.lead'].sudo().search(
-                [('partner_id', '=', partner.id)],
-                order='create_date desc', limit=5,
+            leads = (
+                self.env['crm.lead']
+                .sudo()
+                .search(
+                    [('partner_id', '=', partner.id)],
+                    order='create_date desc',
+                    limit=5,
+                )
             )
             if leads:
                 profile_parts.append('')
@@ -2377,12 +2610,19 @@ class SendpulseConnect(models.Model):
                     stage = lead.stage_id.name if lead.stage_id else '—'
                     date = lead.create_date.strftime('%Y-%m-%d') if lead.create_date else '—'
                     probab = f'{lead.probability:.0f}%' if lead.probability else '—'
-                    profile_parts.append(f"  • [{date}] {lead.name or '—'} — stage: {stage}, prob: {probab}")
+                    profile_parts.append(
+                        f"  • [{date}] {lead.name or '—'} — stage: {stage}, prob: {probab}"
+                    )
 
             # sale.order історія
-            orders = self.env['sale.order'].sudo().search(
-                [('partner_id', '=', partner.id), ('state', 'in', ('sale', 'done'))],
-                order='date_order desc', limit=3,
+            orders = (
+                self.env['sale.order']
+                .sudo()
+                .search(
+                    [('partner_id', '=', partner.id), ('state', 'in', ('sale', 'done'))],
+                    order='date_order desc',
+                    limit=3,
+                )
             )
             if orders:
                 profile_parts.append('')
@@ -2390,7 +2630,7 @@ class SendpulseConnect(models.Model):
                 for o in orders:
                     date = o.date_order.strftime('%Y-%m-%d') if o.date_order else '—'
                     amount = f"{o.amount_total:.0f} {o.currency_id.name or ''}".strip()
-                    profile_parts.append(f"  • [{date}] {o.name} — {amount}")
+                    profile_parts.append(f'  • [{date}] {o.name} — {amount}')
         else:
             profile_parts.append('')
             profile_parts.append('⚠️ КЛІЄНТ НЕ ІДЕНТИФІКОВАНИЙ — email невідомий')
@@ -2399,70 +2639,70 @@ class SendpulseConnect(models.Model):
 
         # F14: live seats у активних подіях — AI має знати реальну доступність
         live_events = self._get_live_events_context()
-        live_events_block = f"{live_events}\n\n" if live_events else ''
+        live_events_block = f'{live_events}\n\n' if live_events else ''
 
         prompt = (
-            f"Ти — AI-асистент менеджера CampScout (дитячі табори у Польщі).\n\n"
-            f"{live_events_block}"
-            f"КАНОНІЧНІ ФАКТИ (НЕ ВИГАДУВАТИ НІЧОГО ІНШОГО!):\n"
-            f"• Флагмани 2026: TDK 6-11р 3 300 zł (10 днів), Дослідники морів 7-17р 3 500 zł (14 днів), "
-            f"Пошумимо 12-17р 3 250 zł (14 днів)\n"
-            f"• Промо-ціни ДО 01.05.2026, після +300 zł\n"
-            f"• Швейцарія: 5 500 zł, страхівка+медик+дорога окремо. Франція/Італія/Іспанія 2026 — продано\n"
-            f"• У польські табори входить: проживання, 4-разове харчування, програма, NNW, медик 24/7\n"
+            f'Ти — AI-асистент менеджера CampScout (дитячі табори у Польщі).\n\n'
+            f'{live_events_block}'
+            f'КАНОНІЧНІ ФАКТИ (НЕ ВИГАДУВАТИ НІЧОГО ІНШОГО!):\n'
+            f'• Флагмани 2026: TDK 6-11р 3 300 zł (10 днів), Дослідники морів 7-17р 3 500 zł (14 днів), '
+            f'Пошумимо 12-17р 3 250 zł (14 днів)\n'
+            f'• Промо-ціни ДО 01.05.2026, після +300 zł\n'
+            f'• Швейцарія: 5 500 zł, страхівка+медик+дорога окремо. Франція/Італія/Іспанія 2026 — продано\n'
+            f'• У польські табори входить: проживання, 4-разове харчування, програма, NNW, медик 24/7\n'
             f"• Бронь: оплата частинами або повна, за 14 днів до старту все закрите. М'яка бронь 48h без оплати\n"
-            f"• Трансфер окрема послуга: 50 zł пункт збору+автобус, або індивідуальний супровід\n"
-            f"• Телефони здаємо у сейф, щовечора 30хв дзвінки (крім Вовча Стежа/Цивілізація — раз на 3д)\n"
-            f"• Безпека: Ustawa Kamilka + KRK, Compensa VIG 31 617 PLN, ліцензія №1129\n"
-            f"• Соц-доказ: 3 сезони, 1 500+ дітей, 4.9/5 (200+ відгуків Google/FB)\n"
-            f"• -5% за TG-канал: https://t.me/campscouting. Landing: https://lato2026.campscout.eu\n\n"
+            f'• Трансфер окрема послуга: 50 zł пункт збору+автобус, або індивідуальний супровід\n'
+            f'• Телефони здаємо у сейф, щовечора 30хв дзвінки (крім Вовча Стежа/Цивілізація — раз на 3д)\n'
+            f'• Безпека: Ustawa Kamilka + KRK, Compensa VIG 31 617 PLN, ліцензія №1129\n'
+            f'• Соц-доказ: 3 сезони, 1 500+ дітей, 4.9/5 (200+ відгуків Google/FB)\n'
+            f'• -5% за TG-канал: https://t.me/campscouting. Landing: https://lato2026.campscout.eu\n\n'
             f"ПРОЦЕДУРА ОФОРМЛЕННЯ (ОБОВ'ЯЗКОВО знати + пояснювати клієнту!):\n"
-            f"• Дані ДИТИНИ (ПІБ, дата народження, медичні особливості, діагнози, алергії, "
+            f'• Дані ДИТИНИ (ПІБ, дата народження, медичні особливості, діагнози, алергії, '
             f"контакти для екстреного зв'язку) батьки заповнюють САМІ у кваліфікаційній "
-            f"(табірній) картці в особистому кабінеті на сайті — це додаток №5 до Договору.\n"
-            f"• ЮРИДИЧНА ПРИЧИНА: після заповнення батьки ПІДПИСУЮТЬ картку — цим вони "
-            f"беруть юридичну відповідальність за достовірність даних. Ми як оператори "
-            f"НЕ МАЄМО ПРАВА записувати ці дані за батьків у чаті — без їхнього підпису "
-            f"картка юридичної сили не має, і дані не можуть бути використані.\n"
-            f"• Тому у чаті ми ніколи не питаємо ПІБ/дату народження/медичні дані дитини. "
-            f"Якщо клієнт сам пропонує — ввічливо просимо ввести у картці в панелі клієнта.\n"
-            f"• У чаті з батьками питаємо ЇХНІ дані (якщо потрібно для консультації): "
-            f"ПІБ замовника, адреса проживання, телефон, email.\n"
-            f"• Для бронювання — відправляємо у особистий кабінет, там батьки самі заповнюють "
-            f"картку Учасника, підписують, отримують рахунок, роблять оплату.\n\n"
-            f"Прочитай історію і запропонуй {count} РІЗНИХ варіантів наступної відповіді.\n\n"
-            f"Контекст клієнта:\n{profile}\n\n"
-            f"Історія (останнє повідомлення клієнта внизу):\n{history}\n\n"
+            f'(табірній) картці в особистому кабінеті на сайті — це додаток №5 до Договору.\n'
+            f'• ЮРИДИЧНА ПРИЧИНА: після заповнення батьки ПІДПИСУЮТЬ картку — цим вони '
+            f'беруть юридичну відповідальність за достовірність даних. Ми як оператори '
+            f'НЕ МАЄМО ПРАВА записувати ці дані за батьків у чаті — без їхнього підпису '
+            f'картка юридичної сили не має, і дані не можуть бути використані.\n'
+            f'• Тому у чаті ми ніколи не питаємо ПІБ/дату народження/медичні дані дитини. '
+            f'Якщо клієнт сам пропонує — ввічливо просимо ввести у картці в панелі клієнта.\n'
+            f'• У чаті з батьками питаємо ЇХНІ дані (якщо потрібно для консультації): '
+            f'ПІБ замовника, адреса проживання, телефон, email.\n'
+            f'• Для бронювання — відправляємо у особистий кабінет, там батьки самі заповнюють '
+            f'картку Учасника, підписують, отримують рахунок, роблять оплату.\n\n'
+            f'Прочитай історію і запропонуй {count} РІЗНИХ варіантів наступної відповіді.\n\n'
+            f'Контекст клієнта:\n{profile}\n\n'
+            f'Історія (останнє повідомлення клієнта внизу):\n{history}\n\n'
             f"Стиль (ОБОВ'ЯЗКОВО!):\n"
-            f"• Звертання — ТІЛЬКИ на «Ви» (ніколи «ти/тобі/твій»). Батьки — дорослі люди, "
-            f"ми продавець-консультант, не ровесники.\n"
-            f"• 2-5 речень, по-людському, не формально\n"
-            f"• Без клішe («Дякуємо за запитання»)\n"
-            f"• Емодзі 1-2 максимум\n"
-            f"• Варіанти РІЗНІ за підходом (інформативний / уточнюючий / емпатичний)\n"
+            f'• Звертання — ТІЛЬКИ на «Ви» (ніколи «ти/тобі/твій»). Батьки — дорослі люди, '
+            f'ми продавець-консультант, не ровесники.\n'
+            f'• 2-5 речень, по-людському, не формально\n'
+            f'• Без клішe («Дякуємо за запитання»)\n'
+            f'• Емодзі 1-2 максимум\n'
+            f'• Варіанти РІЗНІ за підходом (інформативний / уточнюючий / емпатичний)\n'
             f"• Ім'я клієнта у першій фразі якщо відоме\n"
-            f"• Закінчуй CTA-запитанням якщо доречно\n"
-            f"• Якщо клієнт НЕ ІДЕНТИФІКОВАНИЙ (позначка у профілі ⚠️) і цікавиться "
-            f"деталями/ціною/програмою — ОДИН з варіантів може ввічливо запропонувати "
+            f'• Закінчуй CTA-запитанням якщо доречно\n'
+            f'• Якщо клієнт НЕ ІДЕНТИФІКОВАНИЙ (позначка у профілі ⚠️) і цікавиться '
+            f'деталями/ціною/програмою — ОДИН з варіантів може ввічливо запропонувати '
             f"залишити email для особистої пропозиції (не нав'язливо, природно у контексті).\n"
-            f"• Якщо клієнт ІДЕНТИФІКОВАНИЙ (є partner/ліди/замовлення) — використай контекст "
-            f"(минулі табори, стадія ліда) для персоналізації, але не цитуй деталі буквально.\n"
-            f"• Якщо клієнт питає про КОНКРЕТНИЙ табір/зміну — перевір LIVE ТАБОРИ вище: "
-            f"❗ <30% → створи FOMO («Ірине, лишилось тільки 5 місць, радимо не тягнути»); "
-            f"🔴 повний → ЧЕСНО скажи і запропонуй аналог з вільними місцями; "
-            f"звичайний → не акцентуй на seats без потреби.\n\n"
-            f"КАТЕГОРИЧНО ЗАБОРОНЕНО:\n"
-            f"❌ Звертання на «ти» — завжди «Ви», «Вам», «Ваш», «Ваша дитина»\n"
-            f"❌ Просити у чаті ПІБ дитини, дату народження, медичні дані/діагнози/алергії — "
-            f"все це заповнюється батьками у кваліфікаційній картці у панелі клієнта\n"
-            f"❌ Писати «надішли документи», «заповни анкету у чаті» — відправляємо у особистий кабінет\n"
-            f"❌ Вигадувати ціни, дати, табори, факти яких немає у КАНОНІЧНИХ ФАКТАХ\n"
-            f"❌ Слово «доставка» про дітей (тільки «трансфер», «привезти»)\n"
-            f"❌ «11 років перехідний вік» (для 11 є TDK від 6)\n"
-            f"❌ Агресивно порівнювати з конкурентами\n\n"
-            f"Формат — STRICT JSON:\n"
+            f'• Якщо клієнт ІДЕНТИФІКОВАНИЙ (є partner/ліди/замовлення) — використай контекст '
+            f'(минулі табори, стадія ліда) для персоналізації, але не цитуй деталі буквально.\n'
+            f'• Якщо клієнт питає про КОНКРЕТНИЙ табір/зміну — перевір LIVE ТАБОРИ вище: '
+            f'❗ <30% → створи FOMO («Ірине, лишилось тільки 5 місць, радимо не тягнути»); '
+            f'🔴 повний → ЧЕСНО скажи і запропонуй аналог з вільними місцями; '
+            f'звичайний → не акцентуй на seats без потреби.\n\n'
+            f'КАТЕГОРИЧНО ЗАБОРОНЕНО:\n'
+            f'❌ Звертання на «ти» — завжди «Ви», «Вам», «Ваш», «Ваша дитина»\n'
+            f'❌ Просити у чаті ПІБ дитини, дату народження, медичні дані/діагнози/алергії — '
+            f'все це заповнюється батьками у кваліфікаційній картці у панелі клієнта\n'
+            f'❌ Писати «надішли документи», «заповни анкету у чаті» — відправляємо у особистий кабінет\n'
+            f'❌ Вигадувати ціни, дати, табори, факти яких немає у КАНОНІЧНИХ ФАКТАХ\n'
+            f'❌ Слово «доставка» про дітей (тільки «трансфер», «привезти»)\n'
+            f'❌ «11 років перехідний вік» (для 11 є TDK від 6)\n'
+            f'❌ Агресивно порівнювати з конкурентами\n\n'
+            f'Формат — STRICT JSON:\n'
             f'{{"suggestions": ["варіант 1", "варіант 2", "варіант 3"]}}\n'
-            f"Поверни ЛИШЕ JSON без пояснень."
+            f'Поверни ЛИШЕ JSON без пояснень.'
         )
 
         try:
@@ -2483,12 +2723,14 @@ class SendpulseConnect(models.Model):
             if resp.status_code != 200:
                 _logger.warning(
                     'SendPulse Odoo: suggested_reply HTTP %d — %s',
-                    resp.status_code, resp.text[:200],
+                    resp.status_code,
+                    resp.text[:200],
                 )
                 return []
             raw = (resp.json().get('content') or [{}])[0].get('text', '').strip()
             import json as _json
             import re as _re
+
             # Strip ```json / ``` code fences Claude любить додавати
             cleaned = _re.sub(r'^```(?:json)?\s*|\s*```$', '', raw, flags=_re.MULTILINE).strip()
             data = None
@@ -2506,7 +2748,7 @@ class SendpulseConnect(models.Model):
                             depth -= 1
                             if depth == 0:
                                 try:
-                                    data = _json.loads(cleaned[start:i+1])
+                                    data = _json.loads(cleaned[start : i + 1])
                                 except Exception:
                                     pass
                                 break
@@ -2550,6 +2792,7 @@ class SendpulseConnect(models.Model):
         if self.sp_booking_email:
             return False
         import re as _re
+
         recent = self.message_ids.filtered(
             lambda m: m.direction == 'incoming' and (m.text_message or '').strip()
         ).sorted('date', reverse=True)[:20]
@@ -2560,8 +2803,8 @@ class SendpulseConnect(models.Model):
             email = m.group(0).lower().strip()
             vals = {'sp_booking_email': email}
             if not self.partner_id:
-                partner = self.env['res.partner'].sudo().search(
-                    [('email', '=ilike', email)], limit=1
+                partner = (
+                    self.env['res.partner'].sudo().search([('email', '=ilike', email)], limit=1)
                 )
                 if partner:
                     vals['partner_id'] = partner.id
@@ -2570,7 +2813,9 @@ class SendpulseConnect(models.Model):
             self.write(vals)
             _logger.info(
                 'SendPulse Odoo: F12 email extracted %s from connect %s, linked partner=%s',
-                email, self.id, vals.get('partner_id'),
+                email,
+                self.id,
+                vals.get('partner_id'),
             )
             return True
         return False
@@ -2592,18 +2837,21 @@ class SendpulseConnect(models.Model):
             return {'translated': '', 'source_lang': '', 'error': 'no_api_key'}
 
         model = ICP.get_param('odoo_chatwoot_connector.llm_model', 'claude-haiku-4-5')
-        target_full = {'pl': 'польську', 'uk': 'українську', 'en': 'англійську', 'ru': 'російську'}.get(
-            target_lang, target_lang
-        )
+        target_full = {
+            'pl': 'польську',
+            'uk': 'українську',
+            'en': 'англійську',
+            'ru': 'російську',
+        }.get(target_lang, target_lang)
         prompt = (
-            f"Визнач мову вхідного тексту і переклади його на {target_full}.\n"
-            f"Якщо текст уже на цільовій мові — поверни його без змін.\n"
-            f"Стиль розмовний, природній (клієнтсько-операторський чат).\n"
-            f"Зберігай емодзі, URL, цифри, імена власні.\n\n"
-            f"Вхідний текст:\n\"\"\"\n{text[:2000]}\n\"\"\"\n\n"
-            f"Формат — STRICT JSON:\n"
+            f'Визнач мову вхідного тексту і переклади його на {target_full}.\n'
+            f'Якщо текст уже на цільовій мові — поверни його без змін.\n'
+            f'Стиль розмовний, природній (клієнтсько-операторський чат).\n'
+            f'Зберігай емодзі, URL, цифри, імена власні.\n\n'
+            f'Вхідний текст:\n"""\n{text[:2000]}\n"""\n\n'
+            f'Формат — STRICT JSON:\n'
             f'{{"source_lang": "uk|pl|en|ru|...", "translated": "переклад"}}\n'
-            f"Поверни ТІЛЬКИ JSON без пояснень."
+            f'Поверни ТІЛЬКИ JSON без пояснень.'
         )
         try:
             resp = requests.post(
@@ -2623,12 +2871,14 @@ class SendpulseConnect(models.Model):
             if resp.status_code != 200:
                 _logger.warning(
                     'SendPulse Odoo: translate HTTP %d — %s',
-                    resp.status_code, resp.text[:200],
+                    resp.status_code,
+                    resp.text[:200],
                 )
                 return {'translated': '', 'source_lang': '', 'error': f'http_{resp.status_code}'}
             raw = (resp.json().get('content') or [{}])[0].get('text', '').strip()
             import json as _json
             import re as _re
+
             cleaned = _re.sub(r'^```(?:json)?\s*|\s*```$', '', raw, flags=_re.MULTILINE).strip()
             data = None
             try:
@@ -2644,7 +2894,7 @@ class SendpulseConnect(models.Model):
                             depth -= 1
                             if depth == 0:
                                 try:
-                                    data = _json.loads(cleaned[start:i+1])
+                                    data = _json.loads(cleaned[start : i + 1])
                                 except Exception:
                                     pass
                                 break
@@ -2696,8 +2946,9 @@ class SendpulseConnect(models.Model):
         ICP = self.env['ir.config_parameter'].sudo()
         if ICP.get_param('odoo_chatwoot_connector.lead_magnet_enabled', 'False') != 'True':
             return {'ok': False, 'error': 'disabled', 'message_id': None}
-        to_email = (to_email or self.sp_booking_email or
-                    (self.partner_id.email if self.partner_id else '')).strip()
+        to_email = (
+            to_email or self.sp_booking_email or (self.partner_id.email if self.partner_id else '')
+        ).strip()
         if not to_email:
             return {'ok': False, 'error': 'no_email', 'message_id': None}
         # Idempotency
@@ -2709,14 +2960,18 @@ class SendpulseConnect(models.Model):
         # Якщо consent record відсутній — трактуємо надання email як неявну
         # згоду (unambiguous action per art. 4(11) RODO) і фіксуємо її.
         ConsentLog = self.env['sendpulse.privacy.consent.log'].sudo()
-        enforce_consent = ICP.get_param(
-            'odoo_chatwoot_connector.consent_enforcement_enabled', 'True'
-        ) == 'True'
+        enforce_consent = (
+            ICP.get_param('odoo_chatwoot_connector.consent_enforcement_enabled', 'True') == 'True'
+        )
         if enforce_consent:
-            last_consent = ConsentLog.search([
-                ('purpose', '=', 'lead_magnet_email'),
-                ('email', '=', to_email.lower()),
-            ], order='consent_timestamp desc, id desc', limit=1)
+            last_consent = ConsentLog.search(
+                [
+                    ('purpose', '=', 'lead_magnet_email'),
+                    ('email', '=', to_email.lower()),
+                ],
+                order='consent_timestamp desc, id desc',
+                limit=1,
+            )
             if last_consent and not last_consent.consent_given:
                 _logger.info(
                     'SendPulse Odoo: F13 PDF skip — consent withdrawn for %s',
@@ -2744,7 +2999,8 @@ class SendpulseConnect(models.Model):
         logo_url = ''
         if signer.exists() and signer.image_128:
             av_att = self._get_or_create_public_image(
-                'lead_magnet_avatar', signer.image_128,
+                'lead_magnet_avatar',
+                signer.image_128,
             )
             if av_att:
                 avatar_url = f'{base_url}/web/image/{av_att.id}/avatar.png'
@@ -2753,7 +3009,8 @@ class SendpulseConnect(models.Model):
         logo_b64 = self._get_email_logo_png_b64(company)
         if logo_b64:
             lg_att = self._get_or_create_public_image(
-                'lead_magnet_logo', logo_b64,
+                'lead_magnet_logo',
+                logo_b64,
             )
             if lg_att:
                 logo_url = f'{base_url}/web/image/{lg_att.id}/campscout.png'
@@ -2765,9 +3022,11 @@ class SendpulseConnect(models.Model):
         try:
             if tpl:
                 # Render спочатку тіло + subject щоб зробити post-process
-                rendered = tpl.sudo()._generate_template(
-                    [self.id], ['subject', 'body_html', 'email_from']
-                ).get(self.id, {})
+                rendered = (
+                    tpl.sudo()
+                    ._generate_template([self.id], ['subject', 'body_html', 'email_from'])
+                    .get(self.id, {})
+                )
                 body_html = rendered.get('body_html') or ''
                 if avatar_url:
                     body_html = body_html.replace(
@@ -2802,28 +3061,44 @@ class SendpulseConnect(models.Model):
                     '<p>У вкладенні — PDF каталог CampScout 2026.</p>'
                     '<p>campscout.eu</p>'
                 )
-                mail = self.env['mail.mail'].sudo().create({
-                    'subject': subject,
-                    'body_html': body_html,
-                    'email_to': to_email,
-                    'attachment_ids': [(4, attachment.id)],
-                })
+                mail = (
+                    self.env['mail.mail']
+                    .sudo()
+                    .create(
+                        {
+                            'subject': subject,
+                            'body_html': body_html,
+                            'email_to': to_email,
+                            'attachment_ids': [(4, attachment.id)],
+                        }
+                    )
+                )
                 mail.send(raise_exception=False)
         except Exception as e:
             _logger.warning('SendPulse Odoo: F13 PDF email exception — %s', e)
             return {'ok': False, 'error': f'exception:{e}', 'message_id': None}
-        self.sudo().write({
-            'sp_pdf_sent_at': fields.Datetime.now(),
-            'sp_pdf_sent_to_email': to_email,
-        })
+        self.sudo().write(
+            {
+                'sp_pdf_sent_at': fields.Datetime.now(),
+                'sp_pdf_sent_to_email': to_email,
+            }
+        )
         # RODO: фіксуємо згоду як факт — email був наданий клієнтом у чаті
         # з метою отримати каталог (unambiguous action per art. 4(11)).
         # Беремо останнє incoming повідомлення як доказ.
         if enforce_consent:
-            last_in_msg = self.env['sendpulse.message'].sudo().search([
-                ('connect_id', '=', self.id),
-                ('direction', '=', 'incoming'),
-            ], order='date desc, id desc', limit=1)
+            last_in_msg = (
+                self.env['sendpulse.message']
+                .sudo()
+                .search(
+                    [
+                        ('connect_id', '=', self.id),
+                        ('direction', '=', 'incoming'),
+                    ],
+                    order='date desc, id desc',
+                    limit=1,
+                )
+            )
             ConsentLog.record_consent(
                 purpose='lead_magnet_email',
                 channel='email',
@@ -2836,7 +3111,9 @@ class SendpulseConnect(models.Model):
                 notes=f'Auto-recorded on PDF send for connect {self.id}',
             )
         _logger.info(
-            'SendPulse Odoo: F13 PDF sent to %s for connect %s', to_email, self.id,
+            'SendPulse Odoo: F13 PDF sent to %s for connect %s',
+            to_email,
+            self.id,
         )
         return {'ok': True, 'error': None, 'message_id': mail.id}
 
@@ -2847,7 +3124,9 @@ class SendpulseConnect(models.Model):
         shipped PNG з модуля (static/src/img/campscout_logo.png). Fallback
         на company.logo якщо PNG в модулі немає.
         """
-        import base64, os
+        import base64
+        import os
+
         module_root = os.path.dirname(os.path.dirname(__file__))
         png_path = os.path.join(module_root, 'static', 'src', 'img', 'campscout_logo.png')
         if os.path.exists(png_path):
@@ -2887,14 +3166,16 @@ class SendpulseConnect(models.Model):
             att = Att.browse(att_id)
             if att.exists() and att.public and att.datas == image_b64:
                 return att
-        att = Att.create({
-            'name': f'{name}.png',
-            'datas': image_b64,
-            'mimetype': 'image/png',
-            'res_model': 'ir.ui.view',
-            'res_id': 0,
-            'public': True,
-        })
+        att = Att.create(
+            {
+                'name': f'{name}.png',
+                'datas': image_b64,
+                'mimetype': 'image/png',
+                'res_model': 'ir.ui.view',
+                'res_id': 0,
+                'public': True,
+            }
+        )
         ICP.set_param(key, str(att.id))
         return att
 
@@ -2912,26 +3193,31 @@ class SendpulseConnect(models.Model):
         empty = {'ok': False, 'error': '', 'code': '', 'remaining': 0, 'expires': ''}
         if ICP.get_param('odoo_chatwoot_connector.lead_magnet_enabled', 'False') != 'True':
             return {**empty, 'error': 'disabled'}
-        to_phone = (to_phone or
-                    (self.partner_id.mobile or self.partner_id.phone
-                     if self.partner_id else '') or '').strip()
+        to_phone = (
+            to_phone
+            or (self.partner_id.mobile or self.partner_id.phone if self.partner_id else '')
+            or ''
+        ).strip()
         if not to_phone:
             return {**empty, 'error': 'no_phone'}
         # Idempotency: той самий клієнт — той самий код (shared pool)
         if self.sp_coupon_code and self.sp_coupon_sent_at:
-            return {**empty, 'ok': True, 'error': 'already_sent',
-                    'code': self.sp_coupon_code}
+            return {**empty, 'ok': True, 'error': 'already_sent', 'code': self.sp_coupon_code}
 
         # RODO/PKE: SMS — окремий канал, потрібна окрема згода.
         ConsentLog = self.env['sendpulse.privacy.consent.log'].sudo()
-        enforce_consent = ICP.get_param(
-            'odoo_chatwoot_connector.consent_enforcement_enabled', 'True'
-        ) == 'True'
+        enforce_consent = (
+            ICP.get_param('odoo_chatwoot_connector.consent_enforcement_enabled', 'True') == 'True'
+        )
         if enforce_consent:
-            last_consent = ConsentLog.search([
-                ('purpose', '=', 'lead_magnet_sms'),
-                ('phone', '=', to_phone),
-            ], order='consent_timestamp desc, id desc', limit=1)
+            last_consent = ConsentLog.search(
+                [
+                    ('purpose', '=', 'lead_magnet_sms'),
+                    ('phone', '=', to_phone),
+                ],
+                order='consent_timestamp desc, id desc',
+                limit=1,
+            )
             if last_consent and not last_consent.consent_given:
                 _logger.info(
                     'SendPulse Odoo: F13 SMS skip — consent withdrawn for %s',
@@ -2950,21 +3236,37 @@ class SendpulseConnect(models.Model):
 
         # Беремо shared card програми (перший active card з points > 0).
         # Якщо нема — fallback: створюємо одну spільну.
-        card = self.env['loyalty.card'].sudo().search(
-            [('program_id', '=', program.id), ('points', '>', 0)],
-            order='id', limit=1,
+        card = (
+            self.env['loyalty.card']
+            .sudo()
+            .search(
+                [('program_id', '=', program.id), ('points', '>', 0)],
+                order='id',
+                limit=1,
+            )
         )
         if not card:
-            card = self.env['loyalty.card'].sudo().search(
-                [('program_id', '=', program.id)],
-                order='id desc', limit=1,
+            card = (
+                self.env['loyalty.card']
+                .sudo()
+                .search(
+                    [('program_id', '=', program.id)],
+                    order='id desc',
+                    limit=1,
+                )
             )
             if not card:
                 try:
-                    card = self.env['loyalty.card'].sudo().create({
-                        'program_id': program.id,
-                        'points': 100.0,
-                    })
+                    card = (
+                        self.env['loyalty.card']
+                        .sudo()
+                        .create(
+                            {
+                                'program_id': program.id,
+                                'points': 100.0,
+                            }
+                        )
+                    )
                 except Exception as e:
                     return {**empty, 'error': f'coupon_create:{e}'}
         code = card.code
@@ -2972,8 +3274,7 @@ class SendpulseConnect(models.Model):
         expires_str = card.expiration_date.strftime('%d.%m.%Y') if card.expiration_date else ''
 
         if remaining <= 0:
-            return {**empty, 'error': 'coupon_exhausted', 'code': code,
-                    'expires': expires_str}
+            return {**empty, 'error': 'coupon_exhausted', 'code': code, 'expires': expires_str}
 
         # Compose SMS text
         sms_tmpl = ICP.get_param(
@@ -2983,9 +3284,11 @@ class SendpulseConnect(models.Model):
             'CampScout: код 5% знижки — {code}. Залишилось {remaining} '
             'купонів! Діє до {expires}. Оформляйте: campscout.eu'
         )
-        sms_text = (sms_tmpl.replace('{code}', code)
-                            .replace('{remaining}', str(remaining))
-                            .replace('{expires}', expires_str or '01.07.2026'))
+        sms_text = (
+            sms_tmpl.replace('{code}', code)
+            .replace('{remaining}', str(remaining))
+            .replace('{expires}', expires_str or '01.07.2026')
+        )
 
         # Send via kw_sms_api (TurboSMS) — sms.sms record with kw_sms_provider_id set
         sms_provider_id = ICP.get_param('odoo_chatwoot_connector.sms_provider_id', '')
@@ -3009,17 +3312,27 @@ class SendpulseConnect(models.Model):
             _logger.warning('SendPulse Odoo: F13 SMS send exception — %s', e)
             return {'ok': False, 'error': f'sms_send:{e}', 'code': code}
 
-        self.sudo().write({
-            'sp_coupon_code': code,
-            'sp_coupon_sent_at': fields.Datetime.now(),
-            'sp_coupon_sent_to_phone': to_phone,
-        })
+        self.sudo().write(
+            {
+                'sp_coupon_code': code,
+                'sp_coupon_sent_at': fields.Datetime.now(),
+                'sp_coupon_sent_to_phone': to_phone,
+            }
+        )
         # RODO/PKE: фіксуємо SMS-консент (окремий канал від email).
         if enforce_consent:
-            last_in_msg = self.env['sendpulse.message'].sudo().search([
-                ('connect_id', '=', self.id),
-                ('direction', '=', 'incoming'),
-            ], order='date desc, id desc', limit=1)
+            last_in_msg = (
+                self.env['sendpulse.message']
+                .sudo()
+                .search(
+                    [
+                        ('connect_id', '=', self.id),
+                        ('direction', '=', 'incoming'),
+                    ],
+                    order='date desc, id desc',
+                    limit=1,
+                )
+            )
             ConsentLog.record_consent(
                 purpose='lead_magnet_sms',
                 channel='sms',
@@ -3033,10 +3346,18 @@ class SendpulseConnect(models.Model):
             )
         _logger.info(
             'SendPulse Odoo: F13 coupon %s sent to %s for connect %s (remaining=%d)',
-            code, to_phone, self.id, remaining,
+            code,
+            to_phone,
+            self.id,
+            remaining,
         )
-        return {'ok': True, 'error': None, 'code': code,
-                'remaining': remaining, 'expires': expires_str}
+        return {
+            'ok': True,
+            'error': None,
+            'code': code,
+            'remaining': remaining,
+            'expires': expires_str,
+        }
 
     @api.model
     def send_pdf_catalog_for_channel(self, channel_id, to_email=None):
@@ -3073,8 +3394,11 @@ class SendpulseConnect(models.Model):
         No-op повертає {'matched': False, ...} якщо RAG вимкнений або API key відсутній.
         """
         empty = {
-            'matched': False, 'faq_id': None, 'confidence': 0.0,
-            'answer': '', 'reason': 'not_configured',
+            'matched': False,
+            'faq_id': None,
+            'confidence': 0.0,
+            'answer': '',
+            'reason': 'not_configured',
         }
         if not question_text or not question_text.strip():
             return empty
@@ -3094,50 +3418,49 @@ class SendpulseConnect(models.Model):
         model = ICP.get_param('odoo_chatwoot_connector.llm_model', 'claude-haiku-4-5')
 
         # Будуємо prompt з переліком FAQ у компактному форматі
-        faq_block = '\n'.join([
-            f"FAQ_{f['id']}: Q: {f['question']}\n   A: {f['answer']}"
-            for f in faqs
-        ])
+        faq_block = '\n'.join(
+            [f"FAQ_{f['id']}: Q: {f['question']}\n   A: {f['answer']}" for f in faqs]
+        )
         contact_hint = f' Клієнт: {contact_name}.' if contact_name else ''
         # F14: live seats якщо питання стосується конкретного табору
         live_events = self._get_live_events_context()
-        live_events_block = f"{live_events}\n\n" if live_events else ''
+        live_events_block = f'{live_events}\n\n' if live_events else ''
         prompt = (
-            f"Ти — AI-асистент менеджера CampScout (дитячі табори 6-17 років у Польщі).\n"
-            f"Наш стиль: продавці-консультанти, не сухі факти — ЦІННІСТЬ + ТЕРМІНОВІСТЬ + CTA.\n\n"
-            f"Клієнт написав у приват:\n"
-            f"\"\"\"\n{question_text[:500]}\n\"\"\"\n\n"
-            f"{contact_hint}\n\n"
-            f"{live_events_block}"
-            f"База FAQ з canonical відповідями:\n\n"
-            f"{faq_block}\n\n"
-            f"Завдання:\n"
-            f"1. Знайди FAQ-match (навіть перефразованого). Якщо жоден не підходить — NO_MATCH.\n"
-            f"2. Якщо match — перепиши canonical answer персоналізовано для клієнта:\n"
-            f"   - Звертайся ТІЛЬКИ на «Ви» (ніколи «ти» — батьки, не ровесники), 3-6 речень\n"
-            f"   - ЗБЕРЕЖИ ключові ЦИФРИ, НАЗВИ ТАБОРІВ, URL з canonical (НЕ вигадуй власні!)\n"
-            f"   - Якщо питання про конкретний табір/зміну і він є у LIVE ТАБОРИ — "
-            f"додай актуальну доступність: ❗ <30% = FOMO, 🔴 = запропонуй аналог.\n"
+            f'Ти — AI-асистент менеджера CampScout (дитячі табори 6-17 років у Польщі).\n'
+            f'Наш стиль: продавці-консультанти, не сухі факти — ЦІННІСТЬ + ТЕРМІНОВІСТЬ + CTA.\n\n'
+            f'Клієнт написав у приват:\n'
+            f'"""\n{question_text[:500]}\n"""\n\n'
+            f'{contact_hint}\n\n'
+            f'{live_events_block}'
+            f'База FAQ з canonical відповідями:\n\n'
+            f'{faq_block}\n\n'
+            f'Завдання:\n'
+            f'1. Знайди FAQ-match (навіть перефразованого). Якщо жоден не підходить — NO_MATCH.\n'
+            f'2. Якщо match — перепиши canonical answer персоналізовано для клієнта:\n'
+            f'   - Звертайся ТІЛЬКИ на «Ви» (ніколи «ти» — батьки, не ровесники), 3-6 речень\n'
+            f'   - ЗБЕРЕЖИ ключові ЦИФРИ, НАЗВИ ТАБОРІВ, URL з canonical (НЕ вигадуй власні!)\n'
+            f'   - Якщо питання про конкретний табір/зміну і він є у LIVE ТАБОРИ — '
+            f'додай актуальну доступність: ❗ <30% = FOMO, 🔴 = запропонуй аналог.\n'
             f"   - Якщо є ім'я клієнта — вплети у першу фразу\n"
-            f"   - Закінчуй CTA-запитанням (ведемо у діалог, не закриваємо)\n"
-            f"   - Емодзі 1-2 максимум\n"
-            f"3. Оціни confidence 0.0-1.0 наскільки певен що це саме цей FAQ.\n\n"
-            f"КАТЕГОРИЧНО ЗАБОРОНЕНО:\n"
-            f"❌ Звертання на «ти/тобі/твій» — завжди «Ви», «Вам», «Ваш», «Ваша дитина»\n"
-            f"❌ Просити у чаті ПІБ/дату народження/медичні дані дитини — батьки "
-            f"заповнюють картку САМІ у особистому кабінеті і ПІДПИСУЮТЬ. Без підпису "
-            f"картка юридичної сили не має, тому ми не маємо права записувати за них.\n"
-            f"❌ Слово «доставка» стосовно дітей — ми НЕ вантаж. Правильно: «трансфер», «привезти», «забрати», «супровід»\n"
-            f"❌ Вигадувати факти яких нема у canonical (ціни, дати, програми)\n"
-            f"❌ Починати з «Дякую за питання» / «Чудове питання» / «Радий вашому коментарю»\n"
-            f"❌ «Там все є» / «Все на сайті» — завжди 2-3 конкретних факти, ПОТІМ URL\n"
-            f"❌ «11 років — перехідний вік» (для 11 є TDK від 6 до 11)\n"
-            f"❌ Агресивно порівнювати з конкурентами\n"
-            f"❌ 3 URL підряд без пояснення\n\n"
-            f"Формат — STRICT JSON:\n"
+            f'   - Закінчуй CTA-запитанням (ведемо у діалог, не закриваємо)\n'
+            f'   - Емодзі 1-2 максимум\n'
+            f'3. Оціни confidence 0.0-1.0 наскільки певен що це саме цей FAQ.\n\n'
+            f'КАТЕГОРИЧНО ЗАБОРОНЕНО:\n'
+            f'❌ Звертання на «ти/тобі/твій» — завжди «Ви», «Вам», «Ваш», «Ваша дитина»\n'
+            f'❌ Просити у чаті ПІБ/дату народження/медичні дані дитини — батьки '
+            f'заповнюють картку САМІ у особистому кабінеті і ПІДПИСУЮТЬ. Без підпису '
+            f'картка юридичної сили не має, тому ми не маємо права записувати за них.\n'
+            f'❌ Слово «доставка» стосовно дітей — ми НЕ вантаж. Правильно: «трансфер», «привезти», «забрати», «супровід»\n'
+            f'❌ Вигадувати факти яких нема у canonical (ціни, дати, програми)\n'
+            f'❌ Починати з «Дякую за питання» / «Чудове питання» / «Радий вашому коментарю»\n'
+            f'❌ «Там все є» / «Все на сайті» — завжди 2-3 конкретних факти, ПОТІМ URL\n'
+            f'❌ «11 років — перехідний вік» (для 11 є TDK від 6 до 11)\n'
+            f'❌ Агресивно порівнювати з конкурентами\n'
+            f'❌ 3 URL підряд без пояснення\n\n'
+            f'Формат — STRICT JSON:\n'
             f'{{"faq_id": 42 або null, "confidence": 0.9, "answer": "text"}}\n'
-            f"NO_MATCH: {{\"faq_id\": null, \"confidence\": 0.0, \"answer\": \"\"}}\n"
-            f"Поверни ТІЛЬКИ JSON, без пояснень."
+            f'NO_MATCH: {{"faq_id": null, "confidence": 0.0, "answer": ""}}\n'
+            f'Поверни ТІЛЬКИ JSON, без пояснень.'
         )
 
         try:
@@ -3158,7 +3481,8 @@ class SendpulseConnect(models.Model):
             if resp.status_code != 200:
                 _logger.warning(
                     'SendPulse Odoo: RAG HTTP %d — %s',
-                    resp.status_code, resp.text[:200],
+                    resp.status_code,
+                    resp.text[:200],
                 )
                 return {**empty, 'reason': f'http_{resp.status_code}'}
 
@@ -3166,6 +3490,7 @@ class SendpulseConnect(models.Model):
             # Claude іноді обрамляє у ```json ... ```; зрізаємо
             import json as _json
             import re as _re
+
             m = _re.search(r'\{[\s\S]*?\}', raw)
             if not m:
                 _logger.warning('SendPulse Odoo: RAG no JSON in response — %s', raw[:200])
@@ -3177,8 +3502,11 @@ class SendpulseConnect(models.Model):
 
             if not faq_id_raw or not answer:
                 return {
-                    'matched': False, 'faq_id': None,
-                    'confidence': confidence, 'answer': '', 'reason': 'no_match',
+                    'matched': False,
+                    'faq_id': None,
+                    'confidence': confidence,
+                    'answer': '',
+                    'reason': 'no_match',
                 }
 
             # Normalize faq_id: Claude іноді повертає "FAQ_6" або "6" замість integer
@@ -3194,21 +3522,29 @@ class SendpulseConnect(models.Model):
                         pass
             if not faq_id:
                 return {
-                    'matched': False, 'faq_id': None,
-                    'confidence': confidence, 'answer': '', 'reason': 'bad_faq_id',
+                    'matched': False,
+                    'faq_id': None,
+                    'confidence': confidence,
+                    'answer': '',
+                    'reason': 'bad_faq_id',
                 }
 
             # Increment hit count + last_used_at
             faq = Faq.browse(faq_id).exists()
             if faq:
-                faq.sudo().write({
-                    'hit_count': faq.hit_count + 1,
-                    'last_used_at': fields.Datetime.now(),
-                })
+                faq.sudo().write(
+                    {
+                        'hit_count': faq.hit_count + 1,
+                        'last_used_at': fields.Datetime.now(),
+                    }
+                )
 
             return {
-                'matched': True, 'faq_id': faq_id,
-                'confidence': confidence, 'answer': answer, 'reason': 'ok',
+                'matched': True,
+                'faq_id': faq_id,
+                'confidence': confidence,
+                'answer': answer,
+                'reason': 'ok',
             }
         except Exception as e:
             _logger.error('SendPulse Odoo: RAG exception — %s', e)
@@ -3236,20 +3572,22 @@ class SendpulseConnect(models.Model):
         if self.stage in ('in_progress', 'close', 'identifying'):
             _logger.info(
                 'SendPulse Odoo: RAG skip for connect %s — stage=%s (operator engaged)',
-                self.id, self.stage,
+                self.id,
+                self.stage,
             )
             return
         if self.sp_first_reply_at:
             _logger.info(
                 'SendPulse Odoo: RAG skip for connect %s — operator already replied at %s',
-                self.id, self.sp_first_reply_at,
+                self.id,
+                self.sp_first_reply_at,
             )
             return
 
         try:
-            threshold = float(ICP.get_param(
-                'odoo_chatwoot_connector.rag_auto_confidence_threshold', '0.85'
-            ))
+            threshold = float(
+                ICP.get_param('odoo_chatwoot_connector.rag_auto_confidence_threshold', '0.85')
+            )
         except (ValueError, TypeError):
             threshold = 0.85
 
@@ -3264,7 +3602,9 @@ class SendpulseConnect(models.Model):
         if result.get('confidence', 0.0) < threshold:
             _logger.info(
                 'SendPulse Odoo: RAG match below threshold for connect %s (conf=%.2f < %.2f)',
-                self.id, result.get('confidence'), threshold,
+                self.id,
+                result.get('confidence'),
+                threshold,
             )
             return
 
@@ -3274,13 +3614,17 @@ class SendpulseConnect(models.Model):
             # Шлемо через SendPulse API
             sent = self.send_message_to_sendpulse(answer, attachment_url=None)
             if not sent:
-                _logger.warning('SendPulse Odoo: RAG auto-answer send failed for connect %s', self.id)
+                _logger.warning(
+                    'SendPulse Odoo: RAG auto-answer send failed for connect %s', self.id
+                )
                 return
             # Мітимо розмову
-            self.write({
-                'rag_auto_answered_at': now,
-                'rag_last_faq_id': faq_id,
-            })
+            self.write(
+                {
+                    'rag_auto_answered_at': now,
+                    'rag_last_faq_id': faq_id,
+                }
+            )
             # Нотатка у Discuss-канал з маркером
             if self.channel_id:
                 self.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
@@ -3300,15 +3644,25 @@ class SendpulseConnect(models.Model):
                 )
             _logger.info(
                 'SendPulse Odoo: RAG auto-answered connect %s from FAQ #%s (conf=%.2f)',
-                self.id, faq_id, result.get('confidence', 0.0),
+                self.id,
+                faq_id,
+                result.get('confidence', 0.0),
             )
         except Exception as e:
-            _logger.error('SendPulse Odoo: RAG auto-answer exception for connect %s: %s', self.id, e)
+            _logger.error(
+                'SendPulse Odoo: RAG auto-answer exception for connect %s: %s', self.id, e
+            )
 
     # ── V2 F2: Drip campaigns ─────────────────────────────────────────────
     _DRIP_STOP_KEYWORDS = (
-        'stop', 'не писати', 'не надсилати', 'unsubscribe',
-        'відписатись', 'отпишись', 'отписаться', 'зупинись',
+        'stop',
+        'не писати',
+        'не надсилати',
+        'unsubscribe',
+        'відписатись',
+        'отпишись',
+        'отписаться',
+        'зупинись',
     )
 
     def _check_drip_stop_keyword(self, text):
@@ -3353,20 +3707,22 @@ class SendpulseConnect(models.Model):
         # ── Stream 1: private_sent → no reply 6h → reminder клієнту ─────────
         reminder_6h_text = ICP.get_param(
             'odoo_chatwoot_connector.drip_reminder_6h_text',
-            "Привіт! 🙂 Ми надсилали вам деталі про табори — чи отримали? "
-            "Будемо раді відповісти на будь-які питання 🏕️",
+            'Привіт! 🙂 Ми надсилали вам деталі про табори — чи отримали? '
+            'Будемо раді відповісти на будь-які питання 🏕️',
         )
         if ICP.get_param('odoo_chatwoot_connector.drip_reminder_6h_enabled', 'True') == 'True':
             threshold_6h = now - timedelta(hours=6)
-            candidates = self.search([
-                ('sp_funnel_stage', '=', 'private_sent'),
-                ('sp_first_reply_at', '=', False),  # клієнт ще не відповів
-                ('last_message_date', '<', threshold_6h),
-                ('drip_reminder_6h_sent', '=', False),
-                ('drip_stop_requested', '=', False),
-                ('stage', '!=', 'close'),
-                ('sp_is_comment', '=', False),
-            ])
+            candidates = self.search(
+                [
+                    ('sp_funnel_stage', '=', 'private_sent'),
+                    ('sp_first_reply_at', '=', False),  # клієнт ще не відповів
+                    ('last_message_date', '<', threshold_6h),
+                    ('drip_reminder_6h_sent', '=', False),
+                    ('drip_stop_requested', '=', False),
+                    ('stage', '!=', 'close'),
+                    ('sp_is_comment', '=', False),
+                ]
+            )
             sent_6h = 0
             for rec in candidates:
                 ok, reason = rec._can_send_drip_message()
@@ -3385,13 +3741,15 @@ class SendpulseConnect(models.Model):
         if ICP.get_param('odoo_chatwoot_connector.drip_operator_alert_enabled', 'True') == 'True':
             threshold_2h = now - timedelta(hours=2)
             # Шукаємо розмови де клієнт написав але оператор НЕ відповів 2h
-            stalled = self.search([
-                ('sp_funnel_stage', '=', 'customer_replied'),
-                ('sp_first_inbound_at', '<', threshold_2h),
-                ('sp_first_reply_at', '=', False),  # оператор ще не відповів
-                ('stage', '!=', 'close'),
-                ('sp_is_comment', '=', False),
-            ])
+            stalled = self.search(
+                [
+                    ('sp_funnel_stage', '=', 'customer_replied'),
+                    ('sp_first_inbound_at', '<', threshold_2h),
+                    ('sp_first_reply_at', '=', False),  # оператор ще не відповів
+                    ('stage', '!=', 'close'),
+                    ('sp_is_comment', '=', False),
+                ]
+            )
             alerted = 0
             for rec in stalled:
                 # Не дублюємо — використовуємо sp_window_alert_sent як marker
@@ -3409,26 +3767,30 @@ class SendpulseConnect(models.Model):
                     rec.write({'drip_followup_24h_sent': True})
                     alerted += 1
                 except Exception as e:
-                    _logger.warning('SendPulse Odoo: drip operator alert failed for %s: %s', rec.id, e)
+                    _logger.warning(
+                        'SendPulse Odoo: drip operator alert failed for %s: %s', rec.id, e
+                    )
             _logger.info('SendPulse Odoo: drip operator 2h alert — sent %d', alerted)
 
         # ── Stream 3: lead_created → без оплати 3д → нагадування про бронь ──
         booking_3d_text = ICP.get_param(
             'odoo_chatwoot_connector.drip_booking_3d_text',
-            "Доброго дня! 🌟 Нагадуємо про табір, яким ви цікавились. "
-            "Місць залишається все менше — якщо готові забронювати, напишіть, "
-            "підготуємо договір і рахунок 🏕️",
+            'Доброго дня! 🌟 Нагадуємо про табір, яким ви цікавились. '
+            'Місць залишається все менше — якщо готові забронювати, напишіть, '
+            'підготуємо договір і рахунок 🏕️',
         )
         if ICP.get_param('odoo_chatwoot_connector.drip_booking_3d_enabled', 'True') == 'True':
             threshold_3d = now - timedelta(days=3)
-            candidates = self.search([
-                ('sp_funnel_stage', '=', 'lead_created'),
-                ('sp_lead_id', '!=', False),
-                ('drip_booking_3d_sent', '=', False),
-                ('drip_stop_requested', '=', False),
-                ('last_message_date', '<', threshold_3d),
-                ('stage', '!=', 'close'),
-            ])
+            candidates = self.search(
+                [
+                    ('sp_funnel_stage', '=', 'lead_created'),
+                    ('sp_lead_id', '!=', False),
+                    ('drip_booking_3d_sent', '=', False),
+                    ('drip_stop_requested', '=', False),
+                    ('last_message_date', '<', threshold_3d),
+                    ('stage', '!=', 'close'),
+                ]
+            )
             sent_3d = 0
             for rec in candidates:
                 # Перевірка — чи лід не закритий won/lost
@@ -3450,20 +3812,17 @@ class SendpulseConnect(models.Model):
     # ── V2 F3: Bot-wizard ідентифікації ───────────────────────────────────
     _EMAIL_REGEX = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
     _ID_ASK_EMAIL_FIRST = (
-        "Вітаємо! 👋 Дякуємо що написали. Підкажіть, будь ласка, ваш email — "
-        "надішлемо детальну програму таборів і все найцікавіше 🏕️"
+        'Вітаємо! 👋 Дякуємо що написали. Підкажіть, будь ласка, ваш email — '
+        'надішлемо детальну програму таборів і все найцікавіше 🏕️'
     )
     _ID_ASK_EMAIL_RETRY = (
-        "Не зовсім зрозумів email 🙈 Можете надіслати у форматі "
-        "example@gmail.com? Так я швидко перевірю чи ви вже у нашій базі."
+        'Не зовсім зрозумів email 🙈 Можете надіслати у форматі '
+        'example@gmail.com? Так я швидко перевірю чи ви вже у нашій базі.'
     )
     _ID_THANKS = (
-        "Дякуємо! 🙂 Записали ваш email. Найближчим часом менеджер "
-        "зв'яжеться з вами з деталями."
+        'Дякуємо! 🙂 Записали ваш email. Найближчим часом менеджер ' "зв'яжеться з вами з деталями."
     )
-    _ID_GAVE_UP = (
-        "Добре, передаю розмову менеджеру — він зв'яжеться з вами найближчим часом 🙂"
-    )
+    _ID_GAVE_UP = "Добре, передаю розмову менеджеру — він зв'яжеться з вами найближчим часом 🙂"
 
     def _is_identification_eligible_service(self):
         """Bot-wizard працює тільки там де можна писати клієнту без обмежень."""
@@ -3490,11 +3849,13 @@ class SendpulseConnect(models.Model):
         try:
             sent = self.send_message_to_sendpulse(self._ID_ASK_EMAIL_FIRST, attachment_url=None)
             if sent:
-                self.write({
-                    'stage': 'identifying',
-                    'id_step': 'ask_email',
-                    'id_attempts': 1,
-                })
+                self.write(
+                    {
+                        'stage': 'identifying',
+                        'id_step': 'ask_email',
+                        'id_attempts': 1,
+                    }
+                )
                 _logger.info('SendPulse Odoo: started identification for connect %s', self.id)
                 return True
         except Exception as e:
@@ -3511,40 +3872,47 @@ class SendpulseConnect(models.Model):
         if self.stage != 'identifying' or self.id_step not in ('ask_email', 'ask_email_retry'):
             return False
         import re as _re
+
         m = _re.search(self._EMAIL_REGEX, inbound_text or '')
         if m:
             email = m.group(0).lower()
             Partner = self.env['res.partner'].sudo()
             partner = Partner.search([('email', '=', email)], limit=1)
             if not partner:
-                partner = Partner.create({
-                    'name': self.name,
-                    'email': email,
-                    'sendpulse_contact_id': self.sendpulse_contact_id,
-                })
+                partner = Partner.create(
+                    {
+                        'name': self.name,
+                        'email': email,
+                        'sendpulse_contact_id': self.sendpulse_contact_id,
+                    }
+                )
             try:
                 self.send_message_to_sendpulse(self._ID_THANKS, attachment_url=None)
             except Exception:
                 pass
-            self.write({
-                'partner_id': partner.id,
-                'unidentified_email': False,
-                'unidentified_phone': False,
-                'stage': 'new_message',
-                'id_step': 'done',
-            })
+            self.write(
+                {
+                    'partner_id': partner.id,
+                    'unidentified_email': False,
+                    'unidentified_phone': False,
+                    'stage': 'new_message',
+                    'id_step': 'done',
+                }
+            )
             _logger.info(
                 'SendPulse Odoo: identified connect %s → partner %s (email=%s)',
-                self.id, partner.id, email,
+                self.id,
+                partner.id,
+                email,
             )
             return True
         # Ні — retry якщо не вичерпали limit
         max_attempts = 3
         try:
             max_attempts = int(
-                self.env['ir.config_parameter'].sudo().get_param(
-                    'odoo_chatwoot_connector.bot_identification_max_attempts', '3'
-                )
+                self.env['ir.config_parameter']
+                .sudo()
+                .get_param('odoo_chatwoot_connector.bot_identification_max_attempts', '3')
             )
         except (ValueError, TypeError):
             pass
@@ -3553,23 +3921,28 @@ class SendpulseConnect(models.Model):
                 self.send_message_to_sendpulse(self._ID_ASK_EMAIL_RETRY, attachment_url=None)
             except Exception:
                 pass
-            self.write({
-                'id_step': 'ask_email_retry',
-                'id_attempts': self.id_attempts + 1,
-            })
+            self.write(
+                {
+                    'id_step': 'ask_email_retry',
+                    'id_attempts': self.id_attempts + 1,
+                }
+            )
             return True
         # Limit вичерпаний — give up
         try:
             self.send_message_to_sendpulse(self._ID_GAVE_UP, attachment_url=None)
         except Exception:
             pass
-        self.write({
-            'stage': 'new_message',  # передаємо оператору
-            'id_step': 'gave_up',
-        })
+        self.write(
+            {
+                'stage': 'new_message',  # передаємо оператору
+                'id_step': 'gave_up',
+            }
+        )
         _logger.info(
             'SendPulse Odoo: identification gave up for connect %s after %d attempts',
-            self.id, self.id_attempts,
+            self.id,
+            self.id_attempts,
         )
         return True
 
@@ -3625,9 +3998,9 @@ class SendpulseConnect(models.Model):
             _logger.info('SendPulse Odoo: token refresh skipped — no app_id/secret')
             return
         try:
-            threshold_days = int(ICP.get_param(
-                'odoo_chatwoot_connector.token_refresh_threshold_days', '14'
-            ))
+            threshold_days = int(
+                ICP.get_param('odoo_chatwoot_connector.token_refresh_threshold_days', '14')
+            )
         except (ValueError, TypeError):
             threshold_days = 14
 
@@ -3644,14 +4017,17 @@ class SendpulseConnect(models.Model):
                 continue
             _logger.info(
                 'SendPulse Odoo: refreshing token for %s (%d days left)',
-                page.name, days_left,
+                page.name,
+                days_left,
             )
             new_token, expires_in = self._exchange_token_for_long_lived(page.access_token)
             if new_token:
-                page.write({
-                    'access_token': new_token,
-                    'last_checked_at': fields.Datetime.now(),
-                })
+                page.write(
+                    {
+                        'access_token': new_token,
+                        'last_checked_at': fields.Datetime.now(),
+                    }
+                )
                 # Одразу перевіряємо новий токен щоб оновити token_status
                 new_result = self._check_single_fb_token(new_token, page.name)
                 page.write({'token_status': new_result.get('status', 'refreshed')})
@@ -3670,7 +4046,8 @@ class SendpulseConnect(models.Model):
                 )
         _logger.info(
             'SendPulse Odoo: cron_refresh_fb_tokens — refreshed %d, failed %d',
-            refreshed, failed,
+            refreshed,
+            failed,
         )
 
     def _hide_comment(self, comment_id, service='facebook', page=None):
@@ -3690,7 +4067,9 @@ class SendpulseConnect(models.Model):
             else {'is_hidden': True, 'access_token': token}
         )
         ok, err, _resp = self._fb_post_with_retry(
-            url, payload, label=f'hide-comment {comment_id} ({service})',
+            url,
+            payload,
+            label=f'hide-comment {comment_id} ({service})',
         )
         if ok:
             _logger.info('SendPulse Odoo: comment %s hidden (%s)', comment_id, service)
@@ -3706,12 +4085,16 @@ class SendpulseConnect(models.Model):
         """
         token = self._get_fb_page_token(page=page)
         if not token:
-            return False, 'Page Access Token не налаштований (Налаштування → SendPulse → Facebook Page Access Token, або створіть запис у Facebook Pages)'
+            return (
+                False,
+                'Page Access Token не налаштований (Налаштування → SendPulse → Facebook Page Access Token, або створіть запис у Facebook Pages)',
+            )
 
         endpoint = 'replies' if service == 'instagram' else 'comments'
         url = f'https://graph.facebook.com/v25.0/{comment_id}/{endpoint}'
         ok, err, _resp = self._fb_post_with_retry(
-            url, {'message': text, 'access_token': token},
+            url,
+            {'message': text, 'access_token': token},
             label=f'public-reply {comment_id}',
         )
         if ok:
@@ -3736,7 +4119,10 @@ class SendpulseConnect(models.Model):
                 'ir.config_parameter'
             ].sudo().get_param('odoo_chatwoot_connector.ig_user_id', '')
             if not ig_user_id:
-                return False, 'Instagram Business Account ID не налаштований (ні на Page, ні в глобальних settings)'
+                return (
+                    False,
+                    'Instagram Business Account ID не налаштований (ні на Page, ні в глобальних settings)',
+                )
             url = f'https://graph.facebook.com/v25.0/{ig_user_id}/messages'
             payload = {
                 'recipient': {'comment_id': comment_id},
@@ -3748,10 +4134,14 @@ class SendpulseConnect(models.Model):
             payload = {'message': text, 'access_token': token}
 
         ok, err, _resp = self._fb_post_with_retry(
-            url, payload, label=f'private-reply {comment_id} ({service})',
+            url,
+            payload,
+            label=f'private-reply {comment_id} ({service})',
         )
         if ok:
-            _logger.info('SendPulse Odoo: private reply sent for comment %s (%s)', comment_id, service)
+            _logger.info(
+                'SendPulse Odoo: private reply sent for comment %s (%s)', comment_id, service
+            )
         return ok, err
 
     def _get_fb_page_token(self, page=None):
@@ -3778,9 +4168,12 @@ class SendpulseConnect(models.Model):
         if default and default.access_token:
             return default.access_token
         # Legacy fallback
-        return self.env['ir.config_parameter'].sudo().get_param(
-            'odoo_chatwoot_connector.fb_page_access_token', ''
-        ) or ''
+        return (
+            self.env['ir.config_parameter']
+            .sudo()
+            .get_param('odoo_chatwoot_connector.fb_page_access_token', '')
+            or ''
+        )
 
     @api.model
     def cron_check_messenger_windows(self):
@@ -3791,18 +4184,22 @@ class SendpulseConnect(models.Model):
         """
         now = fields.Datetime.now()
         threshold = now + timedelta(hours=2)
-        records = self.search([
-            ('sp_messenger_window_expires_at', '!=', False),
-            ('sp_messenger_window_expires_at', '<=', threshold),
-            ('sp_messenger_window_expires_at', '>', now),
-            ('sp_window_alert_sent', '=', False),
-            ('stage', '!=', 'close'),
-        ])
+        records = self.search(
+            [
+                ('sp_messenger_window_expires_at', '!=', False),
+                ('sp_messenger_window_expires_at', '<=', threshold),
+                ('sp_messenger_window_expires_at', '>', now),
+                ('sp_window_alert_sent', '=', False),
+                ('stage', '!=', 'close'),
+            ]
+        )
         for rec in records:
             minutes_left = int((rec.sp_messenger_window_expires_at - now).total_seconds() / 60)
             _logger.info(
                 'SendPulse Odoo: window closing in %d min for connect %s (%s)',
-                minutes_left, rec.id, rec.name,
+                minutes_left,
+                rec.id,
+                rec.name,
             )
             self._notify_telegram(
                 f'⏳ <b>Вікно 24h скоро закриється</b>\n\n'
@@ -3813,7 +4210,7 @@ class SendpulseConnect(models.Model):
             )
             if rec.channel_id:
                 rec.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
-                    body=Markup(
+                    body=Markup(  # noqa: S704 internal int, no user input
                         f'⏳ <b>Вікно 24h закривається за {minutes_left} хв.</b> '
                         f'Якщо потрібно — напишіть клієнту зараз.'
                     ),
@@ -3847,17 +4244,32 @@ class SendpulseConnect(models.Model):
                     f'Автовідповіді і приватні повідомлення для цієї Page не працюють. '
                     f'Потрібно згенерувати новий токен.'
                 )
-                return {'valid': False, 'status': f'invalid: {err[:100]}', 'days_left': None, 'error': err}
+                return {
+                    'valid': False,
+                    'status': f'invalid: {err[:100]}',
+                    'days_left': None,
+                    'error': err,
+                }
         except Exception as e:
             _logger.error('SendPulse Odoo [%s]: FB token check failed — %s', label, e)
-            return {'valid': False, 'status': f'check_failed: {str(e)[:100]}', 'days_left': None, 'error': str(e)}
+            return {
+                'valid': False,
+                'status': f'check_failed: {str(e)[:100]}',
+                'days_left': None,
+                'error': str(e),
+            }
 
         # /debug_token (якщо є app credentials)
         ICP = self.env['ir.config_parameter'].sudo()
         app_id = ICP.get_param('odoo_chatwoot_connector.fb_app_id', '')
         app_secret = ICP.get_param('odoo_chatwoot_connector.fb_app_secret', '')
         if not (app_id and app_secret):
-            return {'valid': True, 'status': 'valid (no app_id/secret for expiry)', 'days_left': None, 'error': None}
+            return {
+                'valid': True,
+                'status': 'valid (no app_id/secret for expiry)',
+                'days_left': None,
+                'error': None,
+            }
         try:
             resp = requests.get(
                 'https://graph.facebook.com/v25.0/debug_token',
@@ -3865,11 +4277,21 @@ class SendpulseConnect(models.Model):
                 timeout=15,
             )
             if resp.status_code != 200:
-                return {'valid': True, 'status': 'valid (debug_token failed)', 'days_left': None, 'error': None}
+                return {
+                    'valid': True,
+                    'status': 'valid (debug_token failed)',
+                    'days_left': None,
+                    'error': None,
+                }
             data = resp.json().get('data', {})
             expires_at = data.get('expires_at', 0)
             if expires_at == 0:
-                return {'valid': True, 'status': 'valid: never expires', 'days_left': None, 'error': None}
+                return {
+                    'valid': True,
+                    'status': 'valid: never expires',
+                    'days_left': None,
+                    'error': None,
+                }
             exp_dt = datetime.utcfromtimestamp(expires_at)
             days_left = (exp_dt - datetime.utcnow()).days
             if days_left < 7:
@@ -3879,11 +4301,26 @@ class SendpulseConnect(models.Model):
                     f'Залишилось днів: <b>{days_left}</b>\n'
                     f'Треба згенерувати новий у Business Manager → System Users → Generate Token.'
                 )
-                return {'valid': True, 'status': f'expires_soon: {days_left}d', 'days_left': days_left, 'error': None}
-            return {'valid': True, 'status': f'valid: {days_left}d left', 'days_left': days_left, 'error': None}
+                return {
+                    'valid': True,
+                    'status': f'expires_soon: {days_left}d',
+                    'days_left': days_left,
+                    'error': None,
+                }
+            return {
+                'valid': True,
+                'status': f'valid: {days_left}d left',
+                'days_left': days_left,
+                'error': None,
+            }
         except Exception as e:
             _logger.warning('SendPulse Odoo [%s]: debug_token exception — %s', label, e)
-            return {'valid': True, 'status': 'valid (debug_token error)', 'days_left': None, 'error': None}
+            return {
+                'valid': True,
+                'status': 'valid (debug_token error)',
+                'days_left': None,
+                'error': None,
+            }
 
     @api.model
     def cron_check_fb_token_expiry(self):
@@ -3899,17 +4336,21 @@ class SendpulseConnect(models.Model):
         Page = self.env['sendpulse.facebook.page'].sudo()
         for page in Page.search([('active', '=', True)]):
             res = self._check_single_fb_token(page.access_token, page.name or page.page_id)
-            page.write({
-                'token_status': res['status'],
-                'last_checked_at': now_iso,
-            })
+            page.write(
+                {
+                    'token_status': res['status'],
+                    'last_checked_at': now_iso,
+                }
+            )
 
         # 2. Legacy токен (для обратної сумісності — поки не всі міграли на Page records)
         legacy_token = ICP.get_param('odoo_chatwoot_connector.fb_page_access_token', '')
         ICP.set_param('odoo_chatwoot_connector.fb_token_last_check', now_iso.isoformat())
         if legacy_token:
             # Перевіряємо тільки якщо legacy не дублює якусь Page (щоб не слати 2 алерти)
-            duplicate = Page.search([('access_token', '=', legacy_token), ('active', '=', True)], limit=1)
+            duplicate = Page.search(
+                [('access_token', '=', legacy_token), ('active', '=', True)], limit=1
+            )
             if not duplicate:
                 res = self._check_single_fb_token(legacy_token, 'legacy fb_page_access_token')
                 ICP.set_param('odoo_chatwoot_connector.fb_token_status', res['status'])
@@ -3919,7 +4360,10 @@ class SendpulseConnect(models.Model):
                         (datetime.utcnow() + timedelta(days=res['days_left'])).isoformat(),
                     )
             else:
-                ICP.set_param('odoo_chatwoot_connector.fb_token_status', f'valid (mirrored by Page "{duplicate.name}")')
+                ICP.set_param(
+                    'odoo_chatwoot_connector.fb_token_status',
+                    f'valid (mirrored by Page "{duplicate.name}")',
+                )
         else:
             ICP.set_param('odoo_chatwoot_connector.fb_token_status', 'not_configured')
 
@@ -3932,7 +4376,15 @@ class SendpulseConnect(models.Model):
             msg = err.get('message', '') or ''
             code = err.get('code', '')
             subcode = err.get('error_subcode', '')
-            parts = [p for p in [f'код {code}' if code else '', f'підкод {subcode}' if subcode else '', msg] if p]
+            parts = [
+                p
+                for p in [
+                    f'код {code}' if code else '',
+                    f'підкод {subcode}' if subcode else '',
+                    msg,
+                ]
+                if p
+            ]
             return ' — '.join(parts) or resp.text[:200]
         except Exception:
             return resp.text[:200] if resp.text else f'HTTP {resp.status_code}'
@@ -3948,9 +4400,17 @@ class SendpulseConnect(models.Model):
         'other': '🔸 Інше',
     }
 
-    def _notify_operator_comment(self, contact_name, comment_text, post_url,
-                                  sent_public, sent_private, public_error, private_error,
-                                  category=None):
+    def _notify_operator_comment(
+        self,
+        contact_name,
+        comment_text,
+        post_url,
+        sent_public,
+        sent_private,
+        public_error,
+        private_error,
+        category=None,
+    ):
         """Надсилає системну нотатку від OdooBot у Discuss-канал розмови."""
         if not self.channel_id:
             return
@@ -3974,11 +4434,15 @@ class SendpulseConnect(models.Model):
 
         if sent_private:
             lines.append('✅ Приватне повідомлення надіслано у Messenger')
-            lines.append('⏳ Очікуємо відповіді від клієнта — поки клієнт не відповів, писати йому не можна (правило Meta)')
+            lines.append(
+                '⏳ Очікуємо відповіді від клієнта — поки клієнт не відповів, писати йому не можна (правило Meta)'
+            )
         elif private_error:
             lines.append(f'❌ Приватне повідомлення не надіслано: {private_error}')
         else:
-            lines.append('⏭️ Приватне повідомлення не надіслається (клієнт вже отримував раніше або вимкнено)')
+            lines.append(
+                '⏭️ Приватне повідомлення не надіслається (клієнт вже отримував раніше або вимкнено)'
+            )
 
         body = Markup('<br/>').join(escape(line) if line else Markup('') for line in lines)
         self.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
@@ -4010,9 +4474,7 @@ class SendpulseConnect(models.Model):
         def _search_by_email(addr):
             if not addr:
                 return None
-            p = self.env['res.partner'].search(
-                [('email', '=ilike', addr.strip())], limit=1
-            )
+            p = self.env['res.partner'].search([('email', '=ilike', addr.strip())], limit=1)
             if p and not p.sendpulse_contact_id:
                 p.write({'sendpulse_contact_id': contact_id})
             return p or None
@@ -4061,20 +4523,26 @@ class SendpulseConnect(models.Model):
             return
 
         # Guard: якщо цей текст уже є як incoming → нічого робити не треба
-        already_incoming = self.env['sendpulse.message'].search([
-            ('sendpulse_contact_id', '=', contact_id),
-            ('direction', '=', 'incoming'),
-            ('text_message', '=', last_message),
-        ], limit=1)
+        already_incoming = self.env['sendpulse.message'].search(
+            [
+                ('sendpulse_contact_id', '=', contact_id),
+                ('direction', '=', 'incoming'),
+                ('text_message', '=', last_message),
+            ],
+            limit=1,
+        )
         if already_incoming:
             return
 
         # Знаходимо активну розмову
-        connect = self.search([
-            ('sendpulse_contact_id', '=', contact_id),
-            ('service', '=', service),
-            ('stage', '!=', 'close'),
-        ], limit=1)
+        connect = self.search(
+            [
+                ('sendpulse_contact_id', '=', contact_id),
+                ('service', '=', service),
+                ('stage', '!=', 'close'),
+            ],
+            limit=1,
+        )
         if not connect:
             return
 
@@ -4084,27 +4552,32 @@ class SendpulseConnect(models.Model):
         now = fields.Datetime.now()
         _logger.info(
             'SendPulse Odoo: backfill missed incoming для contact=%s: %r',
-            contact_id, last_message[:80],
+            contact_id,
+            last_message[:80],
         )
 
-        self.env['sendpulse.message'].create({
-            'name': now.strftime('%Y-%m-%d %H:%M'),
-            'date': now,
-            'connect_id': connect.id,
-            'sendpulse_contact_id': contact_id,
-            'direction': 'incoming',
-            'message_type': 'text',
-            'text_message': last_message,
-            'raw_json': str({'text': last_message, 'source': 'backfill_from_outgoing_event'}),
-        })
+        self.env['sendpulse.message'].create(
+            {
+                'name': now.strftime('%Y-%m-%d %H:%M'),
+                'date': now,
+                'connect_id': connect.id,
+                'sendpulse_contact_id': contact_id,
+                'direction': 'incoming',
+                'message_type': 'text',
+                'text_message': last_message,
+                'raw_json': str({'text': last_message, 'source': 'backfill_from_outgoing_event'}),
+            }
+        )
 
         if connect.channel_id:
-            author_id = connect.partner_id.id if connect.partner_id else self.env.ref('base.partner_root').id
-            connect.channel_id.with_context(
-                sendpulse_incoming=True
-            ).message_post(
+            author_id = (
+                connect.partner_id.id
+                if connect.partner_id
+                else self.env.ref('base.partner_root').id
+            )
+            connect.channel_id.with_context(sendpulse_incoming=True).message_post(
                 body=Markup(
-                    "<p><em>(backfill — SendPulse пропустив webhook)</em><br/>{}</p>"
+                    '<p><em>(backfill — SendPulse пропустив webhook)</em><br/>{}</p>'
                 ).format(escape(last_message)),
                 author_id=author_id,
                 message_type='comment',
@@ -4112,13 +4585,15 @@ class SendpulseConnect(models.Model):
             )
 
         if connect.partner_id:
-            self.env['partner.sendpulse.message'].create({
-                'partner_id': connect.partner_id.id,
-                'date': now,
-                'text_message': f"<p>👤 {last_message}</p>",
-                'service': service,
-                'direction': 'incoming',
-            })
+            self.env['partner.sendpulse.message'].create(
+                {
+                    'partner_id': connect.partner_id.id,
+                    'date': now,
+                    'text_message': f'<p>👤 {last_message}</p>',
+                    'service': service,
+                    'direction': 'incoming',
+                }
+            )
 
         update_vals = {
             'last_message_preview': last_message[:100],
@@ -4136,16 +4611,19 @@ class SendpulseConnect(models.Model):
     @api.model
     def _process_unsubscribe(self, contact_id, service):
         """Відмічає розмову як закриту при відписці клієнта."""
-        connects = self.search([
-            ('sendpulse_contact_id', '=', contact_id),
-            ('service', '=', service),
-            ('stage', '!=', 'close'),
-        ])
+        connects = self.search(
+            [
+                ('sendpulse_contact_id', '=', contact_id),
+                ('service', '=', service),
+                ('stage', '!=', 'close'),
+            ]
+        )
         for connect in connects:
             connect.write({'stage': 'close'})
             _logger.info(
                 'SendPulse Odoo: контакт %s відписався (%s), розмова закрита',
-                contact_id, service,
+                contact_id,
+                service,
             )
 
     _ALLOWED_MEDIA_DOMAINS = ('sendpulse.com', 'sendpulse.net')
@@ -4155,6 +4633,7 @@ class SendpulseConnect(models.Model):
     def _is_allowed_media_url(url):
         """SSRF guard: дозволяємо завантажувати медіа лише з доменів SendPulse."""
         from urllib.parse import urlparse
+
         try:
             host = (urlparse(url).hostname or '').lower()
             allowed = SendpulseConnect._ALLOWED_MEDIA_DOMAINS
@@ -4171,7 +4650,9 @@ class SendpulseConnect(models.Model):
         try:
             # SSRF guard
             if not self._is_allowed_media_url(media_url):
-                _logger.warning('SendPulse Odoo: заблоковано URL не з домену SendPulse: %s', media_url)
+                _logger.warning(
+                    'SendPulse Odoo: заблоковано URL не з домену SendPulse: %s', media_url
+                )
                 return None
 
             token = self._get_access_token()
@@ -4199,16 +4680,23 @@ class SendpulseConnect(models.Model):
             if content_length:
                 try:
                     if int(content_length) > self._MEDIA_MAX_BYTES:
-                        _logger.warning('SendPulse Odoo: медіа завелике (%s байт), пропускаємо', content_length)
+                        _logger.warning(
+                            'SendPulse Odoo: медіа завелике (%s байт), пропускаємо', content_length
+                        )
                         return None
                 except ValueError:
                     pass
 
             content_type = resp.headers.get('Content-Type', 'image/jpeg').split(';')[0].strip()
             ext_map = {
-                'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif',
-                'image/webp': 'webp', 'video/mp4': 'mp4',
-                'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'application/pdf': 'pdf',
+                'image/jpeg': 'jpg',
+                'image/png': 'png',
+                'image/gif': 'gif',
+                'image/webp': 'webp',
+                'video/mp4': 'mp4',
+                'audio/ogg': 'ogg',
+                'audio/mpeg': 'mp3',
+                'application/pdf': 'pdf',
             }
             ext = ext_map.get(content_type, 'bin')
             filename = f'sendpulse_{fields.Datetime.now().strftime("%Y%m%d_%H%M%S")}.{ext}'
@@ -4221,11 +4709,13 @@ class SendpulseConnect(models.Model):
                     _logger.warning('SendPulse Odoo: медіа перевищило 20 MB ліміт, скасовуємо')
                     return None
 
-            att = self.env['ir.attachment'].create({
-                'name': filename,
-                'datas': base64.b64encode(data).decode(),
-                'mimetype': content_type,
-            })
+            att = self.env['ir.attachment'].create(
+                {
+                    'name': filename,
+                    'datas': base64.b64encode(data).decode(),
+                    'mimetype': content_type,
+                }
+            )
             att.generate_access_token()
             return att
         except Exception as e:
@@ -4238,13 +4728,13 @@ class SendpulseConnect(models.Model):
 
     # Ендпоінти GET-контакту по сервісу
     _CONTACT_GET_ENDPOINTS = {
-        'telegram':  'https://api.sendpulse.com/telegram/contacts/get',
+        'telegram': 'https://api.sendpulse.com/telegram/contacts/get',
         'instagram': 'https://api.sendpulse.com/instagram/contacts/get',
-        'facebook':  'https://api.sendpulse.com/facebook/contacts/get',
+        'facebook': 'https://api.sendpulse.com/facebook/contacts/get',
         'messenger': 'https://api.sendpulse.com/messenger/contacts/get',
-        'viber':     'https://api.sendpulse.com/viber/contacts/get',
-        'whatsapp':  'https://api.sendpulse.com/whatsapp/contacts/get',
-        'tiktok':    'https://api.sendpulse.com/tiktok/contacts/get',
+        'viber': 'https://api.sendpulse.com/viber/contacts/get',
+        'whatsapp': 'https://api.sendpulse.com/whatsapp/contacts/get',
+        'tiktok': 'https://api.sendpulse.com/tiktok/contacts/get',
     }
 
     _SP_STATUS_MAP = {
@@ -4262,16 +4752,27 @@ class SendpulseConnect(models.Model):
         """
         self.ensure_one()
         if not self.sendpulse_contact_id:
-            return {'type': 'ir.actions.client', 'tag': 'display_notification',
-                    'params': {'title': 'SendPulse', 'message': 'Немає contact_id', 'type': 'warning'}}
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {'title': 'SendPulse', 'message': 'Немає contact_id', 'type': 'warning'},
+            }
 
         token = self._get_access_token()
         if not token:
-            return {'type': 'ir.actions.client', 'tag': 'display_notification',
-                    'params': {'title': 'SendPulse', 'message': 'Не вдалося отримати токен API', 'type': 'danger'}}
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': 'SendPulse',
+                    'message': 'Не вдалося отримати токен API',
+                    'type': 'danger',
+                },
+            }
 
-        endpoint = self._CONTACT_GET_ENDPOINTS.get(self.service or 'telegram',
-                                                    self._CONTACT_GET_ENDPOINTS['telegram'])
+        endpoint = self._CONTACT_GET_ENDPOINTS.get(
+            self.service or 'telegram', self._CONTACT_GET_ENDPOINTS['telegram']
+        )
         try:
             resp = requests.get(
                 endpoint,
@@ -4292,22 +4793,33 @@ class SendpulseConnect(models.Model):
             resp.raise_for_status()
             data = resp.json()
         except Exception as e:
-            _logger.warning('SendPulse Odoo: не вдалося отримати профіль %s: %s', self.sendpulse_contact_id, e)
-            return {'type': 'ir.actions.client', 'tag': 'display_notification',
-                    'params': {'title': 'SendPulse', 'message': f'Помилка API: {e}', 'type': 'danger'}}
+            _logger.warning(
+                'SendPulse Odoo: не вдалося отримати профіль %s: %s', self.sendpulse_contact_id, e
+            )
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {'title': 'SendPulse', 'message': f'Помилка API: {e}', 'type': 'danger'},
+            }
 
         vals = self._extract_contact_vals(data)
         if vals:
             self.write(vals)
-            _logger.info('SendPulse Odoo: профіль %s оновлено, поля: %s',
-                         self.sendpulse_contact_id, list(vals.keys()))
+            _logger.info(
+                'SendPulse Odoo: профіль %s оновлено, поля: %s',
+                self.sendpulse_contact_id,
+                list(vals.keys()),
+            )
 
         # Синхронізуємо аватар у картку партнера якщо він ідентифікований
         if self.partner_id and self.avatar_url:
             self._sync_avatar_to_partner()
 
-        return {'type': 'ir.actions.client', 'tag': 'display_notification',
-                'params': {'title': 'SendPulse', 'message': 'Профіль оновлено', 'type': 'success'}}
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {'title': 'SendPulse', 'message': 'Профіль оновлено', 'type': 'success'},
+        }
 
     def _sync_avatar_to_partner(self):
         """
@@ -4325,7 +4837,9 @@ class SendpulseConnect(models.Model):
             self.partner_id.write({'image_1920': image_b64})
             _logger.info('SendPulse Odoo: аватар партнера %s оновлено', self.partner_id.name)
         except Exception as e:
-            _logger.warning('SendPulse Odoo: не вдалося завантажити аватар %s: %s', self.avatar_url, e)
+            _logger.warning(
+                'SendPulse Odoo: не вдалося завантажити аватар %s: %s', self.avatar_url, e
+            )
 
     # GET /contacts/get: status — ціле число: 1=active, 0=unsubscribed, 2=deleted, 3=unconfirmed
     _SP_STATUS_INT_MAP = {1: 'active', 0: 'unsubscribed', 2: 'deleted', 3: 'unconfirmed'}
@@ -4356,18 +4870,22 @@ class SendpulseConnect(models.Model):
         # Messenger/FB → data.avatar.path
         avatar_obj = contact.get('avatar')
         avatar_path = avatar_obj.get('path') if isinstance(avatar_obj, dict) else None
-        photo_url = (channel_data.get('photo') or
-                     channel_data.get('profile_pic') or
-                     avatar_path or
-                     contact.get('photo'))
+        photo_url = (
+            channel_data.get('photo')
+            or channel_data.get('profile_pic')
+            or avatar_path
+            or contact.get('photo')
+        )
         if photo_url and isinstance(photo_url, str) and photo_url.startswith('http'):
             vals['avatar_url'] = photo_url
 
         # Мова — в channel_data
-        lang = (channel_data.get('language_code') or
-                channel_data.get('language') or
-                contact.get('language_code') or
-                contact.get('language'))
+        lang = (
+            channel_data.get('language_code')
+            or channel_data.get('language')
+            or contact.get('language_code')
+            or contact.get('language')
+        )
         if lang:
             vals['language_code'] = str(lang)
 
@@ -4411,13 +4929,20 @@ class SendpulseConnect(models.Model):
             return False
 
         service_labels = {
-            'telegram': 'Telegram', 'instagram': 'Instagram', 'facebook': 'Facebook',
-            'messenger': 'Messenger', 'viber': 'Viber', 'whatsapp': 'WhatsApp',
-            'tiktok': 'TikTok', 'livechat': 'LiveChat',
+            'telegram': 'Telegram',
+            'instagram': 'Instagram',
+            'facebook': 'Facebook',
+            'messenger': 'Messenger',
+            'viber': 'Viber',
+            'whatsapp': 'WhatsApp',
+            'tiktok': 'TikTok',
+            'livechat': 'LiveChat',
         }
         status_labels = {
-            'active': 'Активний', 'unsubscribed': 'Відписаний',
-            'deleted': 'Видалений', 'unconfirmed': 'Непідтверджений',
+            'active': 'Активний',
+            'unsubscribed': 'Відписаний',
+            'deleted': 'Видалений',
+            'unconfirmed': 'Непідтверджений',
         }
 
         result = {
@@ -4438,10 +4963,14 @@ class SendpulseConnect(models.Model):
             'subscription_status_label': status_labels.get(connect.subscription_status, ''),
             'partner': False,
             # F13 tracking
-            'pdf_sent_at': connect.sp_pdf_sent_at and connect.sp_pdf_sent_at.strftime('%Y-%m-%d %H:%M') or '',
+            'pdf_sent_at': connect.sp_pdf_sent_at
+            and connect.sp_pdf_sent_at.strftime('%Y-%m-%d %H:%M')
+            or '',
             'pdf_sent_to_email': connect.sp_pdf_sent_to_email or '',
             'coupon_code': connect.sp_coupon_code or '',
-            'coupon_sent_at': connect.sp_coupon_sent_at and connect.sp_coupon_sent_at.strftime('%Y-%m-%d %H:%M') or '',
+            'coupon_sent_at': connect.sp_coupon_sent_at
+            and connect.sp_coupon_sent_at.strftime('%Y-%m-%d %H:%M')
+            or '',
             'coupon_sent_to_phone': connect.sp_coupon_sent_to_phone or '',
         }
         if connect.partner_id:
@@ -4457,11 +4986,13 @@ class SendpulseConnect(models.Model):
         result['prefill_email'] = (
             connect.sp_booking_email
             or (connect.partner_id.email if connect.partner_id else '')
-            or connect.unidentified_email or ''
+            or connect.unidentified_email
+            or ''
         )
         result['prefill_phone'] = (
             (connect.partner_id.mobile or connect.partner_id.phone if connect.partner_id else '')
-            or connect.unidentified_phone or ''
+            or connect.unidentified_phone
+            or ''
         )
         # F13: чи ввімкнено master-switch lead_magnet
         ICP = self.env['ir.config_parameter'].sudo()
@@ -4488,7 +5019,7 @@ class SendpulseConnect(models.Model):
     # Ліміти SendPulse API по довжині тексту (chars). Перевищення → 400 (#100).
     _SERVICE_TEXT_LIMITS = {
         'telegram': 4096,
-        'instagram': 1000,   # SendPulse-side ліміт для IG
+        'instagram': 1000,  # SendPulse-side ліміт для IG
         'facebook': 2000,
         'messenger': 2000,
         'whatsapp': 1600,
@@ -4535,6 +5066,7 @@ class SendpulseConnect(models.Model):
                 continue
             # Абзац занадто довгий — по реченнях
             import re as _re
+
             sentences = _re.split(r'(?<=[.!?…])\s+', para)
             buf = ''
             for sent in sentences:
@@ -4589,7 +5121,10 @@ class SendpulseConnect(models.Model):
             total = len(chunks)
             _logger.info(
                 'SendPulse Odoo: text %d chars > %d limit for %s → split into %d chunks',
-                len(text), limit, service, total,
+                len(text),
+                limit,
+                service,
+                total,
             )
             all_ok = True
             for i, chunk in enumerate(chunks, 1):
@@ -4602,7 +5137,9 @@ class SendpulseConnect(models.Model):
                     all_ok = False
                     _logger.warning(
                         'SendPulse Odoo: chunk %d/%d failed for contact %s',
-                        i, total, self.sendpulse_contact_id,
+                        i,
+                        total,
+                        self.sendpulse_contact_id,
                     )
                     break
                 if i < total:
@@ -4665,7 +5202,9 @@ class SendpulseConnect(models.Model):
             }
             if attachment_url:
                 payload['message'] = {
-                    'type': 'RESPONSE', 'content_type': 'message', 'text': attachment_url,
+                    'type': 'RESPONSE',
+                    'content_type': 'message',
+                    'text': attachment_url,
                 }
         elif service == 'whatsapp':
             # WhatsApp Business API: singular message, text вкладений як {body: "..."}
@@ -4689,12 +5228,15 @@ class SendpulseConnect(models.Model):
         try:
             _logger.info(
                 'SendPulse Odoo: відправляємо в %s contact=%s payload=%s',
-                endpoint, self.sendpulse_contact_id, payload,
+                endpoint,
+                self.sendpulse_contact_id,
+                payload,
             )
             resp = requests.post(endpoint, headers=headers, json=payload, timeout=15)
             _logger.info(
                 'SendPulse Odoo: відповідь API status=%s body=%s',
-                resp.status_code, resp.text.replace('\n', ' ').replace('\r', '')[:500],
+                resp.status_code,
+                resp.text.replace('\n', ' ').replace('\r', '')[:500],
             )
 
             if resp.status_code == 401:
@@ -4705,15 +5247,20 @@ class SendpulseConnect(models.Model):
                     resp = requests.post(endpoint, headers=headers, json=payload, timeout=15)
                     _logger.info(
                         'SendPulse Odoo: повтор після 401 status=%s body=%s',
-                        resp.status_code, resp.text.replace('\n', ' ').replace('\r', '')[:500],
+                        resp.status_code,
+                        resp.text.replace('\n', ' ').replace('\r', '')[:500],
                     )
 
             # Карта назв каналів для повідомлень оператору
             _SERVICE_LABELS = {
-                'telegram': 'Telegram', 'instagram': 'Instagram',
-                'facebook': 'Facebook', 'messenger': 'Messenger',
-                'viber': 'Viber', 'whatsapp': 'WhatsApp',
-                'livechat': 'LiveChat', 'tiktok': 'TikTok',
+                'telegram': 'Telegram',
+                'instagram': 'Instagram',
+                'facebook': 'Facebook',
+                'messenger': 'Messenger',
+                'viber': 'Viber',
+                'whatsapp': 'WhatsApp',
+                'livechat': 'LiveChat',
+                'tiktok': 'TikTok',
             }
 
             # 400 = контакт неактивний або невалідний запит
@@ -4745,7 +5292,10 @@ class SendpulseConnect(models.Model):
 
                 _logger.warning(
                     'SendPulse Odoo: 400 for %s contact=%s (%s): %s',
-                    service, self.sendpulse_contact_id, self.name, err_code,
+                    service,
+                    self.sendpulse_contact_id,
+                    self.name,
+                    err_code,
                 )
                 if self.channel_id:
                     self.channel_id.sudo().with_context(sendpulse_incoming=True).message_post(
@@ -4763,7 +5313,10 @@ class SendpulseConnect(models.Model):
                 short_reason = raw_reason[:220] if raw_reason else 'Без деталей від API.'
                 _logger.warning(
                     'SendPulse Odoo: 422 for %s contact=%s (%s): %s',
-                    service, self.sendpulse_contact_id, self.name, short_reason,
+                    service,
+                    self.sendpulse_contact_id,
+                    self.name,
+                    short_reason,
                 )
                 # Розбираємо тіло відповіді щоб дати точну підказку
                 try:
@@ -4771,7 +5324,9 @@ class SendpulseConnect(models.Model):
                     err_code = err_data.get('error_code')
                     err_errors = err_data.get('errors', {})
                     err_text = ' '.join(
-                        str(v) for vals in err_errors.values() for v in (vals if isinstance(vals, list) else [vals])
+                        str(v)
+                        for vals in err_errors.values()
+                        for v in (vals if isinstance(vals, list) else [vals])
                     ).lower()
                 except Exception:
                     err_code = None
@@ -4780,7 +5335,7 @@ class SendpulseConnect(models.Model):
                 if err_code == 403 or 'blocked by the user' in err_text or 'forbidden' in err_text:
                     policy_hint = (
                         f'Клієнт заблокував бота у {service_label}. '
-                        'Написати через цей канал більше неможливо — зверніться через інший спосіб зв\'язку.'
+                        "Написати через цей канал більше неможливо — зверніться через інший спосіб зв'язку."
                     )
                 elif 'invalid' in err_text or 'invalid data' in err_text:
                     policy_hint = (
@@ -4810,11 +5365,19 @@ class SendpulseConnect(models.Model):
                 return False
 
             resp.raise_for_status()
-            _logger.info('SendPulse Odoo: повідомлення відправлено контакту %s', self.sendpulse_contact_id)
+            _logger.info(
+                'SendPulse Odoo: повідомлення відправлено контакту %s', self.sendpulse_contact_id
+            )
             # Метрики: фіксуємо першу відповідь оператора
             if not self.sp_first_reply_at:
                 update_metrics = {'sp_first_reply_at': fields.Datetime.now()}
-                if self.sp_funnel_stage in ('comment_only', 'private_sent', 'customer_replied', False, None):
+                if self.sp_funnel_stage in (
+                    'comment_only',
+                    'private_sent',
+                    'customer_replied',
+                    False,
+                    None,
+                ):
                     update_metrics['sp_funnel_stage'] = 'operator_engaged'
                 self.sudo().write(update_metrics)
             return True
@@ -4834,11 +5397,11 @@ class SendpulseConnect(models.Model):
     # ════════════════════════════════════════════════════════════════════
 
     _CONTACT_LIST_ENDPOINTS = {
-        'telegram':  'https://api.sendpulse.com/telegram/contacts',
+        'telegram': 'https://api.sendpulse.com/telegram/contacts',
         'instagram': 'https://api.sendpulse.com/instagram/contacts',
-        'facebook':  'https://api.sendpulse.com/facebook/contacts',
-        'viber':     'https://api.sendpulse.com/viber/contacts',
-        'whatsapp':  'https://api.sendpulse.com/whatsapp/contacts',
+        'facebook': 'https://api.sendpulse.com/facebook/contacts',
+        'viber': 'https://api.sendpulse.com/viber/contacts',
+        'whatsapp': 'https://api.sendpulse.com/whatsapp/contacts',
     }
 
     @api.model
@@ -4909,7 +5472,9 @@ class SendpulseConnect(models.Model):
                     resp.raise_for_status()
                     data = resp.json()
                 except Exception as e:
-                    _logger.warning('SendPulse cron_pull: помилка API %s bot=%s: %s', service, bot_id, e)
+                    _logger.warning(
+                        'SendPulse cron_pull: помилка API %s bot=%s: %s', service, bot_id, e
+                    )
                     break
 
                 contacts = data if isinstance(data, list) else data.get('data', [])
@@ -4929,12 +5494,14 @@ class SendpulseConnect(models.Model):
                     if cid not in existing_ids:
                         # Контакту нема — створюємо
                         name = contact.get('name') or contact.get('username') or 'Невідомий'
-                        new_rec = self.create({
-                            'sendpulse_contact_id': cid,
-                            'name': name,
-                            'service': service,
-                            'bot_id': bot_id,
-                        })
+                        new_rec = self.create(
+                            {
+                                'sendpulse_contact_id': cid,
+                                'name': name,
+                                'service': service,
+                                'bot_id': bot_id,
+                            }
+                        )
                         # Підтягуємо повний профіль з API
                         try:
                             new_rec.action_fetch_contact_info()
@@ -4959,7 +5526,8 @@ class SendpulseConnect(models.Model):
         if total_created or total_updated:
             _logger.info(
                 'SendPulse cron_pull: завершено — створено: %d, оновлено: %d',
-                total_created, total_updated,
+                total_created,
+                total_updated,
             )
         else:
             _logger.debug('SendPulse cron_pull: всі контакти в Odoo, нічого не змінено')
