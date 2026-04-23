@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-from odoo import models, fields, api, _
+from odoo import _, api, fields, models
 
 
 class ResConfigSettings(models.TransientModel):
@@ -33,8 +32,10 @@ class ResConfigSettings(models.TransientModel):
 
     @api.depends('sendpulse_client_secret')
     def _compute_sendpulse_secret_is_set(self):
-        secret = self.env['ir.config_parameter'].sudo().get_param(
-            'odoo_chatwoot_connector.client_secret', ''
+        secret = (
+            self.env['ir.config_parameter']
+            .sudo()
+            .get_param('odoo_chatwoot_connector.client_secret', '')
         )
         for rec in self:
             rec.sendpulse_secret_is_set = bool(secret)
@@ -43,7 +44,7 @@ class ResConfigSettings(models.TransientModel):
     def _compute_webhook_url(self):
         base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url', '')
         for rec in self:
-            rec.sendpulse_webhook_url = f"{base_url}/sendpulse/webhook"
+            rec.sendpulse_webhook_url = f'{base_url}/sendpulse/webhook'
 
     # ── SendPulse — Відповіді на коментарі ──────────────────────────────
     sp_comment_autoreply_enabled = fields.Boolean(
@@ -64,7 +65,7 @@ class ResConfigSettings(models.TransientModel):
     fb_page_access_token = fields.Char(
         string='Facebook Page Access Token',
         help='Безстроковий Page Access Token з Facebook Developer Portal. '
-             'Потрібен для публікації відповідей на коментарі та private_replies.',
+        'Потрібен для публікації відповідей на коментарі та private_replies.',
     )
     fb_page_token_is_set = fields.Boolean(
         compute='_compute_fb_page_token_is_set',
@@ -95,8 +96,8 @@ class ResConfigSettings(models.TransientModel):
     ig_user_id = fields.Char(
         string='Instagram Business Account ID',
         help='Числовий ID Instagram Business Account (~15 цифр). '
-             'Потрібен для private_reply на коментарі Instagram. '
-             'Отримати: GET /me?fields=instagram_business_account з Page Token.',
+        'Потрібен для private_reply на коментарі Instagram. '
+        'Отримати: GET /me?fields=instagram_business_account з Page Token.',
     )
     ig_user_id_is_set = fields.Boolean(
         compute='_compute_ig_user_id_is_set',
@@ -123,7 +124,7 @@ class ResConfigSettings(models.TransientModel):
         string='Текст приватного повідомлення',
         config_parameter='odoo_chatwoot_connector.sp_comment_private_text',
         help='Шаблон приватного повідомлення. Доступні змінні: {landing_url}, {tg_url}, {yt_url}. '
-             'Залиште порожнім щоб використовувати дефолтний текст.',
+        'Залиште порожнім щоб використовувати дефолтний текст.',
     )
 
     # ── LLM-класифікатор коментарів ─────────────────────────────────────
@@ -132,7 +133,7 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.llm_classifier_enabled',
         default=False,
         help='Класифікує коментарі (питання/подяка/скарга/спам) через Anthropic Claude. '
-             'На подяки і спам автовідповідь не надсилаємо, скарги ескалуємо оператору.',
+        'На подяки і спам автовідповідь не надсилаємо, скарги ескалуємо оператору.',
     )
     anthropic_api_key = fields.Char(
         string='Anthropic API Key',
@@ -158,8 +159,8 @@ class ResConfigSettings(models.TransientModel):
     fb_sync_user_token = fields.Char(
         string='User Access Token (тимчасово)',
         help='Короткоживучий User Token з Graph API Explorer з permissions '
-             'pages_show_list + business_management. Не зберігається — '
-             'використовується тільки для одноразового виклику /me/accounts.',
+        'pages_show_list + business_management. Не зберігається — '
+        'використовується тільки для одноразового виклику /me/accounts.',
     )
     fb_pages_count = fields.Integer(
         string='Зареєстрованих Pages',
@@ -177,6 +178,7 @@ class ResConfigSettings(models.TransientModel):
         self.ensure_one()
         if not self.fb_sync_user_token:
             from odoo.exceptions import UserError
+
             raise UserError(_('Введіть User Access Token перш ніж синхронізувати.'))
         Page = self.env['sendpulse.facebook.page'].sudo()
         processed = Page.sync_from_meta(self.fb_sync_user_token)
@@ -189,7 +191,8 @@ class ResConfigSettings(models.TransientModel):
             'tag': 'display_notification',
             'params': {
                 'title': _('Синхронізація завершена'),
-                'message': _('Створено: %d, оновлено: %d з %d сторінок') % (created, updated, len(processed)),
+                'message': _('Створено: %d, оновлено: %d з %d сторінок')
+                % (created, updated, len(processed)),
                 'type': 'success',
                 'sticky': False,
                 'next': {'type': 'ir.actions.act_window_close'},
@@ -202,7 +205,7 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.auto_archive_comments_enabled',
         default=False,
         help='Soft-archive (active=False) для закритих comment-розмов старших '
-             'за N днів. Запис залишається у БД, але ховається з default views.',
+        'за N днів. Запис залишається у БД, але ховається з default views.',
     )
     auto_archive_comments_days = fields.Integer(
         string='Дні до архівації',
@@ -217,7 +220,7 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.auto_refresh_tokens_enabled',
         default=False,
         help='Коли Page Token помирає < N днів — exchange на long-lived через '
-             '/oauth/access_token?grant_type=fb_exchange_token. Потребує app_id + app_secret.',
+        '/oauth/access_token?grant_type=fb_exchange_token. Потребує app_id + app_secret.',
     )
     token_refresh_threshold_days = fields.Integer(
         string='Поріг refresh (днів)',
@@ -232,8 +235,8 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.suggested_reply_enabled',
         default=False,
         help='У sidebar Discuss показується панель з 3 варіантами відповіді '
-             'від Claude на основі контексту розмови. Оператор натискає '
-             '«Використати» → текст вставляється у composer, можна редагувати.',
+        'від Claude на основі контексту розмови. Оператор натискає '
+        '«Використати» → текст вставляється у composer, можна редагувати.',
     )
 
     # ── RODO/GDPR consent log (V2 F13b) ───────────────────────────────────
@@ -242,17 +245,17 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.consent_enforcement_enabled',
         default=True,
         help='Перед send PDF-каталога / SMS-купона перевіряти '
-             'sendpulse.privacy.consent.log — якщо є withdrawal '
-             'для цього email/phone + purpose, skip send. При send: '
-             'авто-фіксується consent_given=True як доказ.',
+        'sendpulse.privacy.consent.log — якщо є withdrawal '
+        'для цього email/phone + purpose, skip send. При send: '
+        'авто-фіксується consent_given=True як доказ.',
     )
     rodo_policy_version = fields.Char(
         string='Версія політики RODO/GDPR',
         config_parameter='odoo_chatwoot_connector.rodo_policy_version',
         default='v1.0',
         help='Вставляється у consent.log як `policy_version` — доказ '
-             'на яку редакцію політики клієнт дав згоду. Оновлюй при '
-             'матеріальних змінах Polityka prywatności / Regulamin.',
+        'на яку редакцію політики клієнт дав згоду. Оновлюй при '
+        'матеріальних змінах Polityka prywatności / Regulamin.',
     )
 
     # ── Event seats awareness (V2 F14) ───────────────────────────────────
@@ -261,9 +264,9 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.event_seats_awareness_enabled',
         default=True,
         help='У prompt для Claude (F10 suggestions + F1 RAG) інжектиться '
-             'live-блок активних event.event з поточним seats_available. '
-             'AI використовує ці дані замість hardcoded цін/таборів: '
-             'створює FOMO на майже-повні зміни, чесно говорить про повні.',
+        'live-блок активних event.event з поточним seats_available. '
+        'AI використовує ці дані замість hardcoded цін/таборів: '
+        'створює FOMO на майже-повні зміни, чесно говорить про повні.',
     )
 
     # ── Auto-translate (V2 F11) ──────────────────────────────────────────
@@ -272,8 +275,8 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.auto_translate_enabled',
         default=False,
         help='У SendPulse-панелі Discuss показується секція перекладу. '
-             'Оператор натискає «→ PL» / «→ UK» → останнє повідомлення '
-             'клієнта перекладається через Claude Haiku.',
+        'Оператор натискає «→ PL» / «→ UK» → останнє повідомлення '
+        'клієнта перекладається через Claude Haiku.',
     )
 
     # ── Lead magnet: PDF-каталог + SMS-купон (V2 F13) ────────────────────
@@ -282,14 +285,15 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.lead_magnet_enabled',
         default=False,
         help='Master-switch для F13. Оператор натискає кнопку у SendPulse-панелі → '
-             'клієнт отримує PDF-каталог на email АБО SMS-купон 5% на телефон.',
+        'клієнт отримує PDF-каталог на email АБО SMS-купон 5% на телефон.',
     )
     lead_magnet_pdf_attachment_id = fields.Many2one(
-        'ir.attachment', string='PDF-каталог (attachment)',
+        'ir.attachment',
+        string='PDF-каталог (attachment)',
         config_parameter='odoo_chatwoot_connector.lead_magnet_pdf_attachment_id',
         domain="[('mimetype', '=', 'application/pdf')]",
         help='Який PDF-файл надсилати клієнту на email. Залите через shell '
-             '(або завантажте через Settings → Технічне → Attachments).',
+        '(або завантажте через Settings → Технічне → Attachments).',
     )
     lead_magnet_email_subject = fields.Char(
         string='Тема email',
@@ -297,26 +301,26 @@ class ResConfigSettings(models.TransientModel):
         default='CampScout — повний каталог таборів 2026',
     )
     lead_magnet_coupon_program_id = fields.Many2one(
-        'loyalty.program', string='Loyalty-програма для купона',
+        'loyalty.program',
+        string='Loyalty-програма для купона',
         config_parameter='odoo_chatwoot_connector.lead_magnet_coupon_program_id',
         domain="[('program_type', 'in', ('coupons','promo_code')), ('active', '=', True)]",
         help='Програма лояльності типу coupons/promo_code — з неї генерується '
-             'loyalty.card (індивідуальний промокод для клієнта).',
+        'loyalty.card (індивідуальний промокод для клієнта).',
     )
     lead_magnet_sms_template = fields.Char(
         string='SMS-шаблон',
         config_parameter='odoo_chatwoot_connector.lead_magnet_sms_template',
         default='CampScout: Ваш промокод на 5% знижки — {code}. '
-                'Застосуйте при оформленні на campscout.eu. Діє до 01.07.2026.',
+        'Застосуйте при оформленні на campscout.eu. Діє до 01.07.2026.',
         help='Placeholder: {code} — згенерований код купона. Ліміт SMS ~160 симв. '
-             '(160 латиниця / 70 unicode з кирилицею).',
+        '(160 латиниця / 70 unicode з кирилицею).',
     )
     sms_provider_id_setting = fields.Integer(
         string='SMS provider ID (kw_sms_provider)',
         config_parameter='odoo_chatwoot_connector.sms_provider_id',
         default=2,
-        help='ID запису з kw_sms_provider (TurboSMS=2 за замовчуванням). '
-             'Див. SMS → Providers.',
+        help='ID запису з kw_sms_provider (TurboSMS=2 за замовчуванням). ' 'Див. SMS → Providers.',
     )
 
     # ── Drip campaigns (V2 F2) ───────────────────────────────────────────
@@ -325,8 +329,8 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.drip_enabled',
         default=False,
         help='Погодинний cron розсилає нагадування «зависли» клієнти + '
-             'алерти менеджерам по затриманих розмовах. Окремі потоки можна '
-             'вимкнути нижче.',
+        'алерти менеджерам по затриманих розмовах. Окремі потоки можна '
+        'вимкнути нижче.',
     )
     drip_reminder_6h_enabled = fields.Boolean(
         string='6h reminder клієнту',
@@ -338,8 +342,8 @@ class ResConfigSettings(models.TransientModel):
         string='Текст 6h reminder',
         config_parameter='odoo_chatwoot_connector.drip_reminder_6h_text',
         default=(
-            "Привіт! 🙂 Ми надсилали вам деталі про табори — чи отримали? "
-            "Будемо раді відповісти на будь-які питання 🏕️"
+            'Привіт! 🙂 Ми надсилали вам деталі про табори — чи отримали? '
+            'Будемо раді відповісти на будь-які питання 🏕️'
         ),
     )
     drip_operator_alert_enabled = fields.Boolean(
@@ -347,7 +351,7 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.drip_operator_alert_enabled',
         default=True,
         help='Коли клієнт відповів у приват і оператор не підключився 2h → '
-             'loud Telegram-алерт у групу.',
+        'loud Telegram-алерт у групу.',
     )
     drip_booking_3d_enabled = fields.Boolean(
         string='3d нагадування про бронь',
@@ -359,9 +363,9 @@ class ResConfigSettings(models.TransientModel):
         string='Текст 3d booking reminder',
         config_parameter='odoo_chatwoot_connector.drip_booking_3d_text',
         default=(
-            "Доброго дня! 🌟 Нагадуємо про табір, яким ви цікавились. "
-            "Місць залишається все менше — якщо готові забронювати, напишіть, "
-            "підготуємо договір і рахунок 🏕️"
+            'Доброго дня! 🌟 Нагадуємо про табір, яким ви цікавились. '
+            'Місць залишається все менше — якщо готові забронювати, напишіть, '
+            'підготуємо договір і рахунок 🏕️'
         ),
     )
 
@@ -371,8 +375,8 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.bot_identification_enabled',
         default=False,
         help='Коли прийшло повідомлення від невідомого контакту — бот автоматично '
-             'питає email. На наступний inbound парсить email з тексту і створює '
-             'res.partner. Якщо клієнт не надає email за N спроб — передача оператору.',
+        'питає email. На наступний inbound парсить email з тексту і створює '
+        'res.partner. Якщо клієнт не надає email за N спроб — передача оператору.',
     )
     bot_identification_max_attempts = fields.Integer(
         string='Max спроб email',
@@ -387,15 +391,15 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.rag_auto_answer_enabled',
         default=False,
         help='Коли клієнт пише питання у приват — модуль шукає match у FAQ '
-             'через Claude. Якщо confidence > threshold — шле автоматичну відповідь. '
-             'Потребує anthropic_api_key + FAQ записи у меню SendPulse → FAQ Entries.',
+        'через Claude. Якщо confidence > threshold — шле автоматичну відповідь. '
+        'Потребує anthropic_api_key + FAQ записи у меню SendPulse → FAQ Entries.',
     )
     rag_auto_confidence_threshold = fields.Float(
         string='Поріг confidence',
         config_parameter='odoo_chatwoot_connector.rag_auto_confidence_threshold',
         default=0.85,
         help='0.0-1.0. Нижче цього значення — модуль НЕ відповідає автоматично, '
-             'передає оператору. Високий threshold (0.85+) = мало false positives.',
+        'передає оператору. Високий threshold (0.85+) = мало false positives.',
     )
 
     # ── Weekly Telegram report (V2 F8) ───────────────────────────────────
@@ -404,7 +408,7 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.weekly_report_enabled',
         default=False,
         help='Понеділок 09:00 UTC → у telegram-групу зводка за минулий тиждень: '
-             'webhook-и по типах, категорії коментарів, funnel-конверсія, SLA, алерти.',
+        'webhook-и по типах, категорії коментарів, funnel-конверсія, SLA, алерти.',
     )
 
     # ── Auto-close inactive (V2 F5) ──────────────────────────────────────
@@ -413,7 +417,7 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.auto_close_inactive_enabled',
         default=False,
         help='Закриває розмови у stage in_progress/new_message якщо клієнт '
-             'не писав X днів. Cron 1 раз/добу.',
+        'не писав X днів. Cron 1 раз/добу.',
     )
     auto_close_inactive_days = fields.Integer(
         string='Дні до авто-закриття',
@@ -425,7 +429,7 @@ class ResConfigSettings(models.TransientModel):
         string='Прощальне повідомлення (опц.)',
         config_parameter='odoo_chatwoot_connector.auto_close_goodbye_text',
         help='Якщо задано і 24h-вікно Meta відкрите — надсилається клієнту '
-             'при авто-закритті. Залиште порожнім щоб не надсилати.',
+        'при авто-закритті. Залиште порожнім щоб не надсилати.',
     )
 
     # ── Auto-create CRM leads (V2 F4) ────────────────────────────────────
@@ -434,8 +438,8 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='odoo_chatwoot_connector.auto_create_lead_enabled',
         default=False,
         help='Коли клієнт відповів у приват (funnel_stage=customer_replied) — '
-             'автоматично створюється crm.lead зі знайденим партнером і прив\'язується '
-             'до розмови через sp_lead_id. Ідемпотентно — якщо лід уже є, не створює другий.',
+        "автоматично створюється crm.lead зі знайденим партнером і прив'язується "
+        'до розмови через sp_lead_id. Ідемпотентно — якщо лід уже є, не створює другий.',
     )
     auto_create_lead_team_id = fields.Many2one(
         'crm.team',
@@ -466,24 +470,30 @@ class ResConfigSettings(models.TransientModel):
 
     @api.depends('fb_page_access_token')
     def _compute_fb_page_token_is_set(self):
-        token = self.env['ir.config_parameter'].sudo().get_param(
-            'odoo_chatwoot_connector.fb_page_access_token', ''
+        token = (
+            self.env['ir.config_parameter']
+            .sudo()
+            .get_param('odoo_chatwoot_connector.fb_page_access_token', '')
         )
         for rec in self:
             rec.fb_page_token_is_set = bool(token)
 
     @api.depends('ig_user_id')
     def _compute_ig_user_id_is_set(self):
-        val = self.env['ir.config_parameter'].sudo().get_param(
-            'odoo_chatwoot_connector.ig_user_id', ''
+        val = (
+            self.env['ir.config_parameter']
+            .sudo()
+            .get_param('odoo_chatwoot_connector.ig_user_id', '')
         )
         for rec in self:
             rec.ig_user_id_is_set = bool(val)
 
     @api.depends('fb_app_secret')
     def _compute_fb_app_secret_is_set(self):
-        val = self.env['ir.config_parameter'].sudo().get_param(
-            'odoo_chatwoot_connector.fb_app_secret', ''
+        val = (
+            self.env['ir.config_parameter']
+            .sudo()
+            .get_param('odoo_chatwoot_connector.fb_app_secret', '')
         )
         for rec in self:
             rec.fb_app_secret_is_set = bool(val)
@@ -499,16 +509,20 @@ class ResConfigSettings(models.TransientModel):
 
     @api.depends('anthropic_api_key')
     def _compute_anthropic_api_key_is_set(self):
-        val = self.env['ir.config_parameter'].sudo().get_param(
-            'odoo_chatwoot_connector.anthropic_api_key', ''
+        val = (
+            self.env['ir.config_parameter']
+            .sudo()
+            .get_param('odoo_chatwoot_connector.anthropic_api_key', '')
         )
         for rec in self:
             rec.anthropic_api_key_is_set = bool(val)
 
     @api.depends('telegram_bot_token')
     def _compute_telegram_bot_token_is_set(self):
-        val = self.env['ir.config_parameter'].sudo().get_param(
-            'odoo_chatwoot_connector.telegram_bot_token', ''
+        val = (
+            self.env['ir.config_parameter']
+            .sudo()
+            .get_param('odoo_chatwoot_connector.telegram_bot_token', '')
         )
         for rec in self:
             rec.telegram_bot_token_is_set = bool(val)

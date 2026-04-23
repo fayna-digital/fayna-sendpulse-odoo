@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
-import random
 import logging
-from odoo import models, fields, api, _
+import random
+
+from odoo import api, fields, models
 
 _logger = logging.getLogger(__name__)
 
@@ -13,27 +13,35 @@ class SendpulsePublicTemplate(models.Model):
 
     name = fields.Char(string='Назва', required=True, translate=False)
     text = fields.Text(
-        string='Текст шаблону', required=True,
+        string='Текст шаблону',
+        required=True,
         help='Placeholders: {landing_url}, {tg_url} — підставляються з Settings.',
     )
     kind = fields.Selection(
         [('standard', 'Стандартний'), ('repeat', 'Повторний контакт')],
-        default='standard', required=True,
+        default='standard',
+        required=True,
         help='repeat — використовується коли клієнт вже писав у приват цьому ж контакту.',
     )
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
 
     use_count = fields.Integer(
-        string='Використано', default=0, readonly=True,
+        string='Використано',
+        default=0,
+        readonly=True,
         help='Скільки разів цей шаблон публікувався під коментарями.',
     )
     customer_replied_count = fields.Integer(
-        string='Конверсій', default=0, readonly=True,
+        string='Конверсій',
+        default=0,
+        readonly=True,
         help='Скільки клієнтів після публічної відповіді написали у приват.',
     )
     conversion_rate = fields.Float(
-        string='Конверсія, %', compute='_compute_conversion_rate', store=True,
+        string='Конверсія, %',
+        compute='_compute_conversion_rate',
+        store=True,
         digits=(6, 2),
     )
     last_used_at = fields.Datetime(string='Востаннє використано', readonly=True)
@@ -46,8 +54,7 @@ class SendpulsePublicTemplate(models.Model):
     def _compute_conversion_rate(self):
         for rec in self:
             rec.conversion_rate = (
-                (rec.customer_replied_count / rec.use_count * 100.0)
-                if rec.use_count else 0.0
+                (rec.customer_replied_count / rec.use_count * 100.0) if rec.use_count else 0.0
             )
 
     @api.model
@@ -81,14 +88,18 @@ class SendpulsePublicTemplate(models.Model):
         """Інкремент use_count + last_used_at. Викликається при публікації."""
         now = fields.Datetime.now()
         for rec in self:
-            rec.sudo().write({
-                'use_count': rec.use_count + 1,
-                'last_used_at': now,
-            })
+            rec.sudo().write(
+                {
+                    'use_count': rec.use_count + 1,
+                    'last_used_at': now,
+                }
+            )
 
     def bump_customer_replied(self):
         """Інкремент customer_replied_count. Викликається при переході funnel → customer_replied."""
         for rec in self:
-            rec.sudo().write({
-                'customer_replied_count': rec.customer_replied_count + 1,
-            })
+            rec.sudo().write(
+                {
+                    'customer_replied_count': rec.customer_replied_count + 1,
+                }
+            )
