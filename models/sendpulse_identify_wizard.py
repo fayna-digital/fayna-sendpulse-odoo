@@ -1,8 +1,8 @@
-# -*- coding: utf-8 -*-
-from odoo import models, fields, api, _
+import logging
+
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
-import logging
 _logger = logging.getLogger(__name__)
 
 
@@ -14,19 +14,27 @@ class SendpulseIdentifyWizard(models.TransientModel):
       2. Створити нового партнера якщо не знайдено
       3. Відкрити картку партнера для ручного merge дублікатів
     """
+
     _name = 'sendpulse.identify.wizard'
     _description = 'Ідентифікація клієнта SendPulse'
 
     connect_id = fields.Many2one(
-        'sendpulse.connect', string='Розмова', required=True, ondelete='cascade',
+        'sendpulse.connect',
+        string='Розмова',
+        required=True,
+        ondelete='cascade',
     )
 
     # ── Відображення даних з SendPulse ──────────────────────────────────
     connect_name = fields.Char(
-        string='Ім\'я з SendPulse', related='connect_id.name', readonly=True,
+        string="Ім'я з SendPulse",
+        related='connect_id.name',
+        readonly=True,
     )
     connect_service = fields.Selection(
-        related='connect_id.service', readonly=True, string='Канал',
+        related='connect_id.service',
+        readonly=True,
+        string='Канал',
     )
 
     # ── Поля пошуку ─────────────────────────────────────────────────────
@@ -37,14 +45,18 @@ class SendpulseIdentifyWizard(models.TransientModel):
     search_done = fields.Boolean(default=False)
     found_partner_ids = fields.Many2many(
         'res.partner',
-        'sendpulse_wizard_partner_rel', 'wizard_id', 'partner_id',
+        'sendpulse_wizard_partner_rel',
+        'wizard_id',
+        'partner_id',
         string='Знайдені клієнти',
     )
     selected_partner_id = fields.Many2one(
-        'res.partner', string='Обраний клієнт',
+        'res.partner',
+        string='Обраний клієнт',
     )
     found_count = fields.Integer(
-        string='Кількість знайдених', compute='_compute_found_count',
+        string='Кількість знайдених',
+        compute='_compute_found_count',
     )
 
     @api.depends('found_partner_ids')
@@ -77,18 +89,26 @@ class SendpulseIdentifyWizard(models.TransientModel):
             domain = ['|', ('email', 'ilike', term), ('name', 'ilike', term)]
         elif self.search_phone and self.search_phone.strip():
             clean = self.search_phone.strip().replace(' ', '').replace('-', '')
-            domain = ['|', '|', ('phone', 'ilike', clean), ('mobile', 'ilike', clean), ('name', 'ilike', clean)]
+            domain = [
+                '|',
+                '|',
+                ('phone', 'ilike', clean),
+                ('mobile', 'ilike', clean),
+                ('name', 'ilike', clean),
+            ]
 
         if domain:
             partners = self.env['res.partner'].search(domain + [('active', '=', True)], limit=20)
         else:
             partners = self.env['res.partner']
 
-        self.write({
-            'found_partner_ids': [(6, 0, partners.ids)],
-            'selected_partner_id': partners[0].id if len(partners) == 1 else False,
-            'search_done': True,
-        })
+        self.write(
+            {
+                'found_partner_ids': [(6, 0, partners.ids)],
+                'selected_partner_id': partners[0].id if len(partners) == 1 else False,
+                'search_done': True,
+            }
+        )
 
         return {
             'type': 'ir.actions.act_window',
@@ -111,11 +131,13 @@ class SendpulseIdentifyWizard(models.TransientModel):
             partner.write({'sendpulse_contact_id': self.connect_id.sendpulse_contact_id})
 
         self.connect_id.assign_partner(partner.id)
-        self.connect_id.write({
-            'stage': 'in_progress',
-            'unidentified_email': False,
-            'unidentified_phone': False,
-        })
+        self.connect_id.write(
+            {
+                'stage': 'in_progress',
+                'unidentified_email': False,
+                'unidentified_phone': False,
+            }
+        )
         return {'type': 'ir.actions.act_window_close'}
 
     def action_create_and_link(self):
@@ -140,11 +162,13 @@ class SendpulseIdentifyWizard(models.TransientModel):
             partner.sudo().write({'sendpulse_contact_id': self.connect_id.sendpulse_contact_id})
 
         self.connect_id.assign_partner(partner.id)
-        self.connect_id.write({
-            'stage': 'in_progress',
-            'unidentified_email': False,
-            'unidentified_phone': False,
-        })
+        self.connect_id.write(
+            {
+                'stage': 'in_progress',
+                'unidentified_email': False,
+                'unidentified_phone': False,
+            }
+        )
 
         # Відкриваємо картку нового партнера щоб можна було перевірити / merge
         return {

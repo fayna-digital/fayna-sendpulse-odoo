@@ -2,8 +2,8 @@
 
 <div style="color:#b00020; border:2px solid #b00020; padding:14px 18px; margin:0 0 20px; background:#fff8f8;">
 
-**Статус: КРИТИЧНИЙ ІНЦИДЕНТ (червоний рівень)**  
-**Тип:** порушення межі модуля, невиконання явної вимоги замовника, зайві зміни в бойовому аддоні.  
+**Статус: КРИТИЧНИЙ ІНЦИДЕНТ (червоний рівень)**
+**Тип:** порушення межі модуля, невиконання явної вимоги замовника, зайві зміни в бойовому аддоні.
 **Суб’єкт змін:** не людина-розробник модуля, а **сесія AI-асистента (Cursor)** у контексті сусіднього проєкту `omnichannel-bridge`.
 
 </div>
@@ -28,23 +28,23 @@
 
 ### Коміт `9317e1c` — «normalize SendPulse form actions for Discuss flow»
 
-- **`views/sendpulse_connect_views.xml`**  
+- **`views/sendpulse_connect_views.xml`**
   - Додано нову дію **`action_sendpulse_connect_form_popup`** (окремий `act_window` під popup/форму).
-- **`views/sendpulse_identify_wizard_views.xml`**  
+- **`views/sendpulse_identify_wizard_views.xml`**
   - У дії майстра ідентифікації додано **`view_id`** (прив’язка до конкретної форми).
 
 ### Коміт `2775941` — «guarantee act_window.views (RPC + JS guard)»
 
-- **`models/sendpulse_action_utils.py`** (новий файл)  
+- **`models/sendpulse_action_utils.py`** (новий файл)
   - Утиліта на кшталт **`ensure_act_window_views`**: доповнення словника дії полем **`views`**, якщо воно відсутнє.
-- **`models/sendpulse_connect.py`**  
+- **`models/sendpulse_connect.py`**
   - Зміни в **`action_discuss_open_connect_form`**, **`action_identify_partner`**: перехід на **`_for_xml_id`**, виклик утиліти для гарантованих `views`.
-- **`models/sendpulse_identify_wizard.py`**  
+- **`models/sendpulse_identify_wizard.py`**
   - У кількох `return` з `act_window` додано явно **`'views': [(False, 'form')]`**.
-- **`models/res_partner.py`**  
-  - **`action_open_sendpulse_connects`**: завантаження дії через XML id, підміна **`domain`/`context`**, знову **`ensure_act_window_views`**.  
+- **`models/res_partner.py`**
+  - **`action_open_sendpulse_connects`**: завантаження дії через XML id, підміна **`domain`/`context`**, знову **`ensure_act_window_views`**.
   - **Ризик побічного ефекту:** контекст дії з XML міг бути **повністю замінений** на `{'default_partner_id': self.id}` — якщо в майбутньому в XML з’явиться розширений `context`, з картки партнера він **не підхопиться**.
-- **`static/src/components/sendpulse_info_panel/sendpulse_info_panel.js`**  
+- **`static/src/components/sendpulse_info_panel/sendpulse_info_panel.js`**
   - Замість локального **`doAction`** з готовим об’єктом — виклик **RPC** і нормалізація відповіді (функція на кшталт **`ensureActWindowViews`**).
 
 **Підсумок за змістом:** усе це було **сумісне з діагнозом** «у дії немає `views`», але **не мало потрапляти в SendPulse** згідно з домовленістю.

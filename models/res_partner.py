@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-from odoo import models, fields, api, _
+from odoo import _, fields, models
 
 
 class ResPartner(models.Model):
@@ -14,7 +13,8 @@ class ResPartner(models.Model):
 
     # ── Список ВСІХ каналів партнера (кожен канал — окремий рядок) ──────
     sendpulse_channel_ids = fields.One2many(
-        'partner.sendpulse.channel', 'partner_id',
+        'partner.sendpulse.channel',
+        'partner_id',
         string='Канали SendPulse',
         help='Всі соціальні канали через які клієнт писав у SendPulse',
     )
@@ -25,7 +25,8 @@ class ResPartner(models.Model):
 
     # ── Список ВСІХ розмов ──────────────────────────────────────────────
     sendpulse_connect_ids = fields.One2many(
-        'sendpulse.connect', 'partner_id',
+        'sendpulse.connect',
+        'partner_id',
         string='Розмови SendPulse',
     )
     sendpulse_connect_count = fields.Integer(
@@ -35,7 +36,8 @@ class ResPartner(models.Model):
 
     # ── Список повідомлень у вкладці Messaging ──────────────────────────
     sendpulse_message_ids = fields.One2many(
-        'partner.sendpulse.message', 'partner_id',
+        'partner.sendpulse.message',
+        'partner_id',
         string='Повідомлення SendPulse',
     )
 

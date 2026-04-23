@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 {
     'name': 'Fayna SendPulse Odoo',
     'version': '17.0.14.4',

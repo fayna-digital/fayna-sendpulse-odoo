@@ -1,0 +1,50 @@
+# Pre-commit hooks для Fayna Odoo 17 module.
+# Install: pre-commit install (один раз per clone)
+# Run manually: pre-commit run --all-files
+# CI: runs у .github/workflows/ci.yml (Phase 0 GitHub Actions setup)
+
+repos:
+  # Astral ruff — lint + format (replaces flake8 + isort + black + pyupgrade)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  # OCA Odoo-specific hooks (manifest validation, po files, copyright headers)
+  - repo: https://github.com/OCA/odoo-pre-commit-hooks
+    rev: v0.1.0
+    hooks:
+      - id: oca-checks-odoo-module
+      - id: oca-checks-po
+
+  # Security: secret scanner
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+
+  # Security: Python code linter
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: [-ll, -r, .]  # -ll = low severity threshold, -r = recursive
+        exclude: ^tests/
+
+  # YAML / JSON / whitespace / merge conflicts
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-xml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: mixed-line-ending
+        args: [--fix=lf]

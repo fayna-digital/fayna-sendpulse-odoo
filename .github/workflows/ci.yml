@@ -1,0 +1,36 @@
+name: CI
+
+# Запускається на PR у main + push у main.
+# Блокує merge якщо lint / format / security checks fail.
+# Використовує `.pre-commit-config.yaml` як джерело правди —
+# ті самі хуки локально + на сервері.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel in-progress runs коли з'являється новий push у тій самій гілці
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (ruff + bandit + gitleaks + OCA)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # gitleaks needs full history
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Run pre-commit hooks
+        uses: pre-commit/action@v3.0.1

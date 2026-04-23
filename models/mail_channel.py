@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 import logging
 import re
 from html import unescape
 
-from odoo import models, fields, api, _
-from odoo.tools import plaintext2html, html2plaintext
+from odoo import _, fields, models
+from odoo.tools import plaintext2html
 
 
 def _html_to_text(html_body):
@@ -33,6 +32,7 @@ def _html_to_text(html_body):
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
 
+
 _logger = logging.getLogger(__name__)
 
 # Шаблони системних повідомлень Odoo Discuss (щоб не відправляти їх в SendPulse)
@@ -52,8 +52,10 @@ class DiscussChannel(models.Model):
 
     # Зв'язок з розмовою SendPulse
     sendpulse_connect_id = fields.Many2one(
-        'sendpulse.connect', string='SendPulse Розмова',
-        ondelete='set null', index=True,
+        'sendpulse.connect',
+        string='SendPulse Розмова',
+        ondelete='set null',
+        index=True,
     )
 
     def _to_store(self, store, **kwargs):
@@ -63,14 +65,19 @@ class DiscussChannel(models.Model):
             super_fn(store, **kwargs)
         for channel in self:
             if channel.sendpulse_connect_id:
-                store.add(channel, {
-                    'sendpulse_connect_id': channel.sendpulse_connect_id.id,
-                })
+                store.add(
+                    channel,
+                    {
+                        'sendpulse_connect_id': channel.sendpulse_connect_id.id,
+                    },
+                )
 
     def _channel_info(self):
         """Odoo 17: додаємо sendpulse_connect_id в info-dict що йде на фронт у Store."""
         channel_infos = super()._channel_info()
-        connect_by_channel = {c.id: c.sendpulse_connect_id.id for c in self if c.sendpulse_connect_id}
+        connect_by_channel = {
+            c.id: c.sendpulse_connect_id.id for c in self if c.sendpulse_connect_id
+        }
         for info in channel_infos:
             info['sendpulse_connect_id'] = connect_by_channel.get(info.get('id'), False)
         return channel_infos
@@ -82,14 +89,16 @@ class DiscussChannel(models.Model):
         Канал типу 'group' — з'являється у Discuss (дзвіночок) для операторів.
         """
         connect = env['sendpulse.connect'].browse(connect_id)
-        channel_name = f"[{connect._get_service_label()}] {connect.name}"
+        channel_name = f'[{connect._get_service_label()}] {connect.name}'
 
-        channel = env['discuss.channel'].create({
-            'name': channel_name,
-            'channel_type': 'group',
-            'sendpulse_connect_id': connect_id,
-            'description': connect._get_channel_description(),
-        })
+        channel = env['discuss.channel'].create(
+            {
+                'name': channel_name,
+                'channel_type': 'group',
+                'sendpulse_connect_id': connect_id,
+                'description': connect._get_channel_description(),
+            }
+        )
         channel.add_members(partner_ids=partner_ids)
         return channel
 
@@ -130,9 +139,11 @@ class DiscussChannel(models.Model):
         attachment_ids = kwargs.get('attachment_ids', [])
         if attachment_ids:
             att = self.env['ir.attachment'].browse(attachment_ids[0])
-            if (connect.service == 'instagram'
-                    and att.mimetype
-                    and not att.mimetype.startswith('image/')):
+            if (
+                connect.service == 'instagram'
+                and att.mimetype
+                and not att.mimetype.startswith('image/')
+            ):
                 # Instagram не підтримує PDF/документи — попереджаємо оператора
                 self.with_context(sendpulse_incoming=True).message_post(
                     body=(
@@ -154,28 +165,32 @@ class DiscussChannel(models.Model):
                 connect.write({'stage': 'in_progress'})
 
             # Зберігаємо повідомлення оператора в sendpulse.message
-            self.env['sendpulse.message'].create({
-                'name': fields.Datetime.now().strftime('%Y-%m-%d %H:%M'),
-                'date': fields.Datetime.now(),
-                'connect_id': connect.id,
-                'sendpulse_contact_id': connect.sendpulse_contact_id,
-                'direction': 'outgoing',
-                'message_type': 'image' if attachment_url else 'text',
-                'text_message': body_plain.strip(),
-                'attachment_url': attachment_url or False,
-                'raw_json': str({'text': body_plain.strip()}),
-            })
+            self.env['sendpulse.message'].create(
+                {
+                    'name': fields.Datetime.now().strftime('%Y-%m-%d %H:%M'),
+                    'date': fields.Datetime.now(),
+                    'connect_id': connect.id,
+                    'sendpulse_contact_id': connect.sendpulse_contact_id,
+                    'direction': 'outgoing',
+                    'message_type': 'image' if attachment_url else 'text',
+                    'text_message': body_plain.strip(),
+                    'attachment_url': attachment_url or False,
+                    'raw_json': str({'text': body_plain.strip()}),
+                }
+            )
 
             # Зберігаємо у вкладці Messaging картки партнера
             if connect.partner_id:
-                self.env['partner.sendpulse.message'].create({
-                    'partner_id': connect.partner_id.id,
-                    'author_id': self.env.user.partner_id.id,
-                    'date': fields.Datetime.now(),
-                    'text_message': plaintext2html(body_plain.strip()),
-                    'service': connect.service,
-                    'direction': 'outgoing',
-                })
+                self.env['partner.sendpulse.message'].create(
+                    {
+                        'partner_id': connect.partner_id.id,
+                        'author_id': self.env.user.partner_id.id,
+                        'date': fields.Datetime.now(),
+                        'text_message': plaintext2html(body_plain.strip()),
+                        'service': connect.service,
+                        'direction': 'outgoing',
+                    }
+                )
 
         return msg
 
@@ -199,9 +214,7 @@ class DiscussChannel(models.Model):
 
         base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
         lead_url = f'{base_url}/odoo/crm/{lead.id}'
-        body = _(
-            '✅ Лід створено: <a href="%s">%s</a>'
-        ) % (lead_url, lead.name)
+        body = _('✅ Лід створено: <a href="%s">%s</a>') % (lead_url, lead.name)
 
         return super().message_post(
             body=body,
@@ -226,7 +239,7 @@ class DiscussChannel(models.Model):
             if not att.access_token:
                 att.generate_access_token()
             base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
-            return f"{base_url}/web/content/{att.id}?access_token={att.access_token}"
+            return f'{base_url}/web/content/{att.id}?access_token={att.access_token}'
         except Exception as e:
             _logger.warning('SendPulse Odoo: не вдалося отримати URL вкладення: %s', e)
             return None
@@ -258,11 +271,14 @@ class DiscussChannel(models.Model):
             connect = self.sendpulse_connect_id
             if connect.stage != 'close':
                 from odoo.exceptions import UserError
-                raise UserError(_(
-                    'Цей чат ще активний — клієнт може написати в будь-який момент.\n\n'
-                    'Якщо ви завершили спілкування з клієнтом — натисніть кнопку "Закрити чат" '
-                    'у правому верхньому куті. Після закриття ви зможете вийти з каналу.'
-                ))
+
+                raise UserError(
+                    _(
+                        'Цей чат ще активний — клієнт може написати в будь-який момент.\n\n'
+                        'Якщо ви завершили спілкування з клієнтом — натисніть кнопку "Закрити чат" '
+                        'у правому верхньому куті. Після закриття ви зможете вийти з каналу.'
+                    )
+                )
             else:
                 # Видаляємо юзера з операторів при виході із закритого чату
                 connect.user_ids = [(3, self.env.user.id)]

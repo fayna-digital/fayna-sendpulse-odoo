@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-from odoo import models, fields, api, _
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -22,7 +21,7 @@ class SendpulseFaqEntry(models.Model):
     answer = fields.Text(
         string='Відповідь',
         required=True,
-        help='Канонічна відповідь. LLM персоналізує її (добавить ім\'я клієнта тощо) перед відправкою.',
+        help="Канонічна відповідь. LLM персоналізує її (добавить ім'я клієнта тощо) перед відправкою.",
     )
     tags = fields.Char(
         string='Теги',
@@ -56,16 +55,15 @@ class SendpulseFaqEntry(models.Model):
         Return: list of dict {id, question, answer}
         """
         records = self.search([('active', '=', True)], order='priority desc')
-        return [
-            {'id': r.id, 'question': r.question, 'answer': r.answer}
-            for r in records
-        ]
+        return [{'id': r.id, 'question': r.question, 'answer': r.answer} for r in records]
 
     def action_test_match(self):
         """Wizard для тестування чи LLM би обрав саме цей FAQ на тестовий ввід."""
         self.ensure_one()
-        raise UserError(_(
-            'Test-match wizard поки не реалізований. '
-            'Скористайтесь odoo shell:\n'
-            'env[\'sendpulse.connect\']._rag_answer_question(\'Ваше тестове питання\')'
-        ))
+        raise UserError(
+            _(
+                'Test-match wizard поки не реалізований. '
+                'Скористайтесь odoo shell:\n'
+                "env['sendpulse.connect']._rag_answer_question('Ваше тестове питання')"
+            )
+        )
