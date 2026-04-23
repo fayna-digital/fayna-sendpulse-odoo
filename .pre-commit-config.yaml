@@ -30,7 +30,8 @@ repos:
     rev: 1.7.10
     hooks:
       - id: bandit
-        args: [-ll, -r, .]  # -ll = low severity threshold, -r = recursive
+        # -ll low severity, -r recursive, --skip B324 (MD5 для API signatures — SendPulse/Zadarma protocols)
+        args: [-ll, -r, --skip, B324, .]
         exclude: ^tests/
 
   # YAML / JSON / whitespace / merge conflicts
