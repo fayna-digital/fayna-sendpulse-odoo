@@ -1398,14 +1398,17 @@ class SendpulseConnect(models.Model):
     # Коментарі Facebook / Instagram — автовідповідь
     # ════════════════════════════════════════════════════════════════════
 
-    # Ротаційні шаблони публічної відповіді.
-    # {landing_url} і {tg_url} підставляються з ir.config_parameter.
+    # Ротаційні шаблони публічної відповіді (fallback якщо БД порожня).
+    # Основний шлях — sendpulse.public.template (data/sendpulse_public_templates_seed.xml).
+    # {name}, {landing_url}, {tg_url} підставляються з runtime.
     _COMMENT_PUBLIC_TEMPLATES = [
-        'Дякуємо за коментар! 🏕️ Написали вам детальніше у приватні — перевірте вхідні 😊 Або одразу: {landing_url}',
-        'Дякуємо! 🌟 Всі деталі надіслали в особисті. Також можна одразу глянути програму: {landing_url}',
-        'Радіємо вашій зацікавленості! ✨ Написали в приват — там детальна відповідь. Підписуйтесь на наш ТГ-канал і отримайте -5% на табір: {tg_url} 🎁',
-        'Привіт! Відповіли вам у повідомленнях 📩 Актуальні табори 2026 та знижка -5% за підписку: {tg_url}',
-        'Дякуємо за інтерес! 🏕️ Детальніше написали у приватних. Все про табори 2026: {landing_url}',
+        '{name}, дякуємо за коментар! 🏕️\n\nНа жаль, наразі ми не маємо змоги написати вам у приват.\nНапишіть нам сюди у відповідь — ми на зв\'язку 24/7 ✨\n\nВся інформація про табори:\n🌐 {landing_url}',
+        'Привіт, {name}! 🌟 Дякуємо що написали.\n\nЗараз технічно не виходить відповісти вам у приват —\nтому пишіть нам прямо тут, у коментарях. Відповідаємо цілодобово!\n\nДеталі про програми, дати й вартість 👇\n🌐 {landing_url}',
+        '{name}, рада/радий бачити ваше повідомлення! 🏕️✨\n\nНа жаль, написати вам у Messenger зараз не можемо.\nПишіть нам тут — ми онлайн 24/7 і швидко відповімо.\n\nПрограма, безпека, харчування, ціни — все тут:\n🌐 {landing_url}',
+        'Дякуємо за інтерес, {name}! 🌲\n\nНа жаль, наша сторінка зараз не може ініціювати приватну розмову.\nЗалиште питання у відповіді на цей коментар — ми на зв\'язку без вихідних, 24/7 💬\n\nУся інформація про табори 2026:\n🌐 {landing_url}',
+        '{name}, вітаємо! 🏕️\n\nТехнічно не маємо змоги написати вам у приватні повідомлення.\nТож запитуйте сміливо тут — відповідаємо у будь-який час, 24/7! ⚡\n\nУсі деталі про табори — за посиланням:\n🌐 {landing_url}',
+        'Привіт, {name}! 💛\n\nДякуємо за коментар. Приватно написати вам, на жаль, не вдається —\nале ми тут поруч у коментарях, відповідаємо цілодобово.\n\nВсе про наші табори (програма / ціни / умови):\n🌐 {landing_url}',
+        '{name}, дякуємо що цікавитесь! 🌟\n\nНаразі не маємо технічної можливості написати вам у Messenger.\nПитайте просто тут у коментарі — ми на зв\'язку 24/7 і відповімо швидко 🚀\n\nВсе про табори CampScout 2026:\n🌐 {landing_url}',
     ]
 
     _COMMENT_PUBLIC_REPEAT_TEMPLATE = 'Раді бачити вас знову! 😊 Наш менеджер вже напише вам у повідомленнях — слідкуйте за вхідними 🏕️'
@@ -1628,6 +1631,11 @@ class SendpulseConnect(models.Model):
         public_ok = False
         public_error = None
         if send_public and comment_id:
+            # Ім'я для звертання у шаблоні. SendPulse webhook кладе FB profile name
+            # у contact.name; коли пусто або default — використовуємо нейтральне.
+            display_name = (
+                contact_name if contact_name and contact_name != 'Невідомий' else 'друже'
+            )
             # F9: Вибір шаблону через модель sendpulse.public.template (epsilon-greedy).
             # Fallback на hard-coded константи якщо модель порожня (міграція не
             # виконана або всі шаблони деактивовано).
@@ -1635,6 +1643,7 @@ class SendpulseConnect(models.Model):
             template = PublicTemplate.pick_template(is_repeat=bool(already_private))
             if template:
                 public_text = template.text.format(
+                    name=display_name,
                     landing_url=landing_url or 'https://lato2026.campscout.eu',
                     tg_url=tg_url or 'https://t.me/campscouting',
                 )
@@ -1654,6 +1663,7 @@ class SendpulseConnect(models.Model):
                     count = self.search_count([('sp_is_comment', '=', True)])
                 tmpl = self._COMMENT_PUBLIC_TEMPLATES[count % len(self._COMMENT_PUBLIC_TEMPLATES)]
                 public_text = tmpl.format(
+                    name=display_name,
                     landing_url=landing_url or 'https://lato2026.campscout.eu',
                     tg_url=tg_url or 'https://t.me/campscouting',
                 )

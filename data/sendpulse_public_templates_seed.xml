@@ -3,7 +3,12 @@
 
     <!-- F9 A/B шаблони публічних відповідей.
          noupdate="1" — після першого install не перезаписує ручні правки в БД.
-         Placeholders: {landing_url}, {tg_url} підставляються з Settings.
+         Placeholders: {name}, {landing_url}, {tg_url} підставляються з runtime.
+
+         v1 (public_template_1..5): тон «написали в приват / переходьте до нас».
+             Деактивовано в migration 17.0.14.5 (Meta App Review pending →
+             pages_messaging не доступний → приватні replies провалюються 100%).
+         v2 (public_template_v2_1..7): тон «не можемо в приват, пишіть тут — 24/7».
     -->
 
     <record id="public_template_1" model="sendpulse.public.template">
@@ -39,6 +44,100 @@
         <field name="kind">standard</field>
         <field name="sequence">50</field>
         <field name="text">Дякуємо за інтерес! 🏕️ Детальніше написали у приватних. Все про табори 2026: {landing_url}</field>
+    </record>
+
+    <!-- v2 шаблони (2026-04-29) — приватні replies не доступні поки немає
+         pages_messaging. Тон: «пишіть нам у відповідь, на зв'язку 24/7». -->
+
+    <record id="public_template_v2_1" model="sendpulse.public.template">
+        <field name="name">v2: Не можемо в приват / 24-7 / лендинг</field>
+        <field name="kind">standard</field>
+        <field name="sequence">110</field>
+        <field name="text"><![CDATA[{name}, дякуємо за коментар! 🏕️
+
+На жаль, наразі ми не маємо змоги написати вам у приват.
+Напишіть нам сюди у відповідь — ми на зв'язку 24/7 ✨
+
+Вся інформація про табори:
+🌐 {landing_url}]]></field>
+    </record>
+
+    <record id="public_template_v2_2" model="sendpulse.public.template">
+        <field name="name">v2: Привіт / технічно / коментарі</field>
+        <field name="kind">standard</field>
+        <field name="sequence">120</field>
+        <field name="text"><![CDATA[Привіт, {name}! 🌟 Дякуємо що написали.
+
+Зараз технічно не виходить відповісти вам у приват —
+тому пишіть нам прямо тут, у коментарях. Відповідаємо цілодобово!
+
+Деталі про програми, дати й вартість 👇
+🌐 {landing_url}]]></field>
+    </record>
+
+    <record id="public_template_v2_3" model="sendpulse.public.template">
+        <field name="name">v2: Радий бачити / Messenger / онлайн</field>
+        <field name="kind">standard</field>
+        <field name="sequence">130</field>
+        <field name="text"><![CDATA[{name}, рада/радий бачити ваше повідомлення! 🏕️✨
+
+На жаль, написати вам у Messenger зараз не можемо.
+Пишіть нам тут — ми онлайн 24/7 і швидко відповімо.
+
+Програма, безпека, харчування, ціни — все тут:
+🌐 {landing_url}]]></field>
+    </record>
+
+    <record id="public_template_v2_4" model="sendpulse.public.template">
+        <field name="name">v2: Інтерес / без вихідних</field>
+        <field name="kind">standard</field>
+        <field name="sequence">140</field>
+        <field name="text"><![CDATA[Дякуємо за інтерес, {name}! 🌲
+
+На жаль, наша сторінка зараз не може ініціювати приватну розмову.
+Залиште питання у відповіді на цей коментар — ми на зв'язку без вихідних, 24/7 💬
+
+Уся інформація про табори 2026:
+🌐 {landing_url}]]></field>
+    </record>
+
+    <record id="public_template_v2_5" model="sendpulse.public.template">
+        <field name="name">v2: Технічно / будь-який час</field>
+        <field name="kind">standard</field>
+        <field name="sequence">150</field>
+        <field name="text"><![CDATA[{name}, вітаємо! 🏕️
+
+Технічно не маємо змоги написати вам у приватні повідомлення.
+Тож запитуйте сміливо тут — відповідаємо у будь-який час, 24/7! ⚡
+
+Усі деталі про табори — за посиланням:
+🌐 {landing_url}]]></field>
+    </record>
+
+    <record id="public_template_v2_6" model="sendpulse.public.template">
+        <field name="name">v2: Поруч / цілодобово</field>
+        <field name="kind">standard</field>
+        <field name="sequence">160</field>
+        <field name="text"><![CDATA[Привіт, {name}! 💛
+
+Дякуємо за коментар. Приватно написати вам, на жаль, не вдається —
+але ми тут поруч у коментарях, відповідаємо цілодобово.
+
+Все про наші табори (програма / ціни / умови):
+🌐 {landing_url}]]></field>
+    </record>
+
+    <record id="public_template_v2_7" model="sendpulse.public.template">
+        <field name="name">v2: Цікавитесь / швидко</field>
+        <field name="kind">standard</field>
+        <field name="sequence">170</field>
+        <field name="text"><![CDATA[{name}, дякуємо що цікавитесь! 🌟
+
+Наразі не маємо технічної можливості написати вам у Messenger.
+Питайте просто тут у коментарі — ми на зв'язку 24/7 і відповімо швидко 🚀
+
+Все про табори CampScout 2026:
+🌐 {landing_url}]]></field>
     </record>
 
     <record id="public_template_repeat" model="sendpulse.public.template">
