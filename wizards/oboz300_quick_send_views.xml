@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="oboz300_quick_send_form" model="ir.ui.view">
+    <field name="name">oboz300.quick.send.form</field>
+    <field name="model">oboz300.quick.send</field>
+    <field name="arch" type="xml">
+      <form string="Wyślij kupon OBOZ300 — 300 zł zniżki">
+        <sheet>
+          <div class="oe_title">
+            <h2>OBOZ300 — szybka wysyłka kuponu</h2>
+            <p>Wypełnij dane klienta. Po zapisie automatycznie pójdzie:
+              email PL + SMS + kod rabatowy 300 zł + wpis RODO.</p>
+          </div>
+          <group>
+            <group string="Dane klienta">
+              <field name="contact_name" placeholder="Anna Kowalska"/>
+              <field name="email" placeholder="anna@example.com"/>
+              <field name="phone" placeholder="+48 500 000 000"/>
+            </group>
+            <group string="Dodatkowe">
+              <field name="wiek_dziecka" placeholder="10-12 lat"/>
+              <field name="miasto" placeholder="Warszawa"/>
+              <field name="oboz" placeholder="ODKRYWCY MÓRZ KIDS"/>
+              <field name="source"/>
+            </group>
+          </group>
+        </sheet>
+        <footer>
+          <button name="action_send" type="object" string="Wyślij kupon"
+                  class="btn-primary"/>
+          <button special="cancel" string="Anuluj" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="oboz300_quick_send_action" model="ir.actions.act_window">
+    <field name="name">Wyślij kupon OBOZ300</field>
+    <field name="res_model">oboz300.quick.send</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+  <menuitem id="menu_oboz300_quick_send"
+            name="Wyślij kupon OBOZ300"
+            parent="sale.sale_menu_root"
+            action="oboz300_quick_send_action"
+            sequence="50"/>
+</odoo>
