@@ -36,7 +36,6 @@
         'contacts',
         'crm',
         'web',
-        'fayna_rodo_compliance',
     ],
     'external_dependencies': {
         'python': ['requests'],
