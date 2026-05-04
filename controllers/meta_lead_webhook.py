@@ -89,11 +89,14 @@ class MetaLeadWebhookController(http.Controller):
         methods=['GET'],
         csrf=False,
     )
-    def verify(self, **params):
+    def verify(self, **kwargs):
         """Meta webhook subscription verification handshake."""
-        mode = params.get('hub.mode')
-        token = params.get('hub.verify_token')
-        challenge = params.get('hub.challenge', '')
+        # Meta uses dotted query params (hub.mode/hub.verify_token/hub.challenge)
+        # which Odoo's kwargs binding sometimes drops — read raw werkzeug args.
+        args = request.httprequest.args
+        mode = args.get('hub.mode')
+        token = args.get('hub.verify_token')
+        challenge = args.get('hub.challenge', '')
 
         expected = (
             request.env['ir.config_parameter']
