@@ -243,6 +243,40 @@ class MetaLeadWebhookController(http.Controller):
                 }
             )
 
+        # RODO journal — write BEFORE crm.lead.create per TZ §F.3.
+        # Source = "meta_lead_form" (not "admin_manual"), exact_user_response =
+        # verbatim Meta Graph payload, consent_timestamp = Meta created_time.
+        Log = request.env['sendpulse.privacy.consent.log'].sudo()
+        verbatim = json.dumps(graph_data, ensure_ascii=False)
+        for ch, purp in (('email', 'marketing_email'), ('sms', 'marketing_sms')):
+            if ch == 'email' and not email:
+                continue
+            if ch == 'sms' and not phone:
+                continue
+            Log.create(
+                {
+                    'email': email or '',
+                    'phone': phone or '',
+                    'display_name': full_name or '',
+                    'purpose': purp,
+                    'channel': ch,
+                    'legal_basis': 'consent',
+                    'policy_version': 'v1.0',
+                    'source': 'meta_lead_form',
+                    'consent_given': True,
+                    'consent_timestamp': created_time or False,
+                    'exact_user_response': verbatim,
+                    'notes': f'Meta Lead Ads (PL) leadgen_id={leadgen_id} form_id={form_id}',
+                }
+            )
+
+        # source_id — find or create utm.source for Meta Lead Ads PL 2026
+        Source = request.env['utm.source'].sudo()
+        source_name = 'Meta Lead Ads — Leads PL 2026'
+        source = Source.search([('name', '=', source_name)], limit=1)
+        if not source:
+            source = Source.create({'name': source_name})
+
         description = '\n'.join(
             [
                 'Źródło: Meta Lead Ads (PL)',
@@ -260,13 +294,14 @@ class MetaLeadWebhookController(http.Controller):
 
         lead = Lead.create(
             {
-                'name': f'Zgłoszenie META PL: {full_name or email}',
+                'name': f'Meta Lead PL: {full_name or email}',
                 'contact_name': full_name or '',
                 'phone': phone or False,
                 'email_from': email or False,
                 'description': description,
                 'type': 'lead',
                 'partner_id': partner.id,
+                'source_id': source.id,
             }
         )
         return {'status': 'created', 'crm_lead_id': lead.id}
