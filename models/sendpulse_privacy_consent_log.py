@@ -115,7 +115,11 @@ class SendpulsePrivacyConsentLog(models.Model):
         [
             ('sendpulse_chat', 'Чат SendPulse (автоматично з чату)'),
             ('website_form', 'Форма на сайті'),
+            ('landing_form', 'Форма на лендінгу'),
+            ('meta_lead_form', 'Meta Lead Ad (Facebook/Instagram)'),
             ('admin_manual', 'Ручне внесення адміном'),
+            ('email_unsubscribe', 'Відписка від email-розсилки'),
+            ('email_invalid', 'Невірна адреса електронної пошти'),
             ('api', 'API'),
         ],
         string='Джерело',
@@ -238,29 +242,6 @@ class SendpulsePrivacyConsentLog(models.Model):
             phone,
             rec.id,
         )
-        # Dual-write: mirror у generic fayna.rodo.consent.log.
-        # Покрокова міграція — generic модель єдине джерело правди
-        # для нових інтеграцій, legacy таблиця ще підтримується
-        # для backward-compat поточного flow.
-        generic = self.env.get('fayna.rodo.consent.log')
-        if generic is not None:
-            try:
-                generic.sudo().record_consent(
-                    purpose=purpose,
-                    channel=channel,
-                    partner_id=partner_id or False,
-                    email=email or False,
-                    phone=phone or False,
-                    consent_given=consent_given,
-                    exact_response=exact_response or '',
-                    legal_basis=legal_basis,
-                    source=source,
-                    evidence_model='sendpulse.message' if message_id else False,
-                    evidence_id=message_id or False,
-                    notes=notes or '',
-                )
-            except Exception as e:
-                _logger.warning('fayna.rodo mirror failed (non-fatal): %s', e)
         return rec
 
     @api.model
