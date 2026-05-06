@@ -1,4 +1,4 @@
-# Odoo 17 SendPulse Integration — AI + Lead Magnet + Multi-Page FB/IG
+# Odoo 17 Інтеграція SendPulse — AI + Lead Magnet + Multi-Page FB/IG
 
 ![Odoo Version](https://img.shields.io/badge/Odoo-17.0%20Community-purple)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
@@ -6,63 +6,63 @@
 ![License](https://img.shields.io/badge/License-LGPL--3-green.svg)
 ![Status](https://img.shields.io/badge/Status-Production-brightgreen)
 
-**Developed by [Fayna Digital](https://www.fayna.agency) for CampScout**
-**Author: Volodymyr Shevchenko**
+**Розроблено [Fayna Digital](https://www.fayna.agency) для CampScout**
+**Автор: Volodymyr Shevchenko**
 
 ---
 
-Two-way **SendPulse ↔ Odoo Discuss** bridge with operator-side AI assistant, lead magnet flow (PDF catalog + SMS coupon), live event seats awareness, drip campaigns, A/B template testing, auto-translation, and multi-page Facebook/Instagram support with LLM comment classification.
+Двосторонній міст **SendPulse ↔ Odoo Discuss** з AI-асистентом для операторів, lead magnet flow (PDF-каталог + SMS-купон), обізнаністю про наявність місць на заходах, drip-кампаніями, A/B-тестуванням шаблонів, автоперекладом та підтримкою декількох Facebook/Instagram-сторінок з LLM-класифікацією коментарів.
 
-Reference deployment: [CampScout](https://campscout.eu) — child summer camps in Poland.
-
----
-
-## Features
-
-- **Unified inbox** — Telegram / Instagram / Facebook / Messenger / Viber / WhatsApp / LiveChat / TikTok all flow into single `mail.channel` in Odoo Discuss
-- **Multi-page FB/IG** — 11 Facebook pages + 7 Instagram through System User tokens, Meta App Review approved 2026-04-20
-- **AI operator assistant** — Claude Haiku 4.5 drafts replies in Discuss sidebar (OWL component)
-- **Lead magnet flow** — email → branded PDF catalog; phone → SMS coupon from `loyalty.program` shared pool
-- **Live event seats** — AI prompt receives real `seats_available` for each camp → honest FOMO or fallback messaging
-- **Drip campaigns** — 6h / 24h reminders with cooldown and consent gating
-- **A/B public templates** — epsilon-greedy selection with conversion tracking per variant
-- **Auto-translation** — UA ↔ PL via Claude, inline in Discuss
-- **FAQ RAG auto-answer** — Claude with confidence threshold auto-sends when safe
-- **Comment classifier** — 8 categories (question, complaint, spam, praise, etc.) with LLM + Telegram alert routing
-- **RODO/GDPR integration** — every consent event dual-written to `fayna.rodo.consent.log`
+Еталонне розгортання: [CampScout](https://campscout.eu) — дитячі літні табори в Польщі.
 
 ---
 
-## Architecture
+## Можливості
+
+- **Єдина скринька** — Telegram / Instagram / Facebook / Messenger / Viber / WhatsApp / LiveChat / TikTok — усе надходить в один `mail.channel` у Odoo Discuss
+- **Декілька FB/IG-сторінок** — 11 Facebook-сторінок + 7 Instagram через токени System User; пройдено Meta App Review 2026-04-20
+- **AI-асистент для оператора** — Claude Haiku 4.5 генерує відповіді у бічній панелі Discuss (OWL-компонент)
+- **Lead magnet flow** — email → брендований PDF-каталог; телефон → SMS-купон з пулу `loyalty.program`
+- **Наявність місць на заходах** — AI отримує реальну кількість `seats_available` для кожного табору → чесний FOMO або запасне повідомлення
+- **Drip-кампанії** — нагадування через 6 год / 24 год з перевіркою cooldown та згоди
+- **A/B публічні шаблони** — epsilon-greedy вибір з відстеженням конверсій по варіантах
+- **Автопереклад** — UA ↔ PL через Claude, прямо в Discuss
+- **FAQ RAG автовідповідь** — Claude з порогом впевненості автоматично відправляє безпечні відповіді
+- **Класифікатор коментарів** — 8 категорій (питання, скарга, спам, похвала тощо) з LLM + маршрутизація алертів у Telegram
+- **RODO/GDPR** — кожна подія згоди фіксується у `sendpulse.privacy.consent.log` (журнал append-only з захистом від зміни)
+
+---
+
+## Архітектура
 
 ```
 sendpulse-odoo/
 ├── models/
-│   ├── sendpulse_connect.py           # Main model — one conversation per record (~4000 lines)
-│   ├── sendpulse_message.py           # Per-message log
-│   ├── sendpulse_facebook_page.py     # Multi-page FB/IG state
-│   ├── sendpulse_faq_entry.py         # FAQ RAG knowledge base
-│   ├── sendpulse_public_template.py   # A/B public templates + conversions
-│   ├── sendpulse_identify_wizard.py   # Manual partner matching wizard
-│   ├── sendpulse_privacy_consent_log.py  # Legacy consent log (dual-writes to fayna.rodo)
-│   ├── res_config_settings.py         # Module settings
-│   ├── res_partner.py                 # Partner extensions (UTM, channel history)
-│   └── mail_channel.py                # Discuss channel extensions
+│   ├── sendpulse_connect.py              # Основна модель — одна розмова на запис (~4000 рядків)
+│   ├── sendpulse_message.py              # Журнал повідомлень
+│   ├── sendpulse_facebook_page.py        # Стан для декількох FB/IG-сторінок
+│   ├── sendpulse_faq_entry.py            # База знань FAQ для RAG
+│   ├── sendpulse_public_template.py      # A/B публічні шаблони + конверсії
+│   ├── sendpulse_identify_wizard.py      # Майстер ручного зв'язування з партнером
+│   ├── sendpulse_privacy_consent_log.py  # Журнал RODO-згод (append-only)
+│   ├── res_config_settings.py            # Налаштування модуля
+│   ├── res_partner.py                    # Розширення партнера (UTM, історія каналів)
+│   └── mail_channel.py                   # Розширення каналу Discuss
 ├── controllers/
-│   └── main.py                        # SendPulse webhook + Meta Graph callbacks
+│   └── main.py                           # SendPulse webhook + Meta Graph callbacks
 ├── views/
-│   ├── sendpulse_connect_views.xml    # Kanban, form, tree, Discuss sidebar
+│   ├── sendpulse_connect_views.xml       # Kanban, форма, список, бічна панель Discuss
 │   └── ...
 ├── data/
-│   ├── sendpulse_data.xml             # Menu + actions
-│   ├── sendpulse_faq_seed.xml         # Initial FAQ entries
-│   ├── mail_template_lead_magnet.xml  # Branded lead magnet email
-│   └── clean_data_cron.xml            # Scheduled cleanup
+│   ├── sendpulse_data.xml                # Меню + дії
+│   ├── sendpulse_faq_seed.xml            # Початкові FAQ-записи
+│   ├── mail_template_lead_magnet.xml     # Брендований email для lead magnet
+│   └── clean_data_cron.xml               # Розклад автоочищення
 ├── static/src/
-│   ├── components/                    # OWL components (AI sidebar, info panel)
+│   ├── components/                       # OWL-компоненти (AI-панель, інформаційна панель)
 │   └── scss/
 └── docs/
-    ├── INDEX.md                        # Doc navigation
+    ├── INDEX.md                          # Навігація по документації
     ├── ARCHITECTURE.md
     ├── CONFIGURATION.md
     ├── DEPLOYMENT.md
@@ -71,52 +71,44 @@ sendpulse-odoo/
 
 ---
 
-## Tech Stack
+## Технологічний стек
 
-| Component | Technology |
+| Компонент | Технологія |
 |-----------|-----------|
-| ERP Framework | Odoo 17.0 Community |
-| Core deps | `mail`, `contacts`, `crm`, `web`, `fayna_rodo_compliance` |
-| Messaging provider | SendPulse Chatbot API + webhooks |
-| Social graph | Meta Graph API v25.0 (via System User tokens) |
+| ERP-фреймворк | Odoo 17.0 Community |
+| Основні залежності | `mail`, `contacts`, `crm`, `web` |
+| Провайдер месенджерів | SendPulse Chatbot API + webhooks |
+| Соціальний граф | Meta Graph API v25.0 (через токени System User) |
 | AI | Claude Haiku 4.5 (Anthropic API) |
-| SMS | TurboSMS (via `kw_sms_api`) |
-| Retry strategy | Exponential backoff, ir.logging audit trail |
+| SMS | TurboSMS (через `kw_sms_api`) |
+| Стратегія повторів | Exponential backoff, аудит-журнал через ir.logging |
 | Race-safety | PostgreSQL advisory lock + partial unique index |
-| Module version | 17.0.14.0 |
-| License | LGPL-3 |
+| Версія модуля | 17.0.14.0 |
+| Ліцензія | LGPL-3 |
 
 ---
 
-## Installation
+## Встановлення
 
-### 1. Clone into custom-addons
+### 1. Клонування в custom-addons
 
 ```bash
 cd /opt/<client>/custom-addons
 git clone https://github.com/VladSh77/fayna-sendpulse-odoo.git odoo_chatwoot_connector
 ```
 
-> **Note:** technical directory name is `odoo_chatwoot_connector` for historical reasons (repo rename legacy). Odoo module technical name remains `odoo_chatwoot_connector` in manifest registration.
+> **Примітка:** технічна назва директорії — `odoo_chatwoot_connector` (з історичних причин після перейменування репо). Технічна назва модуля Odoo залишається `odoo_chatwoot_connector` в маніфесті.
 
-### 2. Install dependency
-
-```bash
-# Ensure fayna_rodo_compliance is installed first
-docker exec <client>_web odoo -c /etc/odoo/odoo.conf -d <db> \
-    -i fayna_rodo_compliance --stop-after-init --no-http
-```
-
-### 3. Install this module
+### 2. Встановлення модуля
 
 ```bash
 docker exec <client>_web odoo -c /etc/odoo/odoo.conf -d <db> \
     -i odoo_chatwoot_connector --stop-after-init --no-http
 ```
 
-Or via UI: **Apps → Update Apps List → search `SendPulse` → Install**.
+Або через UI: **Застосунки → Оновити список застосунків → пошук `SendPulse` → Встановити**.
 
-### 4. Restart Odoo
+### 3. Перезапуск Odoo
 
 ```bash
 docker restart <client>_web
@@ -124,200 +116,203 @@ docker restart <client>_web
 
 ---
 
-## Configuration
+## Налаштування
 
-### Step 1 — SendPulse credentials
+### Крок 1 — Облікові дані SendPulse
 
-1. Log in to [login.sendpulse.com](https://login.sendpulse.com) → **Settings → REST API**
-2. Copy **ID** and **Secret**
-3. In Odoo: **Settings → Technical → System Parameters** (requires developer mode):
+1. Увійдіть на [login.sendpulse.com](https://login.sendpulse.com) → **Налаштування → REST API**
+2. Скопіюйте **ID** і **Secret**
+3. В Odoo: **Налаштування → Технічне → Системні параметри** (потрібен режим розробника):
 
-| Key | Value |
+| Ключ | Значення |
 |-----|-------|
-| `sendpulse.api_id` | your SendPulse REST API ID |
-| `sendpulse.api_secret` | your SendPulse REST API Secret |
-| `sendpulse.webhook_secret` | random generated string (shared with webhook setup) |
+| `sendpulse.api_id` | ваш SendPulse REST API ID |
+| `sendpulse.api_secret` | ваш SendPulse REST API Secret |
+| `sendpulse.webhook_secret` | випадковий рядок (спільний з налаштуванням webhook) |
 
-### Step 2 — Webhook URL in SendPulse
+### Крок 2 — URL webhook у SendPulse
 
-In SendPulse dashboard → **Chatbot → Settings → Webhook**:
+В панелі SendPulse → **Chatbot → Налаштування → Webhook**:
 
 - URL: `https://<your-odoo>.com/sendpulse/webhook`
-- Events: `income_message`, `outcome_message`, `bot_comment` (if using FB)
+- Події: `income_message`, `outcome_message`, `bot_comment` (якщо використовується FB)
 
-### Step 3 — Meta App for FB/IG (optional)
+### Крок 3 — Meta App для FB/IG (необов'язково)
 
-Follow [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for full Meta App Review flow with System User setup.
+Дивіться [docs/CONFIGURATION.md](docs/CONFIGURATION.md) для повного flow з Meta App Review та налаштуванням System User.
 
-### Step 4 — AI credentials
+### Крок 4 — Облікові дані AI
 
-| Key | Value |
+| Ключ | Значення |
 |-----|-------|
-| `sendpulse.anthropic_api_key` | Anthropic API key for Claude |
-| `sendpulse.claude_model` | `claude-haiku-4-5-20251001` (default) |
+| `sendpulse.anthropic_api_key` | Anthropic API key для Claude |
+| `sendpulse.claude_model` | `claude-haiku-4-5-20251001` (за замовчуванням) |
 
-### Step 5 — TurboSMS (for SMS coupons)
+### Крок 5 — TurboSMS (для SMS-купонів)
 
-Configure `kw_sms_api` provider with TurboSMS credentials — see `campscout-management/docs/DEPLOYMENT.md`.
-
----
-
-## Usage
-
-### Operator receives chat
-
-1. Customer writes to any connected channel (e.g. Telegram)
-2. Webhook lands in `/sendpulse/webhook`
-3. `sendpulse.connect` thread is created, bridged to `mail.channel`
-4. Operator sees message in Odoo Discuss with partner card info
-5. Operator replies — bridge sends through SendPulse API → back to Telegram
-
-### Trigger lead magnet
-
-1. Open `sendpulse.connect` record in sidebar panel
-2. Click **Send PDF catalog** → prompts for email (or auto-fills if detected)
-3. Module:
-   - Sends branded PDF email via AWS SES
-   - Records consent in `fayna.rodo.consent.log` with `purpose='lead_magnet_email'`
-   - Updates chat with confirmation message
-
-### AI draft replies
-
-1. With developer-mode enabled, "Generate AI reply" button appears in Discuss sidebar
-2. Claude Haiku receives:
-   - Last 20 messages of conversation
-   - Partner RFM segment
-   - Live event seats context (FOMO messaging if < 30%)
-   - FAQ RAG top-3 entries
-3. Operator reviews, edits, sends
-
-See [docs/TZ_V2_AUTOMATION.md](docs/TZ_V2_AUTOMATION.md) for all automation flows.
+Налаштуйте провайдера `kw_sms_api` з обліковими даними TurboSMS — див. `campscout-management/docs/DEPLOYMENT.md`.
 
 ---
 
-## RODO / GDPR Integration — Dual-Write
+## Використання
 
-Every call to `sendpulse.privacy.consent.log.record_consent()` now **mirrors** into `fayna.rodo.consent.log` (generic horizontal model). This is **Phase 2 migration** to shared compliance infrastructure.
+### Оператор отримує чат
+
+1. Клієнт пише у будь-який підключений канал (наприклад, Telegram)
+2. Webhook надходить на `/sendpulse/webhook`
+3. Створюється `sendpulse.connect` (гілка), прив'язана до `mail.channel`
+4. Оператор бачить повідомлення в Odoo Discuss з картою інформації про партнера
+5. Оператор відповідає — міст надсилає через SendPulse API → назад у Telegram
+
+### Запуск lead magnet
+
+1. Відкрийте запис `sendpulse.connect` у бічній панелі
+2. Натисніть **Надіслати PDF-каталог** → запитає email (або заповнить автоматично, якщо визначено)
+3. Модуль:
+   - Надсилає брендований PDF через AWS SES
+   - Записує згоду в `sendpulse.privacy.consent.log` з `purpose='lead_magnet_email'`
+   - Оновлює чат підтвердженням
+
+### AI-відповіді
+
+1. У режимі розробника в бічній панелі Discuss з'являється кнопка «Згенерувати AI-відповідь»
+2. Claude Haiku отримує:
+   - Останні 20 повідомлень розмови
+   - RFM-сегмент партнера
+   - Контекст наявності місць (FOMO-повідомлення, якщо < 30%)
+   - Топ-3 записи FAQ RAG
+3. Оператор переглядає, редагує, надсилає
+
+Дивіться [docs/TZ_V2_AUTOMATION.md](docs/TZ_V2_AUTOMATION.md) для всіх автоматизованих flow.
+
+---
+
+## RODO / GDPR — Журнал згод
+
+Кожен виклик `sendpulse.privacy.consent.log.record_consent()` створює append-only запис у `sendpulse.privacy.consent.log` — юридично захищений журнал з блокуванням зміни та видалення.
 
 ```python
-# Internal flow, automatic:
-legacy.record_consent(purpose='lead_magnet_email', channel='email', email=..., ...)
-#   └── creates legacy sendpulse.privacy.consent.log record
-#   └── ALSO creates mirror fayna.rodo.consent.log record
-#       with evidence_model='sendpulse.message', evidence_id=msg.id
+# Внутрішній flow, автоматично:
+self.env['sendpulse.privacy.consent.log'].record_consent(
+    purpose='lead_magnet_email',
+    channel='email',
+    email=email,
+    partner_id=partner.id,
+    exact_response=user_text,
+    source='sendpulse_chat',
+)
 ```
 
-Future: will switch to reading consent solely from `fayna.rodo.consent.log` and deprecate legacy.
+Автоматизація через `base.automation`:
+- Додавання до `mail.blacklist` → автоматичний запис відкликання (withdrawal) у журнал RODO
 
 ---
 
-## Webhook Flow (technical)
+## Webhook Flow (технічно)
 
 ```
-1. SendPulse receives message from customer channel (Telegram/IG/FB/…)
-2. POST https://<odoo>/sendpulse/webhook with signed payload
+1. SendPulse отримує повідомлення від каналу клієнта (Telegram/IG/FB/…)
+2. POST https://<odoo>/sendpulse/webhook з підписаним payload
 3. sendpulse/controllers/main.py:
-   a. Verify signature (HMAC-SHA256 with webhook_secret)
-   b. Deduplicate by (service + sendpulse_contact_id + timestamp)
-   c. Advisory lock on (contact_id, service) to prevent race
-4. Create or update sendpulse.connect record (thread)
-5. Create sendpulse.message record (log)
-6. Mirror to mail.channel (Discuss):
-   a. If new contact — create channel
-   b. Post message via mail.channel._message_post_feedback()
-7. Trigger AI job if conditions met (e.g. FAQ match, drip schedule)
-8. Return 200 OK
+   a. Перевірка підпису (HMAC-SHA256 з webhook_secret)
+   b. Дедублікація за (service + sendpulse_contact_id + timestamp)
+   c. Advisory lock на (contact_id, service) для захисту від race condition
+4. Створення або оновлення запису sendpulse.connect (гілка)
+5. Створення запису sendpulse.message (журнал)
+6. Дублювання в mail.channel (Discuss):
+   a. Новий контакт → створення каналу
+   b. Публікація повідомлення через mail.channel._message_post_feedback()
+7. Запуск AI-задачі за умов (FAQ-збіг, розклад drip)
+8. Повернення 200 OK
 ```
 
 ---
 
-## Meta Graph API Flow (technical)
+## Meta Graph API Flow (технічно)
 
 ```
-1. Customer comments on FB Page post
-2. Page webhook subscription fires → /sendpulse/webhook/meta
-3. Resolve page_access_token from sendpulse.facebook.page (11 pages live)
-4. Fetch comment full body via Graph API v25.0
-5. Classify with LLM (8 categories: question/spam/praise/…)
-6. Route:
-   - Category 'question' → auto-reply via Graph API send_message
-   - Category 'spam' → hide comment
-   - Category 'complaint' → Telegram alert to on-call manager
-7. Log to ir.logging (audit trail)
+1. Клієнт коментує публікацію на Facebook Page
+2. Спрацьовує webhook підписки на сторінку → /sendpulse/webhook/meta
+3. Отримання page_access_token з sendpulse.facebook.page (11 сторінок в роботі)
+4. Отримання повного тексту коментаря через Graph API v25.0
+5. Класифікація через LLM (8 категорій: питання/спам/похвала/…)
+6. Маршрутизація:
+   - Категорія 'question' → автовідповідь через Graph API send_message
+   - Категорія 'spam' → приховати коментар
+   - Категорія 'complaint' → Telegram-алерт черговому менеджеру
+7. Запис у ir.logging (аудит)
 ```
 
 ---
 
-## Local Development
+## Локальна розробка
 
 ```bash
 git clone https://github.com/VladSh77/fayna-sendpulse-odoo.git
 cd fayna-sendpulse-odoo
 
-# Spin up ephemeral Odoo with this module mounted:
+# Запуск тимчасового Odoo з підключеним модулем:
 docker run -d --name test_odoo -v $(pwd)/..:/mnt/custom-addons \
     -p 8069:8069 odoo:17
 
-# Mock SendPulse webhooks:
+# Симуляція SendPulse webhook:
 curl -X POST http://localhost:8069/sendpulse/webhook \
     -H "Content-Type: application/json" \
     -d '{"service": "telegram", "contact": {...}, "message": {...}}'
 ```
 
-See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for development secrets setup.
+Дивіться [docs/CONFIGURATION.md](docs/CONFIGURATION.md) для налаштування секретів розробки.
 
 ---
 
-## Troubleshooting
+## Усунення несправностей
 
-| Error | Cause | Fix |
+| Помилка | Причина | Виправлення |
 |-------|-------|-----|
-| `ValueError: Invalid field 'sent_at' on model 'sendpulse.message'` | Historical bug — field is `date`, not `sent_at` | Fixed in v17.0.13.1; if seeing it — upgrade module |
-| Signature verification fails | Webhook secret mismatch | Re-sync `sendpulse.webhook_secret` param ↔ SendPulse dashboard |
-| Duplicate `sendpulse.connect` for same contact | Missing advisory lock / partial unique index | v17.0.10.x added `_sendpulse_dedup_idx`, ensure module upgrade ran |
-| Meta Graph 401 error | System User token expired or page token revoked | Weekly cron checks tokens; re-authorize in Meta Business Settings |
-| AI sidebar not rendering in Discuss | OWL asset bundle cached | Hard refresh (Ctrl+Shift+R); if persists — regenerate bundle via `odoo shell` → `self.env['ir.qweb']._clear_cache()` |
-| Lead magnet email not sent | AWS SES sandbox (only verified recipients) | Request SES production access; or whitelist recipients |
-| `fayna.rodo.consent.log` not created during dual-write | Dependency not installed | Install `fayna_rodo_compliance` first |
+| `ValueError: Invalid field 'sent_at' on model 'sendpulse.message'` | Стара помилка — поле `date`, не `sent_at` | Виправлено у v17.0.13.1; якщо бачите — оновіть модуль |
+| Перевірка підпису не вдається | Невідповідність webhook secret | Синхронізуйте `sendpulse.webhook_secret` між Odoo та панеллю SendPulse |
+| Дублікати `sendpulse.connect` для того ж контакту | Відсутній advisory lock / partial unique index | v17.0.10.x додав `_sendpulse_dedup_idx`, переконайтесь що оновлення пройшло |
+| Помилка Meta Graph 401 | Токен System User закінчився або токен сторінки відкликано | Щотижневий cron перевіряє токени; повторно авторизуйтесь у Meta Business Settings |
+| AI-панель не рендериться в Discuss | Кешований OWL asset bundle | Жорстке оновлення (Ctrl+Shift+R); якщо не допомагає — очистіть кеш через `odoo shell` → `self.env['ir.qweb']._clear_cache()` |
+| Lead magnet email не надсилається | AWS SES sandbox (лише перевірені одержувачі) | Запросіть виробничий доступ SES; або додайте одержувачів у whitelist |
 
 ---
 
-## Operator Access
+## Доступ операторів
 
-Standard Odoo Discuss access model — no module-specific group required. All users with `mail.group_user` can:
+Стандартна модель доступу Odoo Discuss — не потрібна окрема група модуля. Усі користувачі з `mail.group_user` можуть:
 
-- See inbox of connected channels
-- Reply in threads
-- View partner sidebar panel
+- Переглядати вхідні підключених каналів
+- Відповідати в гілках
+- Переглядати бічну панель партнера
 
-**Module admin** (`group_omnichannel_admin` in `sendpulse-odoo`) additionally:
+**Адмін модуля** (`group_omnichannel_admin` у `sendpulse-odoo`) також:
 
-- Configure SendPulse credentials
-- Manage FB/IG pages
-- Edit FAQ entries
-- View LLM audit logs
+- Налаштовувати облікові дані SendPulse
+- Керувати FB/IG-сторінками
+- Редагувати FAQ-записи
+- Переглядати журнали LLM
 
 ---
 
-## Module Ecosystem
+## Екосистема модулів
 
-This module is part of Fayna Digital Odoo stack:
+Цей модуль є частиною стеку Fayna Digital Odoo:
 
-| Sibling module | Relationship |
+| Суміжний модуль | Зв'язок |
 |----------------|--------------|
-| [fayna-rodo-compliance](https://github.com/VladSh77/fayna-rodo-compliance) | **Required dependency** — consent logging |
-| [omnichannel-bridge](https://github.com/VladSh77/omnichannel-bridge) | Abstract messenger aggregator — sendpulse-odoo is one adapter |
-| [zadarma-odoo](https://github.com/VladSh77/zadarma-odoo) | Voice channel (complements messenger) |
-| [campscout-management](https://github.com/VladSh77/campscout-management) | Vertical CampScout layer — uses sendpulse-odoo for all chat flows |
+| [omnichannel-bridge](https://github.com/VladSh77/omnichannel-bridge) | Абстрактний агрегатор месенджерів — sendpulse-odoo є одним з адаптерів |
+| [zadarma-odoo](https://github.com/VladSh77/zadarma-odoo) | Голосовий канал (доповнює месенджери) |
+| [campscout-management](https://github.com/VladSh77/campscout-management) | Вертикальний шар CampScout — використовує sendpulse-odoo для всіх chat flow |
 
-Architecture docs: [fayna-digital-docs](https://github.com/VladSh77/fayna-digital-docs) (private).
-
----
-
-## License
-
-LGPL-3 — see [LICENSE](LICENSE)
+Документація архітектури: [fayna-digital-docs](https://github.com/VladSh77/fayna-digital-docs) (приватне).
 
 ---
 
-*Developed by [Fayna Digital](https://www.fayna.agency) · Volodymyr Shevchenko*
+## Ліцензія
+
+LGPL-3 — дивіться [LICENSE](LICENSE)
+
+---
+
+*Розроблено [Fayna Digital](https://www.fayna.agency) · Volodymyr Shevchenko*
