@@ -11,16 +11,19 @@ class SendpulseFaqEntry(models.Model):
     name = fields.Char(
         string='Назва (коротко)',
         required=True,
+        translate=True,
         help='Коротка назва для списку, напр. "Питання про ціну"',
     )
     question = fields.Text(
         string='Питання (шаблон)',
         required=True,
+        translate=True,
         help='Типове формулювання питання клієнта. LLM зматчить сюди різні варіації.',
     )
     answer = fields.Text(
         string='Відповідь',
         required=True,
+        translate=True,
         help="Канонічна відповідь. LLM персоналізує її (добавить ім'я клієнта тощо) перед відправкою.",
     )
     tags = fields.Char(
@@ -53,8 +56,13 @@ class SendpulseFaqEntry(models.Model):
         """
         Повертає список активних FAQ у форматі для LLM prompt.
         Return: list of dict {id, question, answer}
+
+        Lang пінується на en_US (source): база знань бота не повинна
+        залежати від мови залогіненого оператора, який викликав RAG.
         """
-        records = self.search([('active', '=', True)], order='priority desc')
+        records = (
+            self.with_context(lang='en_US').search([('active', '=', True)], order='priority desc')
+        )
         return [{'id': r.id, 'question': r.question, 'answer': r.answer} for r in records]
 
     def action_test_match(self):
