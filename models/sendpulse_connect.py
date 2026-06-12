@@ -575,11 +575,15 @@ class SendpulseConnect(models.Model):
         і дублює їх в discuss.channel щоб менеджер бачив контекст.
 
         Тексти конфігуруються через System Parameters:
+          odoo_chatwoot_connector.greeting_enabled      ('True'/'False', за замовч. 'True')
           odoo_chatwoot_connector.new_contact_greeting  (перше повідомлення)
           odoo_chatwoot_connector.new_contact_greeting2 (друге повідомлення, необов'язкове)
         """
         self.ensure_one()
         params = self.env['ir.config_parameter'].sudo()
+
+        if params.get_param('odoo_chatwoot_connector.greeting_enabled', 'True') != 'True':
+            return
 
         messages = [
             params.get_param(
@@ -4763,7 +4767,7 @@ class SendpulseConnect(models.Model):
             return {
                 'type': 'ir.actions.client',
                 'tag': 'display_notification',
-                'params': {'title': 'SendPulse', 'message': 'Немає contact_id', 'type': 'warning'},
+                'params': {'title': 'SendPulse', 'message': _('Немає contact_id'), 'type': 'warning'},
             }
 
         token = self._get_access_token()
@@ -4773,7 +4777,7 @@ class SendpulseConnect(models.Model):
                 'tag': 'display_notification',
                 'params': {
                     'title': 'SendPulse',
-                    'message': 'Не вдалося отримати токен API',
+                    'message': _('Не вдалося отримати токен API'),
                     'type': 'danger',
                 },
             }
@@ -4826,7 +4830,7 @@ class SendpulseConnect(models.Model):
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
-            'params': {'title': 'SendPulse', 'message': 'Профіль оновлено', 'type': 'success'},
+            'params': {'title': 'SendPulse', 'message': _('Профіль оновлено'), 'type': 'success'},
         }
 
     def _sync_avatar_to_partner(self):
