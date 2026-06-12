@@ -42,3 +42,4 @@
 - **Debug живого incident:** CRITICAL_INCIDENT_*.md — дивись schema, чи не повторюється
 - **RODO-question:** `fayna_rodo_compliance/docs/RUNBOOK.md` — dual-write контекст описаний там
 - **Нові features:** TZ_V2_AUTOMATION.md
+- **docs/TZ_I18N_DATA.md** — ТЗ: i18n даних/клієнтських повідомлень за стандартами Odoo (чернетка)
