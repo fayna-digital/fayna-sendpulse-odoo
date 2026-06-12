@@ -649,7 +649,7 @@ class SendpulseConnect(models.Model):
         return labels.get(self.service, self.service or '?')
 
     def _get_channel_description(self):
-        parts = [f"SendPulse | {self.service or '?'}"]
+        parts = [f'SendPulse | {self.service or "?"}']
         if self.social_username:
             parts.append(f'@{self.social_username}')
         if self.social_profile_url:
@@ -833,7 +833,7 @@ class SendpulseConnect(models.Model):
                         'simple_notification',
                         {
                             'title': _('SendPulse: Нова розмова'),
-                            'message': f"{self.service_icon} {self.name}: нова розмова з {self.service or 'SendPulse'}",
+                            'message': f'{self.service_icon} {self.name}: нова розмова з {self.service or "SendPulse"}',
                             'sticky': False,
                         },
                     )
@@ -864,7 +864,7 @@ class SendpulseConnect(models.Model):
                         'simple_notification',
                         {
                             'title': _('SendPulse: Нове повідомлення'),
-                            'message': f"{self.service_icon} {self.name}: {self.last_message_preview or '...'}",
+                            'message': f'{self.service_icon} {self.name}: {self.last_message_preview or "..."}',
                             'sticky': False,
                         },
                     )
@@ -2595,7 +2595,7 @@ class SendpulseConnect(models.Model):
             profile_parts.append('')
             profile_parts.append('── ІДЕНТИФІКОВАНИЙ КЛІЄНТ ──')
             profile_parts.append(
-                f"Partner ID: {partner.id}, створено: {partner.create_date.strftime('%Y-%m-%d') if partner.create_date else '—'}"
+                f'Partner ID: {partner.id}, створено: {partner.create_date.strftime("%Y-%m-%d") if partner.create_date else "—"}'
             )
             if partner.email and partner.email != self.sp_booking_email:
                 profile_parts.append(f'Email у партнера: {partner.email}')
@@ -2623,7 +2623,7 @@ class SendpulseConnect(models.Model):
                     date = lead.create_date.strftime('%Y-%m-%d') if lead.create_date else '—'
                     probab = f'{lead.probability:.0f}%' if lead.probability else '—'
                     profile_parts.append(
-                        f"  • [{date}] {lead.name or '—'} — stage: {stage}, prob: {probab}"
+                        f'  • [{date}] {lead.name or "—"} — stage: {stage}, prob: {probab}'
                     )
 
             # sale.order історія
@@ -2641,7 +2641,7 @@ class SendpulseConnect(models.Model):
                 profile_parts.append('Історія замовлень:')
                 for o in orders:
                     date = o.date_order.strftime('%Y-%m-%d') if o.date_order else '—'
-                    amount = f"{o.amount_total:.0f} {o.currency_id.name or ''}".strip()
+                    amount = f'{o.amount_total:.0f} {o.currency_id.name or ""}'.strip()
                     profile_parts.append(f'  • [{date}] {o.name} — {amount}')
         else:
             profile_parts.append('')
@@ -3431,7 +3431,7 @@ class SendpulseConnect(models.Model):
 
         # Будуємо prompt з переліком FAQ у компактному форматі
         faq_block = '\n'.join(
-            [f"FAQ_{f['id']}: Q: {f['question']}\n   A: {f['answer']}" for f in faqs]
+            [f'FAQ_{f["id"]}: Q: {f["question"]}\n   A: {f["answer"]}' for f in faqs]
         )
         contact_hint = f' Клієнт: {contact_name}.' if contact_name else ''
         # F14: live seats якщо питання стосується конкретного табору
@@ -3832,7 +3832,7 @@ class SendpulseConnect(models.Model):
         'example@gmail.com? Так я швидко перевірю чи ви вже у нашій базі.'
     )
     _ID_THANKS = (
-        'Дякуємо! 🙂 Записали ваш email. Найближчим часом менеджер ' "зв'яжеться з вами з деталями."
+        "Дякуємо! 🙂 Записали ваш email. Найближчим часом менеджер зв'яжеться з вами з деталями."
     )
     _ID_GAVE_UP = "Добре, передаю розмову менеджеру — він зв'яжеться з вами найближчим часом 🙂"
 
@@ -4767,7 +4767,11 @@ class SendpulseConnect(models.Model):
             return {
                 'type': 'ir.actions.client',
                 'tag': 'display_notification',
-                'params': {'title': 'SendPulse', 'message': _('Немає contact_id'), 'type': 'warning'},
+                'params': {
+                    'title': 'SendPulse',
+                    'message': _('Немає contact_id'),
+                    'type': 'warning',
+                },
             }
 
         token = self._get_access_token()
