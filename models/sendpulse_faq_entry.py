@@ -60,8 +60,8 @@ class SendpulseFaqEntry(models.Model):
         Lang пінується на en_US (source): база знань бота не повинна
         залежати від мови залогіненого оператора, який викликав RAG.
         """
-        records = (
-            self.with_context(lang='en_US').search([('active', '=', True)], order='priority desc')
+        records = self.with_context(lang='en_US').search(
+            [('active', '=', True)], order='priority desc'
         )
         return [{'id': r.id, 'question': r.question, 'answer': r.answer} for r in records]
 
