@@ -51,13 +51,24 @@ Aldona).
   НЕ шле (узгоджено: SendPulse видно в SendPulse). Конфлікту нема.
 - Деплой: staging `--test-enable` (тести зелені) → прод `-u` + restart.
 
-## 5. Success Criteria
+## 5. Success Criteria — ✅ ВИКОНАНО 2026-06-18 (v17.0.14.10)
 
-- [ ] `auto_create_lead_enabled=True` на проді (через data, не UI-тумблер).
-- [ ] Тести lead-шляху зелені на staging.
-- [ ] Контроль на проді/staging: розмова `customer_replied` з контактом → 1 лід,
-      повтор → без дубля; без контакту → 0.
-- [ ] Ліцензія OPL-1; legacy-назва задокументована.
+- [x] `auto_create_lead_enabled=True` на проді (через `data/lead_autocreate_config.xml`,
+      noupdate, team=Sales) — перевірено.
+- [x] Тести lead-шляху зелені на staging: **0 failed, 0 error(s) of 6 tests**
+      (`tests/test_auto_create_lead.py` — було 0 тестів у модулі).
+- [x] Контроль на проді: розмова з контактом → 1 лід у лійці Sales **без
+      відповідального** (пул), `sp_lead_id` set, повтор → той самий лід; без
+      контакту → 0.
+- [x] `_auto_create_crm_lead`: `user_id=False` (пул, замість лідера команди).
+- [x] Ліцензія `OPL-1`; legacy-назва `odoo_chatwoot_connector` задокументована
+      (README/CLAUDE/TECHNICAL_DOCS/INDEX). Apps-опис (static/description) оновлено.
+- [x] health-check SendPulse після деплою: webhooks 200, токени valid, крони
+      активні, 0 ERROR модуля.
+
+**Деплой:** repo → GitHub (fayna-sendpulse-odoo) → staging (тести green) → prod.
+**Беклог (не сьогодні):** WARNING `handle_webhook ignoring args {token}` (косметика);
+Фаза 2 — ширше тест-покриття (webhook/identify/routing).
 
 ## 6. Рішення (узгоджено 2026-06-18)
 
