@@ -19,6 +19,8 @@
 - **[TZ.md](TZ.md)** — главна ТЗ
 - **[TZ_V2_AUTOMATION.md](TZ_V2_AUTOMATION.md)** — V2 automation specs (F2-F14 фічі)
 - **[TZ_COMMENT_AUTOREPLY.md](TZ_COMMENT_AUTOREPLY.md)** — auto-reply flow на коментарі
+- **[TZ_F4_ENABLE_LEAD.md](TZ_F4_ENABLE_LEAD.md)** — F4 chat→лід (авто-crm.lead, пул+claim, увімкнено 2026-06-18)
+- **[TZ_I18N_DATA.md](TZ_I18N_DATA.md)** — i18n даних/повідомлень
 
 ## Incident reports (historical)
 

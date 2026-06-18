@@ -1,9 +1,13 @@
 # Technical Documentation — Fayna SendPulse Odoo
 
-**Module version:** `17.0.12.0` · **Last updated:** 2026-04-21
+**Module version:** `17.0.14.10` · **Last updated:** 2026-06-18
 **Product:** Fayna Digital — [fayna.agency](https://fayna.agency)
 **Author:** Volodymyr Shevchenko
-**License:** LGPL-3.0
+**License:** OPL-1 (Odoo Proprietary License v1.0)
+
+> **F4 chat→лід (увімкнено 2026-06-18):** розмова з відповіддю клієнта
+> (`customer_replied`) → авто `crm.lead` у лійці Sales **без відповідального**
+> (пул + claim). Деталі: [docs/TZ_F4_ENABLE_LEAD.md](docs/TZ_F4_ENABLE_LEAD.md).
 
 Authoritative technical reference модуля. Для архітектурних діаграм див. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Для налаштувань — [docs/CONFIGURATION.md](docs/CONFIGURATION.md). Для deploy — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
@@ -98,7 +102,7 @@ from . import res_partner                  # 7. розширення партн�
     'version': '17.0.3.7.1',
     'category': 'Discuss',
     'author': 'Fayna Digital — Volodymyr Shevchenko',
-    'license': 'LGPL-3',
+    'license': 'OPL-1',
     'depends': ['mail', 'contacts', 'crm', 'web'],
     'external_dependencies': {'python': ['requests']},
     'data': [

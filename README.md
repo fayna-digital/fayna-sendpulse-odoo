@@ -3,7 +3,7 @@
 ![Odoo Version](https://img.shields.io/badge/Odoo-17.0%20Community-purple)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Meta Graph](https://img.shields.io/badge/Meta%20Graph-v25.0-red)
-![License](https://img.shields.io/badge/License-LGPL--3-green.svg)
+![License](https://img.shields.io/badge/License-OPL--1-green.svg)
 ![Status](https://img.shields.io/badge/Status-Production-brightgreen)
 
 **Розроблено [Fayna Digital](https://www.fayna.agency) для CampScout**
@@ -11,7 +11,7 @@
 
 ---
 
-Двосторонній міст **SendPulse ↔ Odoo Discuss** з AI-асистентом для операторів, lead magnet flow (PDF-каталог + SMS-купон), обізнаністю про наявність місць на заходах, drip-кампаніями, A/B-тестуванням шаблонів, автоперекладом та підтримкою декількох Facebook/Instagram-сторінок з LLM-класифікацією коментарів.
+Двосторонній міст **SendPulse ↔ Odoo Discuss** з AI-асистентом для операторів, lead magnet flow (PDF-каталог + SMS-купон), обізнаністю про наявність місць на заходах, drip-кампаніями, A/B-тестуванням шаблонів, автоперекладом та підтримкою декількох Facebook/Instagram-сторінок з LLM-класифікацією коментарів. **Авто-створення crm.lead** з чату (коли клієнт відповів) — лід падає в лійку Sales **без відповідального** (пул + claim), щоб двоє менеджерів не вели одного клієнта. Див. [docs/TZ_F4_ENABLE_LEAD.md](docs/TZ_F4_ENABLE_LEAD.md).
 
 Еталонне розгортання: [CampScout](https://campscout.eu) — дитячі літні табори в Польщі.
 
@@ -83,8 +83,8 @@ sendpulse-odoo/
 | SMS | TurboSMS (через `kw_sms_api`) |
 | Стратегія повторів | Exponential backoff, аудит-журнал через ir.logging |
 | Race-safety | PostgreSQL advisory lock + partial unique index |
-| Версія модуля | 17.0.14.0 |
-| Ліцензія | LGPL-3 |
+| Версія модуля | 17.0.14.10 |
+| Ліцензія | OPL-1 (Odoo Proprietary) |
 
 ---
 
@@ -311,7 +311,7 @@ curl -X POST http://localhost:8069/sendpulse/webhook \
 
 ## Ліцензія
 
-LGPL-3 — дивіться [LICENSE](LICENSE)
+OPL-1 (Odoo Proprietary License v1.0) — дивіться [LICENSE](LICENSE)
 
 ---
 
