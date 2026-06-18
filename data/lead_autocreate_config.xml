@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        F4 — увімкнення авто-створення crm.lead з SendPulse-розмови
+        (тригер sp_funnel_stage → customer_replied).
+        noupdate="1": ручне вимкнення/зміна в UI (Settings) НЕ перетирається -u.
+        Деталі: docs/TZ_F4_ENABLE_LEAD.md
+    -->
+    <data noupdate="1">
+        <record id="param_auto_create_lead_enabled" model="ir.config_parameter">
+            <field name="key">odoo_chatwoot_connector.auto_create_lead_enabled</field>
+            <field name="value">True</field>
+        </record>
+
+        <!-- Лійка = основна Sales (туди ж лендінг/пошта). Лід падає в пул
+             БЕЗ відповідального (user_id=False у _auto_create_crm_lead) —
+             менеджер забирає сам. -->
+        <record id="param_auto_create_lead_team" model="ir.config_parameter">
+            <field name="key">odoo_chatwoot_connector.auto_create_lead_team_id</field>
+            <field name="value" eval="ref('sales_team.team_sales_department')"/>
+        </record>
+    </data>
+</odoo>

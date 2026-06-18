@@ -2064,7 +2064,10 @@ class SendpulseConnect(models.Model):
             'description': description,
             'source_id': self.source_id.id if self.source_id else False,
             'team_id': team.id if team else False,
-            'user_id': team.user_id.id if team and team.user_id else False,
+            # Пул + claim: лід падає БЕЗ відповідального — менеджер «бере собі»
+            # з лійки (інакше всі ліди вішались на лідера команди й двоє могли
+            # вести одного клієнта). Див. docs/TZ_F4_ENABLE_LEAD.md.
+            'user_id': False,
         }
         if self.partner_id:
             lead_vals.update(

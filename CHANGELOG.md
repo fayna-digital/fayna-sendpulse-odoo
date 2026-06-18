@@ -4,6 +4,26 @@
 
 ---
 
+## [17.0.14.10] — 2026-06-18
+
+### Added (lead-трек)
+- **F4 chat→лід УВІМКНЕНО** — `data/lead_autocreate_config.xml`:
+  `auto_create_lead_enabled=True` + `auto_create_lead_team_id` = Sales (через
+  `ref('sales_team.team_sales_department')`), `noupdate="1"`. SendPulse-розмова
+  з відповіддю клієнта (`customer_replied`) автоматично стає `crm.lead`.
+- **Тести (ДІРА #1: було 0)** — `tests/__init__.py` + `tests/test_auto_create_lead.py`:
+  пул-створення, ідемпотентність, без-контакту-skip, disabled-noop, partner-лінк.
+
+### Changed
+- `_auto_create_crm_lead`: лід падає в **пул без відповідального** (`user_id=False`)
+  замість вішання на лідера команди — менеджер «бере собі» (claim), щоб двоє не
+  вели одного клієнта. Див. `docs/TZ_F4_ENABLE_LEAD.md`.
+- Ліцензія `LGPL-3` → **`OPL-1`** (ДІРА #2, house-style).
+
+### Notes
+- Тех-назва модуля лишається `odoo_chatwoot_connector` (legacy від форку
+  Chatwoot) — не перейменовуємо (ризик посилань у даних). ДІРА #3 = документація.
+
 ## [17.0.14.9] — 2026-06-12
 
 ### Додано
