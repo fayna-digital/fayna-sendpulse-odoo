@@ -138,13 +138,15 @@ class ResPartner(models.Model):
         # RODO audit для РУЧНОГО шляху (F13 робить власний record_consent).
         if source == 'manual':
             try:
-                self.env['sendpulse.privacy.consent.log'].sudo().create({
-                    'partner_id': partner.id if partner else False,
-                    'email': to_email.lower(),
-                    'purpose': 'lead_magnet_email',
-                    'consent_given': True,
-                    'notes': 'Offer catalog (PL link) sent manually by operator',
-                })
+                self.env['sendpulse.privacy.consent.log'].sudo().create(
+                    {
+                        'partner_id': partner.id if partner else False,
+                        'email': to_email.lower(),
+                        'purpose': 'lead_magnet_email',
+                        'consent_given': True,
+                        'notes': 'Offer catalog (PL link) sent manually by operator',
+                    }
+                )
             except Exception as e:
                 _logger.info('CampScout offer consent-log skip — %s', e)
         return {'ok': True, 'error': None, 'message_id': mail.id}
@@ -153,9 +155,9 @@ class ResPartner(models.Model):
         """Кнопка «Wyślij ofertę» на картці клієнта — працює і для вручну створених."""
         self.ensure_one()
         if not self.email:
-            raise UserError(_(
-                'Brak adresu e-mail u klienta — uzupełnij e-mail przed wysłaniem oferty.'
-            ))
+            raise UserError(
+                _('Brak adresu e-mail u klienta — uzupełnij e-mail przed wysłaniem oferty.')
+            )
         res = self._send_offer_catalog(self.email, source='manual')
         if not res.get('ok'):
             errmap = {
