@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- PL-шаблон оферти з ПОСИЛАННЯМ на завантаження (без важкого вкладення).
-         Плейсхолдер {{DOWNLOAD_URL}} замінюється в Python (res.partner._send_offer_catalog).
+         Плейсхолдер __DOWNLOAD_URL__ замінюється в Python (res.partner._send_offer_catalog).
+         НЕ використовувати {{ }} — Odoo URL-кодує дужки в href і трактує їх як inline-template.
          Модель res.partner — працює і для F13 (через partner_id), і для ручних клієнтів. -->
     <record id="mail_template_offer_pl" model="mail.template">
         <field name="name">CampScout: Oferta PDF (PL, link do pobrania)</field>
@@ -32,12 +33,12 @@
     </div>
     <!-- CTA: посилання на завантаження каталогу -->
     <div style="text-align:center;margin:8px 0 26px 0;">
-      <a href="{{DOWNLOAD_URL}}" target="_blank"
+      <a href="__DOWNLOAD_URL__" target="_blank"
          style="display:inline-block;padding:15px 38px;background-color:#C9972B;color:#1B4332;text-decoration:none;border-radius:8px;font-weight:800;font-size:16px;">
         📄 Pobierz katalog (PDF)
       </a>
       <p style="margin:10px 0 0 0;font-size:12px;color:#999;">
-        Jeśli przycisk nie działa, skopiuj link: <span t-out="''">{{DOWNLOAD_URL}}</span>
+        Jeśli przycisk nie działa, skopiuj link: <span>__DOWNLOAD_URL__</span>
       </p>
     </div>
     <div style="text-align:center;margin-bottom:18px;">
