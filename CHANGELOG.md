@@ -1,3 +1,10 @@
+## 17.0.15.0
+- **Оферта-каталог через ПОСИЛАННЯ (не вкладення).** F13 «Katalog PDF» і нова кнопка «Wyślij ofertę» на res.partner шлють PL-лист (mail_template_offer_pl) з кнопкою «Pobierz katalog» → /web/content?download з access_token. Уникнення SMTP 552 (важкий PDF).
+- Нова кнопка «Wyślij ofertę» на картці клієнта — працює для вручну створених клієнтів (channel-independent метод res.partner._send_offer_catalog).
+- Хостинг конфіг-driven: param offer_catalog_url АБО lead_magnet_pdf_attachment_id (+access_token).
+- UA-шаблон mail_template_lead_magnet лишено (не використовується F13).
+- ⚠️ Зміна поведінки: F13-лист тепер БЕЗ вкладення (лінк). Залити PL-PDF як ir.attachment і вказати param перед використанням.
+
 # CHANGELOG — odoo-chatwoot-connector (SendPulse Connector)
 
 Формат: `## [date] — YYYY-MM-DD`
