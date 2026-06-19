@@ -28,6 +28,19 @@
                 </button>
             </div>
 
+            <!-- 1b. Кнопка "Wyślij ofertę" — після e-mail, для будь-якого клієнта
+                 (зокрема вручну створеного, без каналу SendPulse) -->
+            <field name="email" position="after">
+                <button name="action_send_offer_catalog"
+                        type="object"
+                        string="Wyślij ofertę (PDF)"
+                        icon="fa-paper-plane"
+                        class="btn-link"
+                        invisible="not email"
+                        confirm="Wysłać ofertę (katalog PDF, link) na e-mail klienta?"
+                        groups="odoo_chatwoot_connector.group_sendpulse_officer"/>
+            </field>
+
             <!-- 2. Канали SendPulse — під полем VAT (як "Facebook", "Instagram" на скріні) -->
             <field name="vat" position="after">
                 <!-- Список каналів: кожен рядок = окремий канал -->

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- УВАГА (v17.0.15.0): F13 lead-magnet тепер шле PL-лист із ПОСИЛАННЯМ (mail_template_offer_pl, без вкладення). Цей UA-шаблон лишено для сумісності/майбутнього UA-flow — НЕ використовується F13. -->
+
     <data noupdate="1">
 
         <record id="mail_template_lead_magnet_catalog" model="mail.template">
