@@ -136,17 +136,21 @@ class ResPartner(models.Model):
             _logger.warning('CampScout offer email exception — %s', e)
             return {'ok': False, 'error': f'exception:{e}', 'message_id': None}
         # RODO audit для РУЧНОГО шляху (F13 робить власний record_consent).
+        # Використовуємо хелпер record_consent — він задає всі required-поля
+        # (channel/legal_basis/source), інакше IntegrityError аборту транзакцію.
         if source == 'manual':
             try:
-                self.env['sendpulse.privacy.consent.log'].sudo().create(
-                    {
-                        'partner_id': partner.id if partner else False,
-                        'email': to_email.lower(),
-                        'purpose': 'lead_magnet_email',
-                        'consent_given': True,
-                        'notes': 'Offer catalog (PL link) sent manually by operator',
-                    }
-                )
+                with self.env.cr.savepoint():
+                    self.env['sendpulse.privacy.consent.log'].sudo().record_consent(
+                        purpose='lead_magnet_email',
+                        channel='email',
+                        partner_id=partner.id if partner else False,
+                        email=to_email,
+                        consent_given=True,
+                        legal_basis='legitimate_interest',
+                        source='admin_manual',
+                        notes='Offer catalog (PL link) sent manually by operator',
+                    )
             except Exception as e:
                 _logger.info('CampScout offer consent-log skip — %s', e)
         return {'ok': True, 'error': None, 'message_id': mail.id}
