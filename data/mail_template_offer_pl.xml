@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- PL-шаблон оферти з ПОСИЛАННЯМ на завантаження (без важкого вкладення).
+         Плейсхолдер {{DOWNLOAD_URL}} замінюється в Python (res.partner._send_offer_catalog).
+         Модель res.partner — працює і для F13 (через partner_id), і для ручних клієнтів. -->
+    <record id="mail_template_offer_pl" model="mail.template">
+        <field name="name">CampScout: Oferta PDF (PL, link do pobrania)</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="subject">CampScout — katalog obozów Lato 2026 🏕️</field>
+        <field name="email_from">CampScout &lt;obozy@campscout.pl&gt;</field>
+        <field name="lang">pl_PL</field>
+        <field name="body_html" type="html">
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;">
+  <div style="background:#1B4332;padding:22px 32px;text-align:center;">
+    <span style="color:#E8C170;font-size:22px;font-weight:700;letter-spacing:1px;">CampScout</span>
+  </div>
+  <div style="padding:24px 32px 8px 32px;">
+    <h2 style="margin:0 0 10px 0;font-size:23px;color:#1B4332;font-weight:700;">
+      Katalog obozów Lato 2026 🏕️
+    </h2>
+    <p style="margin:0 0 18px 0;font-size:15px;line-height:1.6;color:#444;">
+      Dzień dobry<t t-if="object.name">, <strong t-out="object.name"/></t>!<br/>
+      Dziękujemy za zainteresowanie obozami CampScout. W naszym katalogu na lato 2026
+      znajdziesz <strong>8 obozów</strong> w górach, lesie i nad morzem — pełne programy,
+      terminy, ceny, opis baz i wszystko, co ważne dla bezpieczeństwa i rozwoju Twojego dziecka.
+    </p>
+    <div style="background:#FFF9F0;border-left:5px solid #C9972B;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:22px;">
+      <p style="margin:0;font-size:14px;color:#444;line-height:1.6;">
+        🔥 <strong>Promocje wczesnej rezerwacji</strong> obowiązują przez ograniczony czas —
+        najlepsze turnusy zapełniają się pierwsze.
+      </p>
+    </div>
+    <!-- CTA: посилання на завантаження каталогу -->
+    <div style="text-align:center;margin:8px 0 26px 0;">
+      <a href="{{DOWNLOAD_URL}}" target="_blank"
+         style="display:inline-block;padding:15px 38px;background-color:#C9972B;color:#1B4332;text-decoration:none;border-radius:8px;font-weight:800;font-size:16px;">
+        📄 Pobierz katalog (PDF)
+      </a>
+      <p style="margin:10px 0 0 0;font-size:12px;color:#999;">
+        Jeśli przycisk nie działa, skopiuj link: <span t-out="''">{{DOWNLOAD_URL}}</span>
+      </p>
+    </div>
+    <div style="text-align:center;margin-bottom:18px;">
+      <a href="https://campscout.pl" style="color:#1B4332;text-decoration:none;font-weight:700;font-size:14px;">
+        🌐 campscout.pl
+      </a> &#183;
+      <a href="tel:+48459568854" style="color:#1B4332;text-decoration:none;font-size:14px;">+48 459 568 854</a>
+    </div>
+  </div>
+  <div style="background:#f4f4f4;padding:16px 32px;border-top:1px solid #e5e5e5;">
+    <p style="margin:0;font-size:11px;color:#999;line-height:1.5;">
+      Otrzymujesz tę wiadomość, ponieważ poprosiłeś/aś o katalog lub zostawiłeś/aś swój e-mail
+      w kontakcie z CampScout, zgodnie z
+      <a href="https://campscout.pl/privacy-policy" style="color:#952426;text-decoration:none;">Polityką prywatności (RODO/GDPR)</a>.
+      Aby zrezygnować — napisz na
+      <a href="mailto:admin@campscout.eu" style="color:#952426;">admin@campscout.eu</a>.
+    </p>
+  </div>
+</div>
+        </field>
+    </record>
+</odoo>

@@ -3003,95 +3003,14 @@ class SendpulseConnect(models.Model):
         if not attachment.exists() or not attachment.datas:
             return {'ok': False, 'error': 'attachment_missing', 'message_id': None}
 
-        # Email більше НЕ містить купона — купон окремо через SMS.
-        # Avatar + logo — публічні ir.attachment (public=True) з URL
-        # типу `/web/image/{id}/name.png`. Gmail обрізає Data URI > 8KB,
-        # тому від base64-inline відмовились — віддаємо через image proxy.
-        signer = self.env['res.users'].sudo().browse(6)
-        company = self.env.company
-        base_url = ICP.get_param('web.base.url', 'https://campscout.eu').rstrip('/')
-        avatar_url = ''
-        logo_url = ''
-        if signer.exists() and signer.image_128:
-            av_att = self._get_or_create_public_image(
-                'lead_magnet_avatar',
-                signer.image_128,
-            )
-            if av_att:
-                avatar_url = f'{base_url}/web/image/{av_att.id}/avatar.png'
-        # company.logo на CampScout — SVG. Gmail не рендерить SVG з міркувань
-        # безпеки → сервимо PNG-версію з модуля (shipped static/src/img).
-        logo_b64 = self._get_email_logo_png_b64(company)
-        if logo_b64:
-            lg_att = self._get_or_create_public_image(
-                'lead_magnet_logo',
-                logo_b64,
-            )
-            if lg_att:
-                logo_url = f'{base_url}/web/image/{lg_att.id}/campscout.png'
-
-        tpl = self.env.ref(
-            'odoo_chatwoot_connector.mail_template_lead_magnet_catalog',
-            raise_if_not_found=False,
-        )
-        try:
-            if tpl:
-                # Render спочатку тіло + subject щоб зробити post-process
-                rendered = (
-                    tpl.sudo()
-                    ._generate_template([self.id], ['subject', 'body_html', 'email_from'])
-                    .get(self.id, {})
-                )
-                body_html = rendered.get('body_html') or ''
-                if avatar_url:
-                    body_html = body_html.replace(
-                        'https://campscout.eu/web/image/res.users/6/avatar_128',
-                        avatar_url,
-                    )
-                if logo_url:
-                    body_html = body_html.replace(
-                        'https://campscout.eu/web/image/res.company/1/logo',
-                        logo_url,
-                    )
-                mail_id = tpl.sudo().send_mail(
-                    self.id,
-                    force_send=True,
-                    email_values={
-                        'email_to': to_email,
-                        'attachment_ids': [(4, attachment.id)],
-                        'body_html': body_html,
-                    },
-                )
-                mail = self.env['mail.mail'].sudo().browse(mail_id)
-            else:
-                # Fallback — inline plain-HTML (мінімалістичний, без купона)
-                subject = ICP.get_param(
-                    'odoo_chatwoot_connector.lead_magnet_email_subject',
-                    'CampScout — повний каталог таборів 2026',
-                )
-                name_part = (self.name or (self.partner_id.name if self.partner_id else '')).strip()
-                name_suffix = f', {name_part}' if name_part else ''
-                body_html = (
-                    f'<p>Вітаємо{name_suffix}!</p>'
-                    '<p>У вкладенні — PDF каталог CampScout 2026.</p>'
-                    '<p>campscout.eu</p>'
-                )
-                mail = (
-                    self.env['mail.mail']
-                    .sudo()
-                    .create(
-                        {
-                            'subject': subject,
-                            'body_html': body_html,
-                            'email_to': to_email,
-                            'attachment_ids': [(4, attachment.id)],
-                        }
-                    )
-                )
-                mail.send(raise_exception=False)
-        except Exception as e:
-            _logger.warning('SendPulse Odoo: F13 PDF email exception — %s', e)
-            return {'ok': False, 'error': f'exception:{e}', 'message_id': None}
+        # Надсилаємо PL-оферту з ПОСИЛАННЯМ на каталог (без важкого вкладення —
+        # уникаємо SMTP 552 "message size"). Делегуємо channel-independent методу
+        # на res.partner; F13-специфічний RODO-запис (record_consent) — нижче.
+        partner = self.partner_id or self.env['res.partner']
+        res = partner._send_offer_catalog(to_email, source='f13')
+        if not res.get('ok'):
+            _logger.warning('SendPulse Odoo: F13 offer email failed — %s', res.get('error'))
+            return res
         self.sudo().write(
             {
                 'sp_pdf_sent_at': fields.Datetime.now(),
@@ -3130,7 +3049,7 @@ class SendpulseConnect(models.Model):
             to_email,
             self.id,
         )
-        return {'ok': True, 'error': None, 'message_id': mail.id}
+        return {'ok': True, 'error': None, 'message_id': res.get('message_id')}
 
     def _get_email_logo_png_b64(self, company):
         """
