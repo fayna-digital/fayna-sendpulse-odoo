@@ -109,7 +109,7 @@ class ResPartner(models.Model):
                     ._generate_template([partner.id], ['subject', 'body_html', 'email_from'])
                     .get(partner.id, {})
                 )
-                body = (rendered.get('body_html') or '').replace('{{DOWNLOAD_URL}}', url)
+                body = (rendered.get('body_html') or '').replace('__DOWNLOAD_URL__', url)
                 subject = rendered.get('subject') or 'CampScout — katalog obozów Lato 2026'
                 email_from = rendered.get('email_from') or 'CampScout <obozy@campscout.pl>'
             else:
