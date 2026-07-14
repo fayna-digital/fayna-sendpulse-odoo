@@ -25,7 +25,7 @@ Omnichannel-міст **SendPulse ↔ Odoo 17 Discuss** + AI-асистент д�
 
 ```bash
 git push origin main
-ssh prod 'cd /opt/campscout/addons/sendpulse-odoo && git pull && sudo chmod -R o+rX .'
+ssh prod 'cd /opt/campscout/custom-addons/odoo_chatwoot_connector && git pull && sudo chmod -R o+rX .'
 # update (docker exec на ЗАПУЩЕНОМУ, НЕ docker compose run --rm — він зупиняє контейнер):
 ssh prod 'docker exec campscout_web odoo -c /etc/odoo/odoo.conf -d campscout -u odoo_chatwoot_connector --stop-after-init && docker restart campscout_web'
 # Перевірка що оновилось:
