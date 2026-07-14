@@ -24,7 +24,7 @@
 ```bash
 # Deploy / update (docker exec на ЗАПУЩЕНОМУ — НЕ docker compose run --rm)
 git push origin main
-ssh prod 'cd /opt/campscout/addons/sendpulse-odoo && git pull && sudo chmod -R o+rX .'
+ssh prod 'cd /opt/campscout/custom-addons/odoo_chatwoot_connector && git pull && sudo chmod -R o+rX .'
 ssh prod 'docker exec campscout_web odoo -c /etc/odoo/odoo.conf -d campscout -i odoo_chatwoot_connector --stop-after-init && docker restart campscout_web'
 
 # Перевірка версії після оновлення
