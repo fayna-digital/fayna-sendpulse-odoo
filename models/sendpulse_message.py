@@ -61,6 +61,77 @@ class SendpulseWebhookData(models.Model):
             _logger.info('SendPulse Odoo: видаляємо %d старих webhook записів', len(old_records))
             old_records.unlink()
 
+    @api.model
+    def cron_check_message_gap(self):
+        """
+        Cron: щодня звіряє сирі incoming_message-вебхуки (те, що SendPulse
+        РЕАЛЬНО надіслав — сирий audit-лог цієї моделі) із sendpulse.message
+        (те, що з цього фактично стало повідомленням у розмові). Розрив тут —
+        не гіпотеза, а факт: якщо webhook.data є, а sendpulse.message немає,
+        щось під час обробки впало.
+
+        Вікно 2 дні (не все 30) — свіжий сигнал, не архів. Затримка 5 хв
+        перед перевіркою — дати ретраям SendPulse і власній обробці домовитись,
+        інакше false-positive на щойно прийнятих webhook-ах.
+
+        Виключення: коментарі під Instagram/Facebook постами приходять з
+        тим самим event_type='incoming_message', але обробляються ОКРЕМО
+        (_process_comment_event, інша модель) — це НЕ втрата, а нормальна
+        маршрутизація. Відфільтровано за тими ж ознаками, що й у
+        _process_incoming_event.is_comment (channel_data.media.media_product_type
+        == 'FEED' або item=comment+verb=add).
+
+        Знайдено інцидентом 19.07.2026: попередня (без цього фільтра, без
+        NOT EXISTS-кореляції рядок-в-рядок, з LEFT JOIN + count(*)) чорнова
+        перевірка того самого показала роздутий у ~3.5 рази "розрив" через
+        join-фанаут — контакт з кількома повідомленнями в одному 2-хвилинному
+        вікні множив рядки ДО group by. Урок: цей запит — єдине джерело
+        правди для gap-перевірки, не переписувати без NOT EXISTS.
+        """
+        self.env.cr.execute(
+            """
+            SELECT wd.id, wd.create_date, wd.service, wd.sendpulse_contact_id, wd.name
+            FROM sendpulse_webhook_data wd
+            WHERE wd.event_type = 'incoming_message'
+              AND wd.create_date >= now() - interval '2 days'
+              AND wd.create_date < now() - interval '5 minutes'
+              AND wd.raw_data NOT LIKE '%%"media_product_type": "FEED"%%'
+              AND wd.raw_data NOT LIKE '%%"item": "comment"%%'
+              AND NOT EXISTS (
+                  SELECT 1 FROM sendpulse_message sm
+                  WHERE sm.sendpulse_contact_id = wd.sendpulse_contact_id
+                    AND sm.direction = 'incoming'
+                    AND sm.date BETWEEN wd.create_date - interval '2 minutes'
+                                     AND wd.create_date + interval '2 minutes'
+              )
+            ORDER BY wd.create_date
+            """
+        )
+        gaps = self.env.cr.dictfetchall()
+        if not gaps:
+            return
+
+        _logger.error(
+            'SendPulse Odoo: знайдено %d webhook(ів) без відповідного sendpulse.message '
+            '(можлива втрата повідомлення) за останні 2 дні: %s',
+            len(gaps),
+            [(g['create_date'], g['service'], g['name']) for g in gaps],
+        )
+
+        # Telegram, не bus.bus: сповіщення в браузері бачить лише той, хто
+        # саме зараз дивиться в Odoo Discuss — для алерту про можливу втрату
+        # даних потрібен канал, який реально доглядають (той самий бот, що й
+        # cron_weekly_telegram_report). No-op якщо telegram_alerts_enabled=False.
+        lines = '\n'.join(f'• {g["create_date"]} {g["service"]} — {g["name"]}' for g in gaps[:15])
+        more = f'\n... ще {len(gaps) - 15}' if len(gaps) > 15 else ''
+        message = (
+            f'⚠️ <b>SendPulse: можлива втрата повідомлень</b>\n'
+            f'{len(gaps)} webhook(ів) за останні 2 дні без відповідного sendpulse.message.\n'
+            f'{lines}{more}\n'
+            f'Перевір sendpulse.webhook.data (id: {", ".join(str(g["id"]) for g in gaps)}).'
+        )
+        self.env['sendpulse.connect']._notify_telegram(message, silent=False)
+
 
 class SendpulseMessage(models.Model):
     """Зберігає окремі повідомлення з SendPulse (прив'язані до розмови)."""
