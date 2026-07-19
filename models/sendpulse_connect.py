@@ -793,10 +793,25 @@ class SendpulseConnect(models.Model):
             if self.social_profile_url and not existing.social_profile_url:
                 update_vals['social_profile_url'] = self.social_profile_url
             existing.write(update_vals)
-            existing._cr.execute(
-                'UPDATE partner_sendpulse_channel SET message_count = message_count + 1 WHERE id = %s',
-                (existing.id,),
-            )
+            # savepoint: конкурентні webhook-и на той самий канал інколи
+            # ловлять serialization failure на цьому UPDATE. Без savepoint
+            # виняток абортує ВСЮ транзакцію запиту — разом з уже створеним
+            # sendpulse.message і webhook-audit записом (повідомлення клієнта
+            # зникає безслідно, а SendPulse все одно отримує 200 і не ретраїть).
+            # message_count — лічильник для UI картки партнера, не критичний:
+            # краще відстане на 1, ніж зжере реальне повідомлення.
+            try:
+                with self.env.cr.savepoint():
+                    existing._cr.execute(
+                        'UPDATE partner_sendpulse_channel SET message_count = message_count + 1 WHERE id = %s',
+                        (existing.id,),
+                    )
+            except Exception as e:
+                _logger.warning(
+                    'SendPulse Odoo: message_count increment skipped (channel=%s) — %s',
+                    existing.id,
+                    e,
+                )
         else:
             # Новий канал для цього партнера — створюємо запис
             self.env['partner.sendpulse.channel'].create(

@@ -1,3 +1,7 @@
+## 17.0.15.3
+- **Фікс втрати вхідних повідомлень (INC: «переписка зникла»).** `_update_partner_source`: raw SQL `UPDATE partner_sendpulse_channel SET message_count = message_count + 1` без savepoint ловив Postgres `could not serialize access due to concurrent update` при двох майже одночасних webhook-ах по тому самому клієнту (234 рази за 14 днів у проді) — виняток абортував ВСЮ транзакцію запиту, тобто відкочувалось і вже створене `sendpulse.message`, і сирий webhook-audit запис. Тепер інкремент лічильника обгорнутий у `cr.savepoint()` + try/except: невдача лічильника більше не забирає з собою реальне повідомлення.
+- `controllers/main.py`: непередбачена помилка обробки вебхука тепер повертає HTTP 500 (було завжди 200) — щоб SendPulse міг ретраїти доставку замість вважати її успішною і ніколи не повторювати.
+
 ## 17.0.15.0
 - **Оферта-каталог через ПОСИЛАННЯ (не вкладення).** F13 «Katalog PDF» і нова кнопка «Wyślij ofertę» на res.partner шлють PL-лист (mail_template_offer_pl) з кнопкою «Pobierz katalog» → /web/content?download з access_token. Уникнення SMTP 552 (важкий PDF).
 - Нова кнопка «Wyślij ofertę» на картці клієнта — працює для вручну створених клієнтів (channel-independent метод res.partner._send_offer_catalog).
