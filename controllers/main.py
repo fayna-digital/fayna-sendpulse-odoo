@@ -56,8 +56,8 @@ class SendpulseWebhookController(http.Controller):
         }
         """
 
-        def _json(data):
-            return Response(json.dumps(data), content_type='application/json', status=200)
+        def _json(data, status=200):
+            return Response(json.dumps(data), content_type='application/json', status=status)
 
         try:
             # Token auth: налаштовується у ir.config_parameter → odoo_chatwoot_connector.webhook_token
@@ -154,5 +154,11 @@ class SendpulseWebhookController(http.Controller):
             return _json({'status': 'ok'})
 
         except Exception as e:
+            # 500, не 200: непередбачена помилка тут раніше й досі рве всю
+            # транзакцію запиту (Odoo — одна транзакція на HTTP-request),
+            # тобто відкочується і сирий webhook-audit запис, і вже
+            # створене повідомлення клієнта. При статусі 200 SendPulse
+            # вважає доставку успішною і ніколи не ретраїть — повідомлення
+            # зникає безслідно. 500 дає SendPulse шанс повторити доставку.
             _logger.error('SendPulse Odoo webhook error: %s', e, exc_info=True)
-            return _json({'status': 'error', 'message': 'Processing failed'})
+            return _json({'status': 'error', 'message': 'Processing failed'}, status=500)
