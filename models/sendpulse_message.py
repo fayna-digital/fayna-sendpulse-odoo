@@ -45,10 +45,17 @@ class SendpulseWebhookData(models.Model):
     bot_name = fields.Char(string='Назва бота')
 
     def clear_old_webhooks(self):
-        """Cron: видаляє webhook дані старші за 7 днів."""
+        """Cron: видаляє webhook дані старші за 30 днів.
+
+        Було 7 днів — замало для ретроспективного аудиту (звірка з
+        sendpulse.message на предмет втрачених повідомлень можлива лише
+        поки тут є сирі дані). 30 днів узгоджено з рештою ретеншенів у
+        цьому модулі (retention_message_days у omnichannel_bridge = 180,
+        але тут легкі текстові JSON-рядки — дешево тримати довше).
+        """
         from datetime import datetime, timedelta
 
-        cutoff = datetime.now() - timedelta(days=7)
+        cutoff = datetime.now() - timedelta(days=30)
         old_records = self.search([('create_date', '<', cutoff)])
         if old_records:
             _logger.info('SendPulse Odoo: видаляємо %d старих webhook записів', len(old_records))
