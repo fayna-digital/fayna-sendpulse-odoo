@@ -114,41 +114,64 @@ class SendpulseWebhookController(http.Controller):
                 }
             )
 
-            # Обробляємо події
-            if event_type in (
-                EVENT_NEW_SUBSCRIBER,
-                EVENT_INCOMING_MSG,
-                EVENT_LIVE_CHAT,
-                EVENT_OPEN_CHAT,
-            ):
-                request.env['sendpulse.connect'].sudo()._process_incoming_event(
-                    data=data,
-                    contact=contact,
-                    bot=bot,
-                    service=service,
-                    event_type=event_type,
-                    timestamp_ms=timestamp_ms,
-                )
+            # Обробляємо події. savepoint окремо від webhook.data.create() вище:
+            # якщо обробка впаде (напр. serialization failure на конкурентному
+            # webhook-у по тому самому контакту), відкочується ЛИШЕ те, що
+            # всередині цього блоку — сирий audit-запис (уже вставлений раніше
+            # в ЦІЙ ЖЕ транзакції) переживає і йде на backfill вручну, замість
+            # зникнути разом з усією транзакцією запиту.
+            try:
+                with request.env.cr.savepoint():
+                    if event_type in (
+                        EVENT_NEW_SUBSCRIBER,
+                        EVENT_INCOMING_MSG,
+                        EVENT_LIVE_CHAT,
+                        EVENT_OPEN_CHAT,
+                    ):
+                        request.env['sendpulse.connect'].sudo()._process_incoming_event(
+                            data=data,
+                            contact=contact,
+                            bot=bot,
+                            service=service,
+                            event_type=event_type,
+                            timestamp_ms=timestamp_ms,
+                        )
 
-            elif event_type in (EVENT_OUTGOING_MSG, EVENT_OUTGOING_MSG2):
-                # Вихідне повідомлення з SendPulse (може бути з мобільного додатку менеджера).
-                # SendPulse шле два типи: 'outbound_message' і 'outgoing_message' —
-                # обробляємо обидва. Дедуплікація всередині _process_outgoing_event
-                # (skip якщо текст вже є в Odoo outgoing за 60s).
-                # Bonus: тут же backfill missed incoming — contact.last_message іноді
-                # містить текст клієнта який SendPulse не прислав окремим
-                # incoming_message webhook (наприклад коли new_subscriber і перший
-                # текст клієнта приходять у вікно <1с).
-                request.env['sendpulse.connect'].sudo()._process_outgoing_event(
-                    contact=contact,
-                    service=service,
-                    timestamp_ms=timestamp_ms,
-                )
+                    elif event_type in (EVENT_OUTGOING_MSG, EVENT_OUTGOING_MSG2):
+                        # Вихідне повідомлення з SendPulse (може бути з мобільного додатку менеджера).
+                        # SendPulse шле два типи: 'outbound_message' і 'outgoing_message' —
+                        # обробляємо обидва. Дедуплікація всередині _process_outgoing_event
+                        # (skip якщо текст вже є в Odoo outgoing за 60s).
+                        # Bonus: тут же backfill missed incoming — contact.last_message іноді
+                        # містить текст клієнта який SendPulse не прислав окремим
+                        # incoming_message webhook (наприклад коли new_subscriber і перший
+                        # текст клієнта приходять у вікно <1с).
+                        request.env['sendpulse.connect'].sudo()._process_outgoing_event(
+                            contact=contact,
+                            service=service,
+                            timestamp_ms=timestamp_ms,
+                        )
 
-            elif event_type == EVENT_UNSUBSCRIBE:
-                request.env['sendpulse.connect'].sudo()._process_unsubscribe(
-                    contact_id=contact.get('id', ''),
-                    service=service,
+                    elif event_type == EVENT_UNSUBSCRIBE:
+                        request.env['sendpulse.connect'].sudo()._process_unsubscribe(
+                            contact_id=contact.get('id', ''),
+                            service=service,
+                        )
+            except Exception as e:
+                # raw webhook.data (вставлений вище, ПОЗА цим savepoint) вижив —
+                # доступний для ручного backfill. 500 — щоб SendPulse спробував
+                # доставити ще раз (гонки часто минають на повторній спробі).
+                _logger.error(
+                    'SendPulse Odoo webhook: обробка event=%s contact_id=%s впала, '
+                    'сирий payload збережено для backfill — %s',
+                    event_type,
+                    contact.get('id'),
+                    e,
+                    exc_info=True,
+                )
+                return _json(
+                    {'status': 'error', 'message': 'Processing failed, raw payload saved'},
+                    status=500,
                 )
 
             return _json({'status': 'ok'})
