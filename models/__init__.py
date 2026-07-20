@@ -7,6 +7,7 @@ from . import (
     sendpulse_drip,
     sendpulse_facebook_page,
     sendpulse_faq_entry,
+    sendpulse_identification,
     sendpulse_identify_wizard,
     sendpulse_message,
     sendpulse_oauth,
