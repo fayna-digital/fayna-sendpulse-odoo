@@ -9,6 +9,7 @@ from . import (
     sendpulse_faq_entry,
     sendpulse_identification,
     sendpulse_identify_wizard,
+    sendpulse_lead_magnet,
     sendpulse_message,
     sendpulse_oauth,
     sendpulse_privacy_consent_log,
