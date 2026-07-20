@@ -152,14 +152,23 @@ class MetaLeadWebhookController(http.Controller):
                 if not leadgen_id:
                     continue
                 try:
-                    result = self._process_leadgen(
-                        leadgen_id=leadgen_id,
-                        form_id=value.get('form_id'),
-                        page_id=value.get('page_id'),
-                        created_time=value.get('created_time'),
-                        page_token=page_token,
-                        graph_version=graph_version,
-                    )
+                    # savepoint: один payload може містити КІЛЬКА entry/change.
+                    # Без savepoint виняток посеред _process_leadgen (напр. після
+                    # Partner.create, до Lead.create) лишає курсор Postgres
+                    # в "aborted transaction" — усі НАСТУПНІ entry в цьому ж
+                    # запиті тихо провалюються тим самим винятком, навіть якщо
+                    # самі по собі валідні (той самий клас бага, що в
+                    # sendpulse-вебхуці, controllers/main.py). Rollback to
+                    # savepoint скидає тільки цей entry, решта йде далі.
+                    with request.env.cr.savepoint():
+                        result = self._process_leadgen(
+                            leadgen_id=leadgen_id,
+                            form_id=value.get('form_id'),
+                            page_id=value.get('page_id'),
+                            created_time=value.get('created_time'),
+                            page_token=page_token,
+                            graph_version=graph_version,
+                        )
                     results.append({'leadgen_id': leadgen_id, **result})
                 except Exception as e:
                     _logger.exception('Meta webhook: failed leadgen_id=%s', leadgen_id)
