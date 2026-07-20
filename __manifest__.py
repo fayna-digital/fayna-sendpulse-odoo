@@ -36,6 +36,8 @@
         'contacts',
         'crm',
         'web',
+        'loyalty',
+        'sms',
     ],
     'external_dependencies': {
         'python': ['requests'],
