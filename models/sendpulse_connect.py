@@ -3932,8 +3932,8 @@ class SendpulseConnect(models.Model):
                 )
             try:
                 self.send_message_to_sendpulse(self._ID_THANKS, attachment_url=None)
-            except Exception:
-                pass
+            except Exception as e:
+                _logger.warning('SendPulse Odoo: failed to send ID_THANKS for connect %s: %s', self.id, e)
             self.write(
                 {
                     'partner_id': partner.id,
@@ -3963,8 +3963,8 @@ class SendpulseConnect(models.Model):
         if self.id_attempts < max_attempts:
             try:
                 self.send_message_to_sendpulse(self._ID_ASK_EMAIL_RETRY, attachment_url=None)
-            except Exception:
-                pass
+            except Exception as e:
+                _logger.warning('SendPulse Odoo: failed to send ID_ASK_EMAIL_RETRY for connect %s: %s', self.id, e)
             self.write(
                 {
                     'id_step': 'ask_email_retry',
@@ -3975,8 +3975,8 @@ class SendpulseConnect(models.Model):
         # Limit вичерпаний — give up
         try:
             self.send_message_to_sendpulse(self._ID_GAVE_UP, attachment_url=None)
-        except Exception:
-            pass
+        except Exception as e:
+            _logger.warning('SendPulse Odoo: failed to send ID_GAVE_UP for connect %s: %s', self.id, e)
         self.write(
             {
                 'stage': 'new_message',  # передаємо оператору
