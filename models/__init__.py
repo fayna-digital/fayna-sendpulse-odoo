@@ -7,6 +7,7 @@ from . import (
     sendpulse_faq_entry,
     sendpulse_identify_wizard,
     sendpulse_message,
+    sendpulse_oauth,
     sendpulse_privacy_consent_log,
     sendpulse_public_template,
 )
