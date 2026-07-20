@@ -1,3 +1,6 @@
+## 17.0.15.8
+- **Фікс того самого класу бага в `controllers/meta_lead_webhook.py::handle_leadgen`** (знахідка Odoo/OCA-аудиту 19.07.2026). Кожен `_process_leadgen(...)` тепер у `cr.savepoint()`: раніше виняток посеред обробки одного `entry` (напр. після створення partner, до створення crm.lead) лишав курсор Postgres в "aborted transaction" — усі НАСТУПНІ `entry` в тому самому multi-lead payload тихо провалювались тим самим винятком, навіть якщо самі по собі були валідні. Facebook/Instagram лід-форми можуть надсилати кілька лідів в одному webhook-виклику — це реальний, не гіпотетичний ризик.
+
 ## 17.0.15.7
 - **Новий крон `cron_check_dialogs_snapshot`** (`sendpulse.connect`, щодня 06:15): другий, незалежний шар моніторингу — тягне 100 найсвіжіших діалогів через офіційний `GET /chatbots/dialogs` (SendPulse Chatbots API, перевірено живою OpenAPI-специфою: `api.sendpulse.com/.well-known/openapi/chatbots.yaml`) і звіряє `last_inbox_message` кожного з `sendpulse.message`. На відміну від `cron_check_message_gap` (v17.0.15.6) — не залежить від власної 30-денної ретенції `webhook.data`, бачить стан НАПРЯМУ з SendPulse. API не має фільтра contact/дата (лише size/skip/search_after/order) — тому це найсвіжіші 100, не повна історія.
 - Той самий Telegram-алерт (`_notify_telegram`), окреме повідомлення від `cron_check_message_gap`.
