@@ -607,17 +607,19 @@ class SendpulseConnect(models.Model):
         for text in messages:
             # Зберігаємо ДО відправки — щоб outbound_message webhook одразу знайшов запис
             # і не задублював повідомлення у discuss.channel
-            self.env['sendpulse.message'].create(
-                {
-                    'name': now.strftime('%Y-%m-%d %H:%M'),
-                    'date': now,
-                    'connect_id': self.id,
-                    'sendpulse_contact_id': self.sendpulse_contact_id,
-                    'direction': 'outgoing',
-                    'message_type': 'text',
-                    'text_message': text,
-                    'raw_json': str({'text': text, 'source': 'auto_greeting'}),
-                }
+            # (post_to_channel/record_partner_message=False: цей сайт постить у канал
+            # САМ, нижче, ПІСЛЯ спроби send_message_to_sendpulse — порядок «create →
+            # send → post» лишається як був, helper тут відповідає лише за create)
+            self._record_conversation_message(
+                self,
+                direction='outgoing',
+                sendpulse_contact_id=self.sendpulse_contact_id,
+                message_type='text',
+                text_message=text,
+                raw_json={'text': text, 'source': 'auto_greeting'},
+                date=now,
+                post_to_channel=False,
+                record_partner_message=False,
             )
 
             # Надсилаємо клієнту через SendPulse
@@ -1009,6 +1011,86 @@ class SendpulseConnect(models.Model):
     # ════════════════════════════════════════════════════════════════════
 
     @api.model
+    def _record_conversation_message(
+        self,
+        connect,
+        *,
+        direction,
+        sendpulse_contact_id,
+        message_type='text',
+        text_message='',
+        attachment_url=False,
+        raw_json=None,
+        date=None,
+        channel_body=None,
+        channel_attachment_ids=None,
+        channel_author_id=None,
+        post_to_channel=True,
+        partner_body=None,
+        record_partner_message=True,
+    ):
+        """Спільний helper для патерну "sendpulse.message → message_post
+        (discuss.channel) → partner.sendpulse.message", який раніше був
+        незалежно продубльований (і трохи розходився) у 3 місцях:
+        `_send_autoreply_greeting`, `_process_incoming_event`,
+        `_process_outgoing_event` (backfill missed incoming).
+
+        Це МЕХАНІЧНА екстракція — кожен call-site і далі керує СВОЇМ
+        форматуванням (media-іконки, backfill-нотатка, greeting-emoji) і
+        своїми умовами; helper лише виконує сам ORM create/post. Деякі
+        call-site'и (greeting, incoming-media) свідомо викликають helper
+        лише для кроку `sendpulse.message.create` (post_to_channel=False,
+        record_partner_message=False) і лишають message_post /
+        partner.sendpulse.message на місці — бо там між кроками є
+        side-effecting виклики (send_message_to_sendpulse,
+        _check_and_record_unsubscribe), чий порядок відносно
+        message_post/partner-create — частина поточної поведінки і його
+        не можна безпечно перемішати без зміни функціональності.
+
+        Повертає створений sendpulse.message.
+        """
+        now = date or fields.Datetime.now()
+        msg = self.env['sendpulse.message'].create(
+            {
+                'name': now.strftime('%Y-%m-%d %H:%M'),
+                'date': now,
+                'connect_id': connect.id,
+                'sendpulse_contact_id': sendpulse_contact_id,
+                'direction': direction,
+                'message_type': message_type,
+                'text_message': text_message,
+                'attachment_url': attachment_url,
+                'raw_json': str(raw_json) if raw_json is not None else '',
+            }
+        )
+
+        if post_to_channel and connect.channel_id and (
+            channel_body is not None or channel_attachment_ids
+        ):
+            post_kwargs = {
+                'body': channel_body if channel_body is not None else '',
+                'author_id': channel_author_id or False,
+                'message_type': 'comment',
+                'subtype_xmlid': 'mail.mt_comment',
+            }
+            if channel_attachment_ids:
+                post_kwargs['attachment_ids'] = channel_attachment_ids
+            connect.channel_id.with_context(sendpulse_incoming=True).message_post(**post_kwargs)
+
+        if record_partner_message and connect.partner_id and partner_body is not None:
+            self.env['partner.sendpulse.message'].create(
+                {
+                    'partner_id': connect.partner_id.id,
+                    'date': now,
+                    'text_message': partner_body,
+                    'service': connect.service,
+                    'direction': direction,
+                }
+            )
+
+        return msg
+
+    @api.model
     def _process_incoming_event(self, data, contact, bot, service, event_type, timestamp_ms):
         """
         Обробляє вхідну подію з SendPulse webhook.
@@ -1320,18 +1402,21 @@ class SendpulseConnect(models.Model):
             is_media = is_image or msg_type in ('audio', 'video', 'document')
             media_icons = {'audio': '🎵', 'video': '🎥', 'document': '📄'}
 
-            new_msg = self.env['sendpulse.message'].create(
-                {
-                    'name': now.strftime('%Y-%m-%d %H:%M'),
-                    'date': now,
-                    'connect_id': connect.id,
-                    'sendpulse_contact_id': contact_id,
-                    'direction': 'incoming',
-                    'message_type': 'image' if is_image else ('file' if is_media else 'text'),
-                    'text_message': '' if is_media else last_message,
-                    'attachment_url': last_message if is_media else False,
-                    'raw_json': str({'text': last_message, 'contact': contact}),
-                }
+            # post_to_channel/record_partner_message=False: тут між create і
+            # message_post є _check_and_record_unsubscribe (RODO), а сам
+            # message_post має 3 гілки залежно від типу медіа/успіху завантаження
+            # вкладення — обидва лишені на місці нижче, без змін.
+            new_msg = self._record_conversation_message(
+                connect,
+                direction='incoming',
+                sendpulse_contact_id=contact_id,
+                message_type='image' if is_image else ('file' if is_media else 'text'),
+                text_message='' if is_media else last_message,
+                attachment_url=last_message if is_media else False,
+                raw_json={'text': last_message, 'contact': contact},
+                date=now,
+                post_to_channel=False,
+                record_partner_message=False,
             )
 
             # RODO: детектим unsubscribe-фрази — фіксуємо withdrawal для
@@ -4600,44 +4685,27 @@ class SendpulseConnect(models.Model):
             last_message[:80],
         )
 
-        self.env['sendpulse.message'].create(
-            {
-                'name': now.strftime('%Y-%m-%d %H:%M'),
-                'date': now,
-                'connect_id': connect.id,
-                'sendpulse_contact_id': contact_id,
-                'direction': 'incoming',
-                'message_type': 'text',
-                'text_message': last_message,
-                'raw_json': str({'text': last_message, 'source': 'backfill_from_outgoing_event'}),
-            }
+        author_id = (
+            connect.partner_id.id if connect.partner_id else self.env.ref('base.partner_root').id
         )
-
-        if connect.channel_id:
-            author_id = (
-                connect.partner_id.id
-                if connect.partner_id
-                else self.env.ref('base.partner_root').id
-            )
-            connect.channel_id.with_context(sendpulse_incoming=True).message_post(
-                body=Markup(
-                    '<p><em>(backfill — SendPulse пропустив webhook)</em><br/>{}</p>'
-                ).format(escape(last_message)),
-                author_id=author_id,
-                message_type='comment',
-                subtype_xmlid='mail.mt_comment',
-            )
-
-        if connect.partner_id:
-            self.env['partner.sendpulse.message'].create(
-                {
-                    'partner_id': connect.partner_id.id,
-                    'date': now,
-                    'text_message': f'<p>👤 {last_message}</p>',
-                    'service': service,
-                    'direction': 'incoming',
-                }
-            )
+        # Тут (на відміну від greeting і incoming-media сайтів) create → post →
+        # partner-create йдуть підряд без жодного side-effecting виклику між
+        # ними в оригінальному коді — тому єдиний виклик helper-а безпечний і
+        # відтворює той самий порядок.
+        self._record_conversation_message(
+            connect,
+            direction='incoming',
+            sendpulse_contact_id=contact_id,
+            message_type='text',
+            text_message=last_message,
+            raw_json={'text': last_message, 'source': 'backfill_from_outgoing_event'},
+            date=now,
+            channel_body=Markup(
+                '<p><em>(backfill — SendPulse пропустив webhook)</em><br/>{}</p>'
+            ).format(escape(last_message)),
+            channel_author_id=author_id,
+            partner_body=f'<p>👤 {last_message}</p>',
+        )
 
         update_vals = {
             'last_message_preview': last_message[:100],

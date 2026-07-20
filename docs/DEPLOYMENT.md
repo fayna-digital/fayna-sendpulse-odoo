@@ -116,11 +116,14 @@ curl -sI https://<your-domain>/
 ```bash
 ssh campscout "cd /opt/campscout/custom-addons/odoo_chatwoot_connector && \
   git pull 2>&1 | tail -5 && \
+  chmod -R o+rX . && \
   docker exec campscout_web /usr/bin/odoo -d campscout --stop-after-init --no-http -u odoo_chatwoot_connector 2>&1 | tail -3 && \
   cd /opt/campscout && docker compose restart web 2>&1 | tail -2 && \
   sleep 5 && \
   docker exec campscout_db psql -U odoo -d campscout -tAc \"SELECT latest_version FROM ir_module_module WHERE name='odoo_chatwoot_connector';\""
 ```
+
+**`chmod -R o+rX .` після `git pull` — обов'язковий, не опційний.** Odoo-процес у контейнері читає модуль під іншим UID, ніж `deploy`-юзер що робить `git pull` — без world-read апдейт падає з `PermissionError` на будь-якому зміненому файлі (INC-244, 2026-07-20). Той самий крок потрібен і на staging. На staging встановлено `.git/hooks/post-merge`, що робить це автоматично при кожному `git pull`; на prod — робити вручну (або встановити ідентичний hook, ще не зроблено).
 
 Очікуваний output — остання строка показує нову версію (напр. `17.0.3.7.1`).
 
