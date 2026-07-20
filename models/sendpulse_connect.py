@@ -2001,6 +2001,101 @@ class SendpulseConnect(models.Model):
             _logger.warning('SendPulse Odoo: Telegram alert exception — %s', e)
             return False
 
+    _DIALOGS_URL = 'https://api.sendpulse.com/chatbots/dialogs'
+
+    @api.model
+    def cron_check_dialogs_snapshot(self):
+        """
+        Cron: щодня тягне ~100 найсвіжіших діалогів через офіційний
+        GET /chatbots/dialogs (SendPulse Chatbots API) і звіряє
+        last_inbox_message кожного з тим, що є в sendpulse.message.
+
+        Доповнює cron_check_message_gap (модель sendpulse.webhook.data):
+        той працює лише в межах власної 30-денної ретенції і лише на
+        тому, що ми самі встигли зберегти ДО можливого збою. Цей — живий
+        снепшот прямо з SendPulse, незалежний від нашої ретенції і від
+        того, чи взагалі дійшов webhook.
+
+        API /dialogs НЕ має фільтра по contact_id чи даті (тільки
+        size/skip/search_after/order — перевірено живою OpenAPI-специфою
+        SendPulse) — тому просто найсвіжіші order=desc, без спроби
+        охопити всю історію. Затримка 5 хв — той самий сенс, що в
+        cron_check_message_gap: дати обробці домовитись, не false-positive
+        на щойно прийнятому.
+        """
+        token = self._get_access_token()
+        if not token:
+            _logger.warning('SendPulse Odoo: dialogs-снепшот пропущено — немає токена API')
+            return
+        try:
+            resp = requests.get(
+                self._DIALOGS_URL,
+                params={'size': 100, 'order': 'desc'},
+                headers={'Authorization': f'Bearer {token}'},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            dialogs = (resp.json().get('data') or {}).get('list') or []
+        except Exception as e:
+            _logger.warning('SendPulse Odoo: dialogs-снепшот — помилка API: %s', e)
+            return
+
+        now_utc = datetime.utcnow()
+        gaps = []
+        for d in dialogs:
+            inbox = d.get('last_inbox_message') or {}
+            text = (inbox.get('text') or '').strip()
+            date_str = inbox.get('date')
+            contact = d.get('contact') or {}
+            contact_id = contact.get('id')
+            if not (text and date_str and contact_id):
+                continue
+            try:
+                sp_date = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%fZ')
+            except ValueError:
+                continue
+            if now_utc - sp_date < timedelta(minutes=5):
+                continue
+            exists = (
+                self.env['sendpulse.message']
+                .sudo()
+                .search_count(
+                    [
+                        ('sendpulse_contact_id', '=', contact_id),
+                        ('direction', '=', 'incoming'),
+                        ('date', '>=', sp_date - timedelta(minutes=3)),
+                        ('date', '<=', sp_date + timedelta(minutes=3)),
+                    ]
+                )
+            )
+            if not exists:
+                gaps.append(
+                    {
+                        'name': contact.get('full_name') or contact_id,
+                        'date': sp_date,
+                        'text': text[:80],
+                    }
+                )
+
+        if not gaps:
+            return
+
+        _logger.error(
+            'SendPulse Odoo: dialogs-снепшот знайшов %d контакт(ів) з last_inbox_message, '
+            'якого немає в sendpulse.message: %s',
+            len(gaps),
+            gaps,
+        )
+        lines = '\n'.join(f'• {g["date"]} {g["name"]} — {g["text"]}' for g in gaps[:15])
+        more = f'\n... ще {len(gaps) - 15}' if len(gaps) > 15 else ''
+        message = (
+            f'⚠️ <b>SendPulse: dialogs-снепшот — можлива втрата</b>\n'
+            f'{len(gaps)} контакт(ів), де останнє вхідне повідомлення в SendPulse '
+            f'не знайдено в Odoo (live-перевірка, незалежно від webhook.data):\n'
+            f'{lines}{more}'
+        )
+        self._notify_telegram(message, silent=False)
+
     # ── V2 F4: Auto-create CRM leads ─────────────────────────────────────
     def _auto_create_crm_lead(self):
         """
