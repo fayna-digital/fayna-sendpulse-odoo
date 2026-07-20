@@ -12,6 +12,7 @@ from . import (
     sendpulse_message,
     sendpulse_oauth,
     sendpulse_privacy_consent_log,
+    sendpulse_profile_sync,
     sendpulse_public_template,
     sendpulse_rodo,
     sendpulse_telegram_notify,
