@@ -1,3 +1,7 @@
+## 17.0.15.7
+- **Новий крон `cron_check_dialogs_snapshot`** (`sendpulse.connect`, щодня 06:15): другий, незалежний шар моніторингу — тягне 100 найсвіжіших діалогів через офіційний `GET /chatbots/dialogs` (SendPulse Chatbots API, перевірено живою OpenAPI-специфою: `api.sendpulse.com/.well-known/openapi/chatbots.yaml`) і звіряє `last_inbox_message` кожного з `sendpulse.message`. На відміну від `cron_check_message_gap` (v17.0.15.6) — не залежить від власної 30-денної ретенції `webhook.data`, бачить стан НАПРЯМУ з SendPulse. API не має фільтра contact/дата (лише size/skip/search_after/order) — тому це найсвіжіші 100, не повна історія.
+- Той самий Telegram-алерт (`_notify_telegram`), окреме повідомлення від `cron_check_message_gap`.
+
 ## 17.0.15.6
 - **Новий крон `cron_check_message_gap`** (`sendpulse.webhook.data`, щодня 06:00): звіряє сирі `incoming_message`-вебхуки з `sendpulse.message` за останні 2 дні (NOT EXISTS по contact_id+2хв вікно, з виключенням Instagram/Facebook post-коментарів — та сама помилка join-фанауту, що я собі виправив під час ручного аудиту 19.07, тепер закладена як коректний запит назавжди). На знайдений розрив — ERROR у лог + Telegram-алерт через існуючий `_notify_telegram` (той самий бот, що й тижневий звіт).
 - Залежить від retention-фіксу v17.0.15.4 (30 днів) — вікна перевірки 2 дні цілком вистачає з запасом.
