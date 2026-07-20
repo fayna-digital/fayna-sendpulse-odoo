@@ -1,6 +1,6 @@
 {
     'name': 'Fayna SendPulse Odoo',
-    'version': '17.0.15.8',
+    'version': '17.0.1.15.9',
     'summary': 'Fayna Digital — SendPulse + AI-помічник + lead magnet (PDF/SMS) + live event seats + drip + A/B шаблони + multi-page FB/IG',
     'description': """
         AI-first omnichannel рішення від Fayna Digital на базі Odoo 17.
@@ -38,6 +38,7 @@
         'web',
         'loyalty',
         'sms',
+        'sale',
     ],
     'external_dependencies': {
         'python': ['requests'],
