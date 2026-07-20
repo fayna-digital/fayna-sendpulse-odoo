@@ -4,6 +4,7 @@ from . import (
     res_partner,
     sendpulse_connect,
     sendpulse_crm_lead,
+    sendpulse_drip,
     sendpulse_facebook_page,
     sendpulse_faq_entry,
     sendpulse_identify_wizard,
