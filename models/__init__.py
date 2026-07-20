@@ -3,6 +3,7 @@ from . import (
     res_config_settings,
     res_partner,
     sendpulse_connect,
+    sendpulse_crm_lead,
     sendpulse_facebook_page,
     sendpulse_faq_entry,
     sendpulse_identify_wizard,
