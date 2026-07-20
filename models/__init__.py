@@ -10,5 +10,6 @@ from . import (
     sendpulse_oauth,
     sendpulse_privacy_consent_log,
     sendpulse_public_template,
+    sendpulse_rodo,
     sendpulse_telegram_notify,
 )
