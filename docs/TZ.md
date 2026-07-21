@@ -1,7 +1,7 @@
 # TZ — sendpulse-odoo
 
 > Специфікація за [[REPO_STANDARD]] (6 областей spec-driven). Як працювати → CLAUDE.md.
-> Версія: **17.0.14.7** | License: LGPL-3. Під-ТЗ: docs/TZ_COMMENT_AUTOREPLY.md (виконано), docs/TZ_V2_AUTOMATION.md (фічі).
+> Версія: **17.0.1.15.13** | License: LGPL-3. Під-ТЗ: docs/TZ_COMMENT_AUTOREPLY.md (виконано), docs/TZ_V2_AUTOMATION.md (фічі).
 
 ---
 
@@ -11,7 +11,7 @@
 
 **Для кого:** CampScout (дитячі літні табори PL), Fayna Digital.
 
-**Версія/license:** 17.0.14.7, LGPL-3. **Depends:** `mail`, `contacts`, `crm`, `web` + python `requests`. Meta Graph API v25.0, Anthropic API (Claude).
+**Версія/license:** 17.0.1.15.13, LGPL-3. **Depends:** `mail`, `contacts`, `crm`, `web` + python `requests`. Meta Graph API v25.0, Anthropic API (Claude).
 
 **Успіх:** вхідні з усіх каналів з'являються в Discuss з ідентифікованим контактом; коментарі FB/IG отримують автовідповідь; менеджер бачить AI-драфт; RODO-згоди логуються.
 

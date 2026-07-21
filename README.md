@@ -83,7 +83,7 @@ sendpulse-odoo/
 | SMS | TurboSMS (через `kw_sms_api`) |
 | Стратегія повторів | Exponential backoff, аудит-журнал через ir.logging |
 | Race-safety | PostgreSQL advisory lock + partial unique index |
-| Версія модуля | 17.0.14.10 |
+| Версія модуля | 17.0.1.15.13 |
 | Ліцензія | OPL-1 (Odoo Proprietary) |
 
 ---
