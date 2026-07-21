@@ -520,4 +520,3 @@ class SendpulseConnectCommentAutoreply(models.Model):
             subtype_xmlid='mail.mt_note',
             author_id=self.env.ref('base.partner_root').id,
         )
-
