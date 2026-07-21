@@ -110,16 +110,20 @@ class DiscussChannel(models.Model):
         if not self.sendpulse_connect_id:
             return super().message_post(**kwargs)
 
-        # Обробляємо slash-команду /lead
+        # Пропускаємо повідомлення що прийшли через webhook від клієнта
+        # (context sendpulse_incoming виставляється в sendpulse_connect.py)
+        incoming = self.env.context.get('sendpulse_incoming')
+
+        # Обробляємо slash-команду /lead — лише для оператора, НЕ для клієнтського
+        # тексту з webhook (інакше клієнтське повідомлення "/lead ..." тихо
+        # проковтується і замінюється авто-створеним лідом замість посту в чат).
         body_plain = _html_to_text(kwargs.get('body', '') or '')
-        if body_plain.lower().startswith('/lead'):
+        if not incoming and body_plain.lower().startswith('/lead'):
             return self._handle_lead_command()
 
         msg = super().message_post(**kwargs)
 
-        # Пропускаємо повідомлення що прийшли через webhook від клієнта
-        # (context sendpulse_incoming виставляється в sendpulse_connect.py)
-        if self.env.context.get('sendpulse_incoming'):
+        if incoming:
             return msg
 
         # Пропускаємо системні нотифікації Odoo (join/leave/invite тощо)
