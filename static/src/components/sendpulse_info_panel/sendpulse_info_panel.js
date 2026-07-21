@@ -111,6 +111,7 @@ export class SendpulseInfoPanel extends Component {
             confirmLabel: "Так, надіслати",
             cancelLabel: "Скасувати",
             confirm: () => this._doSendPdf(email),
+            cancel: () => {},
         });
     }
 
@@ -166,6 +167,7 @@ export class SendpulseInfoPanel extends Component {
             confirmLabel: "Так, надіслати",
             cancelLabel: "Скасувати",
             confirm: () => this._doSendSmsCoupon(phone),
+            cancel: () => {},
         });
     }
 
