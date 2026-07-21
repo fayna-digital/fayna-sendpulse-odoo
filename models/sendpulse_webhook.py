@@ -25,9 +25,19 @@ from .sendpulse_connect import _SENDPULSE_INBOUND_LOCK_KEY2
 
 _logger = logging.getLogger(__name__)
 
+# Meta (Messenger/Instagram) 24-годинне вікно обслуговування клієнта — після
+# вхідного повідомлення можна писати клієнту стільки годин без оплаченої
+# рекламної категорії. Спільне для webhook-flow і коментарів
+# (sendpulse_comment_autoreply.py імпортує цю константу).
+_SENDPULSE_MESSENGER_WINDOW_HOURS = 24
+
 
 class SendpulseConnectWebhook(models.Model):
     _inherit = 'sendpulse.connect'
+
+    # ── Magic-number константи (аудит 19.07.2026, issue #8) ───────────────
+    _LAST_MESSAGE_PREVIEW_LEN = 100  # обрізка last_message_preview (список розмов)
+    _MEDIA_DOWNLOAD_TIMEOUT = 30  # requests timeout(s) для завантаження медіа-вкладень
 
     @api.model
     def _process_incoming_event(self, data, contact, bot, service, event_type, timestamp_ms):
@@ -195,7 +205,9 @@ class SendpulseConnectWebhook(models.Model):
                 'unidentified_phone': phone if not partner else False,
                 'social_username': social_username or False,
                 'social_profile_url': social_profile_url or False,
-                'last_message_preview': last_message[:100] if last_message else '',
+                'last_message_preview': last_message[: self._LAST_MESSAGE_PREVIEW_LEN]
+                if last_message
+                else '',
                 'last_message_date': now,
                 'stage': 'new',
             }
@@ -262,13 +274,14 @@ class SendpulseConnectWebhook(models.Model):
 
             # Оновлюємо існуючу розмову
             update_vals = {
-                'last_message_preview': last_message[:100]
+                'last_message_preview': last_message[: self._LAST_MESSAGE_PREVIEW_LEN]
                 if last_message
                 else connect.last_message_preview,
                 'last_message_date': now,
                 'stage': 'new_message' if connect.stage == 'in_progress' else connect.stage,
                 # Клієнт написав → вікно 24h відновлюється
-                'sp_messenger_window_expires_at': now + timedelta(hours=24),
+                'sp_messenger_window_expires_at': now
+                + timedelta(hours=_SENDPULSE_MESSENGER_WINDOW_HOURS),
                 'sp_window_alert_sent': False,
             }
             # Метрики: перший inbound від клієнта
@@ -511,11 +524,13 @@ class SendpulseConnectWebhook(models.Model):
         )
 
         update_vals = {
-            'last_message_preview': last_message[:100],
+            'last_message_preview': last_message[: self._LAST_MESSAGE_PREVIEW_LEN],
             'last_message_date': now,
         }
         # Клієнт написав → вікно 24h відновлюється
-        update_vals['sp_messenger_window_expires_at'] = now + timedelta(hours=24)
+        update_vals['sp_messenger_window_expires_at'] = now + timedelta(
+            hours=_SENDPULSE_MESSENGER_WINDOW_HOURS
+        )
         update_vals['sp_window_alert_sent'] = False
         if connect.sp_funnel_stage in ('comment_only', 'private_sent', False, None):
             update_vals['sp_funnel_stage'] = 'customer_replied'
@@ -578,7 +593,7 @@ class SendpulseConnectWebhook(models.Model):
                 return requests.get(
                     media_url,
                     headers={'Authorization': f'Bearer {t}'},
-                    timeout=30,
+                    timeout=self._MEDIA_DOWNLOAD_TIMEOUT,
                     stream=True,
                 )
 

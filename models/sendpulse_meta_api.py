@@ -12,6 +12,14 @@ _logger = logging.getLogger(__name__)
 class SendpulseConnectMetaApi(models.Model):
     _inherit = 'sendpulse.connect'
 
+    # ── Magic-number константи (аудит 19.07.2026, issue #8) ───────────────
+    _FB_API_TIMEOUT = 15  # requests timeout(s) для Graph API викликів
+    _FB_AUDIT_LOG_RESPONSE_PREVIEW_LEN = 500  # обрізка response_text в ir.logging аудиті
+    _TOKEN_STATUS_ERROR_PREVIEW_LEN = 100  # обрізка err/str(e) у token_status полі
+    _FB_ERROR_TEXT_PREVIEW_LEN = 200  # обрізка resp.text у _parse_fb_error fallback
+    _FB_TOKEN_ALERT_RATE_LIMIT_HOURS = 1  # rate-limit Telegram-алерту про протухлий токен
+    _MESSENGER_WINDOW_ALERT_LEAD_HOURS = 2  # за скільки год. до закриття 24h-вікна алертити
+
     def _log_fb_audit(self, label, url, payload, status_code, response_text, attempts_used=1):
         """
         Зберігає запис про FB/IG API виклик у ir.logging для аудиту і дебагу.
@@ -23,7 +31,7 @@ class SendpulseConnectMetaApi(models.Model):
                 for k, v in (payload or {}).items()
             }
             level = 'INFO' if status_code == 200 else 'WARNING'
-            short_resp = (response_text or '')[:500]
+            short_resp = (response_text or '')[: self._FB_AUDIT_LOG_RESPONSE_PREVIEW_LEN]
             msg = (
                 f'[{label}] {status_code} attempts={attempts_used}\n'
                 f'URL: {url}\n'
@@ -58,7 +66,7 @@ class SendpulseConnectMetaApi(models.Model):
         last_text = ''
         for attempt in range(attempts):
             try:
-                resp = requests.post(url, json=payload, timeout=15)
+                resp = requests.post(url, json=payload, timeout=self._FB_API_TIMEOUT)
                 last_status = resp.status_code
                 last_text = resp.text or ''
                 if resp.status_code == 200:
@@ -132,7 +140,9 @@ class SendpulseConnectMetaApi(models.Model):
         if last_alert_iso:
             try:
                 last_alert = fields.Datetime.from_string(last_alert_iso)
-                if last_alert and (now - last_alert) < timedelta(hours=1):
+                if last_alert and (now - last_alert) < timedelta(
+                    hours=self._FB_TOKEN_ALERT_RATE_LIMIT_HOURS
+                ):
                     return  # rate-limit
             except Exception:
                 pass
@@ -173,7 +183,7 @@ class SendpulseConnectMetaApi(models.Model):
                     'client_secret': app_secret,
                     'fb_exchange_token': short_lived_token,
                 },
-                timeout=15,
+                timeout=self._FB_API_TIMEOUT,
             )
             if resp.status_code != 200:
                 err = self._parse_fb_error(resp)
@@ -388,7 +398,7 @@ class SendpulseConnectMetaApi(models.Model):
         щоб не повторювати сповіщення.
         """
         now = fields.Datetime.now()
-        threshold = now + timedelta(hours=2)
+        threshold = now + timedelta(hours=self._MESSENGER_WINDOW_ALERT_LEAD_HOURS)
         records = self.search(
             [
                 ('sp_messenger_window_expires_at', '!=', False),
@@ -438,7 +448,7 @@ class SendpulseConnectMetaApi(models.Model):
             resp = requests.get(
                 'https://graph.facebook.com/v25.0/me',
                 params={'access_token': token, 'fields': 'id,name'},
-                timeout=15,
+                timeout=self._FB_API_TIMEOUT,
             )
             if resp.status_code != 200:
                 err = self._parse_fb_error(resp)
@@ -451,7 +461,7 @@ class SendpulseConnectMetaApi(models.Model):
                 )
                 return {
                     'valid': False,
-                    'status': f'invalid: {err[:100]}',
+                    'status': f'invalid: {err[: self._TOKEN_STATUS_ERROR_PREVIEW_LEN]}',
                     'days_left': None,
                     'error': err,
                 }
@@ -459,7 +469,7 @@ class SendpulseConnectMetaApi(models.Model):
             _logger.error('SendPulse Odoo [%s]: FB token check failed — %s', label, e)
             return {
                 'valid': False,
-                'status': f'check_failed: {str(e)[:100]}',
+                'status': f'check_failed: {str(e)[: self._TOKEN_STATUS_ERROR_PREVIEW_LEN]}',
                 'days_left': None,
                 'error': str(e),
             }
@@ -479,7 +489,7 @@ class SendpulseConnectMetaApi(models.Model):
             resp = requests.get(
                 'https://graph.facebook.com/v25.0/debug_token',
                 params={'input_token': token, 'access_token': f'{app_id}|{app_secret}'},
-                timeout=15,
+                timeout=self._FB_API_TIMEOUT,
             )
             if resp.status_code != 200:
                 return {
@@ -590,6 +600,12 @@ class SendpulseConnectMetaApi(models.Model):
                 ]
                 if p
             ]
-            return ' — '.join(parts) or resp.text[:200]
+            return (
+                ' — '.join(parts) or resp.text[: SendpulseConnectMetaApi._FB_ERROR_TEXT_PREVIEW_LEN]
+            )
         except Exception:
-            return resp.text[:200] if resp.text else f'HTTP {resp.status_code}'
+            return (
+                resp.text[: SendpulseConnectMetaApi._FB_ERROR_TEXT_PREVIEW_LEN]
+                if resp.text
+                else f'HTTP {resp.status_code}'
+            )

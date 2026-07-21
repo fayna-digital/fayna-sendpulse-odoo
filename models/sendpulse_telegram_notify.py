@@ -9,6 +9,11 @@ _logger = logging.getLogger(__name__)
 class SendpulseConnectTelegramNotify(models.Model):
     _inherit = 'sendpulse.connect'
 
+    # ── Magic-number константи (аудит 19.07.2026, issue #8) ───────────────
+    _TELEGRAM_MESSAGE_MAX_LEN = 4000  # ліміт довжини тексту Telegram Bot API
+    _TELEGRAM_SEND_TIMEOUT = 10  # requests timeout(s) для sendMessage
+    _TELEGRAM_ERROR_PREVIEW_LEN = 200  # обрізка resp.text у _logger.warning
+
     @api.model
     def _notify_telegram(self, text, silent=False):
         """
@@ -29,19 +34,19 @@ class SendpulseConnectTelegramNotify(models.Model):
                 f'https://api.telegram.org/bot{token}/sendMessage',
                 json={
                     'chat_id': chat_id,
-                    'text': text[:4000],
+                    'text': text[: self._TELEGRAM_MESSAGE_MAX_LEN],
                     'parse_mode': 'HTML',
                     'disable_notification': silent,
                     'disable_web_page_preview': True,
                 },
-                timeout=10,
+                timeout=self._TELEGRAM_SEND_TIMEOUT,
             )
             if resp.status_code == 200:
                 return True
             _logger.warning(
                 'SendPulse Odoo: Telegram alert failed HTTP %d — %s',
                 resp.status_code,
-                resp.text[:200],
+                resp.text[: self._TELEGRAM_ERROR_PREVIEW_LEN],
             )
             return False
         except Exception as e:

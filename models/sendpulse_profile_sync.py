@@ -10,6 +10,10 @@ _logger = logging.getLogger(__name__)
 class SendpulseConnectProfileSync(models.Model):
     _inherit = 'sendpulse.connect'
 
+    # ── Magic-number константи (аудит 19.07.2026, issue #8) ───────────────
+    _CONTACT_FETCH_TIMEOUT = 10  # requests timeout(s) для GET /contacts/get
+    _AVATAR_DOWNLOAD_TIMEOUT = 15  # requests timeout(s) для завантаження avatar_url
+
     # ════════════════════════════════════════════════════════════════════
     # SendPulse API — синхронізація профілю контакту (Priority 3)
     # ════════════════════════════════════════════════════════════════════
@@ -70,7 +74,7 @@ class SendpulseConnectProfileSync(models.Model):
                 endpoint,
                 params={'id': self.sendpulse_contact_id},
                 headers={'Authorization': f'Bearer {token}'},
-                timeout=10,
+                timeout=self._CONTACT_FETCH_TIMEOUT,
             )
             if resp.status_code == 401:
                 self._sendpulse_oauth_invalidate_cache()
@@ -80,7 +84,7 @@ class SendpulseConnectProfileSync(models.Model):
                         endpoint,
                         params={'id': self.sendpulse_contact_id},
                         headers={'Authorization': f'Bearer {token}'},
-                        timeout=10,
+                        timeout=self._CONTACT_FETCH_TIMEOUT,
                     )
             resp.raise_for_status()
             data = resp.json()
@@ -123,7 +127,7 @@ class SendpulseConnectProfileSync(models.Model):
         if not self.partner_id or not self.avatar_url:
             return
         try:
-            resp = requests.get(self.avatar_url, timeout=15)
+            resp = requests.get(self.avatar_url, timeout=self._AVATAR_DOWNLOAD_TIMEOUT)
             resp.raise_for_status()
             image_b64 = base64.b64encode(resp.content).decode()
             self.partner_id.write({'image_1920': image_b64})

@@ -9,6 +9,9 @@ _logger = logging.getLogger(__name__)
 class SendpulseConnectCrmLead(models.Model):
     _inherit = 'sendpulse.connect'
 
+    # ── Magic-number константи (аудит 19.07.2026, issue #8) ───────────────
+    _LEAD_MESSAGE_PREVIEW_LEN = 200  # обрізка тексту повідомлення в description ліда
+
     # ── V2 F4: Auto-create CRM leads ─────────────────────────────────────
     def _auto_create_crm_lead(self):
         """
@@ -57,7 +60,8 @@ class SendpulseConnectCrmLead(models.Model):
         for m in reversed(list(recent_messages)):
             direction = '👤 Клієнт' if m.direction == 'incoming' else '🧑 Оператор'
             msg_lines.append(
-                f'{direction} [{m.date:%Y-%m-%d %H:%M}]: {(m.text_message or "")[:200]}'
+                f'{direction} [{m.date:%Y-%m-%d %H:%M}]: '
+                f'{(m.text_message or "")[: self._LEAD_MESSAGE_PREVIEW_LEN]}'
             )
         description_parts = [
             f'Джерело: {self._get_service_label()} через SendPulse',

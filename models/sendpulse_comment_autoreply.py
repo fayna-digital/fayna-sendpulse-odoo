@@ -7,12 +7,21 @@ from markupsafe import Markup, escape
 from odoo import api, fields, models
 
 from .sendpulse_connect import _SENDPULSE_INBOUND_LOCK_KEY2
+from .sendpulse_webhook import _SENDPULSE_MESSENGER_WINDOW_HOURS
 
 _logger = logging.getLogger(__name__)
 
 
 class SendpulseConnectCommentAutoreply(models.Model):
     _inherit = 'sendpulse.connect'
+
+    # ── Magic-number константи (аудит 19.07.2026, issue #8) ───────────────
+    _COMMENT_TEXT_STORE_LEN = 500  # обрізка sp_comment_text (поле запису)
+    _SPAM_TELEGRAM_PREVIEW_LEN = 200  # обрізка тексту коменту у Telegram-алерті (spam)
+    _COMPLAINT_TELEGRAM_PREVIEW_LEN = 500  # обрізка тексту коменту у Telegram-алерті (complaint)
+    _CLASSIFY_PROMPT_TEXT_LEN = 400  # обрізка коменту у LLM-класифікатор промпті
+    _LLM_CLASSIFIER_TIMEOUT = 10  # requests timeout(s) для LLM-класифікатора
+    _LOG_TEXT_PREVIEW_LEN = 200  # обрізка resp.text у _logger.warning
 
     # ════════════════════════════════════════════════════════════════════
     # Коментарі Facebook / Instagram — автовідповідь
@@ -134,7 +143,9 @@ class SendpulseConnectCommentAutoreply(models.Model):
                     'stage': 'new',
                     'sp_is_comment': True,
                     'sp_comment_id': comment_id,
-                    'sp_comment_text': comment_text[:500] if comment_text else '',
+                    'sp_comment_text': comment_text[: self._COMMENT_TEXT_STORE_LEN]
+                    if comment_text
+                    else '',
                     'sp_post_id': post_id,
                     'sp_post_url': post_url,
                     'sp_page_id': page_id_from_payload or (page.page_id if page else ''),
@@ -149,7 +160,9 @@ class SendpulseConnectCommentAutoreply(models.Model):
             connect.write(
                 {
                     'sp_comment_id': comment_id,
-                    'sp_comment_text': comment_text[:500] if comment_text else '',
+                    'sp_comment_text': comment_text[: self._COMMENT_TEXT_STORE_LEN]
+                    if comment_text
+                    else '',
                     'sp_post_id': post_id,
                     'sp_post_url': post_url,
                     'sp_page_id': page_id_from_payload or connect.sp_page_id,
@@ -218,7 +231,7 @@ class SendpulseConnectCommentAutoreply(models.Model):
                     self._notify_telegram(
                         f'🚫 <b>Спам приховано</b>\n'
                         f'Клієнт: {contact_name}\n'
-                        f'Текст: <i>{(comment_text or "")[:200]}</i>\n'
+                        f'Текст: <i>{(comment_text or "")[: self._SPAM_TELEGRAM_PREVIEW_LEN]}</i>\n'
                         f'{post_url}',
                         silent=True,
                     )
@@ -235,7 +248,7 @@ class SendpulseConnectCommentAutoreply(models.Model):
             self._notify_telegram(
                 f'🚨 <b>СКАРГА під постом</b> — потрібна увага!\n\n'
                 f'👤 Клієнт: <b>{contact_name}</b>\n'
-                f'📝 Текст: <i>{(comment_text or "")[:500]}</i>\n\n'
+                f'📝 Текст: <i>{(comment_text or "")[: self._COMPLAINT_TELEGRAM_PREVIEW_LEN]}</i>\n\n'
                 f'🔗 Допис: {post_url or "—"}'
             )
 
@@ -332,7 +345,7 @@ class SendpulseConnectCommentAutoreply(models.Model):
                     {
                         'sp_replied_private': True,
                         'sp_messenger_window_expires_at': fields.Datetime.now()
-                        + timedelta(hours=24),
+                        + timedelta(hours=_SENDPULSE_MESSENGER_WINDOW_HOURS),
                         'sp_window_alert_sent': False,
                         'sp_funnel_stage': 'private_sent',
                     }
@@ -388,7 +401,7 @@ class SendpulseConnectCommentAutoreply(models.Model):
             '- complaint (скарга, негатив, претензія)\n'
             '- spam (спам, реклама, шкідливе посилання, провокація)\n'
             '- other (не вдалось класифікувати)\n\n'
-            f'Коментар: "{text[:400]}"\n\n'
+            f'Коментар: "{text[: self._CLASSIFY_PROMPT_TEXT_LEN]}"\n\n'
             'Відповідай ОДНИМ СЛОВОМ — назвою категорії без пояснень.'
         )
         try:
@@ -404,13 +417,13 @@ class SendpulseConnectCommentAutoreply(models.Model):
                     'max_tokens': 20,
                     'messages': [{'role': 'user', 'content': prompt}],
                 },
-                timeout=10,
+                timeout=self._LLM_CLASSIFIER_TIMEOUT,
             )
             if resp.status_code != 200:
                 _logger.warning(
                     'SendPulse Odoo: LLM classifier HTTP %d — %s',
                     resp.status_code,
-                    resp.text[:200],
+                    resp.text[: self._LOG_TEXT_PREVIEW_LEN],
                 )
                 return 'other'
             data = resp.json()

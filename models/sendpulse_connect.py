@@ -848,10 +848,14 @@ class SendpulseConnect(models.Model):
                 ]
             )
 
+    _OPERATOR_NOTIFY_THROTTLE_HOURS = 1  # аудит 19.07.2026, issue #8 (magic numbers)
+
     def _notify_operators_new_message(self):
         """Сповіщає операторів про нове повідомлення (throttle: 1/год)."""
         now = datetime.now()
-        if self.last_notified_at and (now - self.last_notified_at) < timedelta(hours=1):
+        if self.last_notified_at and (now - self.last_notified_at) < timedelta(
+            hours=self._OPERATOR_NOTIFY_THROTTLE_HOURS
+        ):
             return
         self.write({'last_notified_at': now})
         target_partners = []
@@ -1131,7 +1135,7 @@ class SendpulseConnect(models.Model):
             'coupon_sent_to_phone': connect.sp_coupon_sent_to_phone or '',
         }
         if connect.partner_id:
-            p = connect.partner_id.sudo().with_context(active_test=False)
+            p = connect.partner_id.with_context(active_test=False)
             result['partner'] = {
                 'id': p.id,
                 'name': p.name,
@@ -1167,7 +1171,7 @@ class SendpulseConnect(models.Model):
         connect = self.search([('channel_id', '=', channel_id)], limit=1)
         if not connect or not connect.partner_id:
             return {'ok': False, 'error': 'no_partner'}
-        p = connect.partner_id.sudo().with_context(active_test=False)
+        p = connect.partner_id.with_context(active_test=False)
         if p.active:
             return {'ok': True, 'already_active': True}
         p.write({'active': True})

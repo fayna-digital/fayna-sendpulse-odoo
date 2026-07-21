@@ -69,7 +69,7 @@ class SendpulseConnectLeadMagnet(models.Model):
         if not res.get('ok'):
             _logger.warning('SendPulse Odoo: F13 offer email failed — %s', res.get('error'))
             return res
-        self.sudo().write(
+        self.write(
             {
                 'sp_pdf_sent_at': fields.Datetime.now(),
                 'sp_pdf_sent_to_email': to_email,
@@ -304,7 +304,7 @@ class SendpulseConnectLeadMagnet(models.Model):
             _logger.warning('SendPulse Odoo: F13 SMS send exception — %s', e)
             return {'ok': False, 'error': f'sms_send:{e}', 'code': code}
 
-        self.sudo().write(
+        self.write(
             {
                 'sp_coupon_code': code,
                 'sp_coupon_sent_at': fields.Datetime.now(),
