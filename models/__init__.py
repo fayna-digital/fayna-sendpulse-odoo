@@ -21,4 +21,5 @@ from . import (
     sendpulse_reporting,
     sendpulse_rodo,
     sendpulse_telegram_notify,
+    sendpulse_webhook,
 )
