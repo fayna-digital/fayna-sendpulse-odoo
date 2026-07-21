@@ -366,4 +366,3 @@ class SendpulseConnectLeadMagnet(models.Model):
         if not connect:
             return {'ok': False, 'error': 'no_connect', 'code': ''}
         return connect._generate_and_send_sms_coupon(to_phone=to_phone)
-

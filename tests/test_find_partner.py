@@ -15,6 +15,7 @@
 `sendpulse_contact_id` партнеру, якщо він там ще не заповнений (щоб
 наступний виклик уже потрапив у гілку 1 — найдешевшу).
 """
+
 from .common import SendpulseWebhookTestCase
 
 
@@ -85,21 +86,18 @@ class TestFindPartner(SendpulseWebhookTestCase):
             {'name': 'booking_email партнер', 'email': 'bev@example.com'}
         )
         found = self._find(
-            'cid-priority', variables={'user_email': 'uev@example.com', 'booking_email': 'bev@example.com'}
+            'cid-priority',
+            variables={'user_email': 'uev@example.com', 'booking_email': 'bev@example.com'},
         )
         self.assertEqual(found, user_email_partner)
 
     def test_priority5_by_phone(self):
-        partner = self.env['res.partner'].create(
-            {'name': 'Через телефон', 'phone': '+48123456789'}
-        )
+        partner = self.env['res.partner'].create({'name': 'Через телефон', 'phone': '+48123456789'})
         found = self._find('cid-ph', phone='+48123456789')
         self.assertEqual(found, partner)
 
     def test_priority5_by_mobile(self):
-        partner = self.env['res.partner'].create(
-            {'name': 'Через mobile', 'mobile': '+48987654321'}
-        )
+        partner = self.env['res.partner'].create({'name': 'Через mobile', 'mobile': '+48987654321'})
         found = self._find('cid-mob', phone='+48987654321')
         self.assertEqual(found, partner)
 

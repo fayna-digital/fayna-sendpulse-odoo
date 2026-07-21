@@ -25,6 +25,7 @@ umsubscribe-методу була умова, що звертались до п�
 звернення до правильного поля `sendpulse_contact_id` — тести нижче
 (`test_unidentified_...`) переписані під новий, ВИПРАВЛЕНИЙ контракт.
 """
+
 from .common import SendpulseWebhookTestCase
 
 
@@ -51,7 +52,9 @@ class TestRodoUnsubscribe(SendpulseWebhookTestCase):
         result = connect._check_and_record_unsubscribe('Дякую, все чудово!', msg)
         self.assertFalse(result)
         self.assertFalse(
-            self.env['sendpulse.privacy.consent.log'].sudo().search([('connect_id', '=', connect.id)])
+            self.env['sendpulse.privacy.consent.log']
+            .sudo()
+            .search([('connect_id', '=', connect.id)])
         )
 
     def test_empty_text_returns_false(self):
@@ -68,22 +71,34 @@ class TestRodoUnsubscribe(SendpulseWebhookTestCase):
         result = connect._check_and_record_unsubscribe('STOP будь ласка', msg)
         self.assertTrue(result)
 
-        logs = self.env['sendpulse.privacy.consent.log'].sudo().search([('connect_id', '=', connect.id)])
+        logs = (
+            self.env['sendpulse.privacy.consent.log']
+            .sudo()
+            .search([('connect_id', '=', connect.id)])
+        )
         self.assertEqual(len(logs), 3, 'email + sms + messenger withdrawal')
         purposes = set(logs.mapped('purpose'))
         self.assertEqual(purposes, {'lead_magnet_email', 'lead_magnet_sms', 'marketing_email'})
-        self.assertTrue(all(not log.consent_given for log in logs), 'усі три — withdrawal (consent_given=False)')
+        self.assertTrue(
+            all(not log.consent_given for log in logs), 'усі три — withdrawal (consent_given=False)'
+        )
         email_log = logs.filtered(lambda log: log.purpose == 'lead_magnet_email')
         self.assertEqual(email_log.email, 'rodo@example.com')
         sms_log = logs.filtered(lambda log: log.purpose == 'lead_magnet_sms')
         self.assertEqual(sms_log.phone, '+48700111222')
 
     def test_stop_with_partner_no_phone_records_two_withdrawals(self):
-        partner = self.env['res.partner'].create({'name': 'Без телефону', 'email': 'nophone@example.com'})
+        partner = self.env['res.partner'].create(
+            {'name': 'Без телефону', 'email': 'nophone@example.com'}
+        )
         connect = self._connect(partner_id=partner.id)
         msg = self._msg(connect, 'unsubscribe')
         connect._check_and_record_unsubscribe('unsubscribe', msg)
-        logs = self.env['sendpulse.privacy.consent.log'].sudo().search([('connect_id', '=', connect.id)])
+        logs = (
+            self.env['sendpulse.privacy.consent.log']
+            .sudo()
+            .search([('connect_id', '=', connect.id)])
+        )
         self.assertEqual(len(logs), 2, 'email + messenger, без sms (немає телефону)')
         self.assertEqual(set(logs.mapped('purpose')), {'lead_magnet_email', 'marketing_email'})
 
@@ -123,7 +138,11 @@ class TestRodoUnsubscribe(SendpulseWebhookTestCase):
         msg = self._msg(connect, 'STOP')
         result = connect._check_and_record_unsubscribe('STOP', msg)
         self.assertTrue(result)
-        logs = self.env['sendpulse.privacy.consent.log'].sudo().search([('connect_id', '=', connect.id)])
+        logs = (
+            self.env['sendpulse.privacy.consent.log']
+            .sudo()
+            .search([('connect_id', '=', connect.id)])
+        )
         self.assertEqual(len(logs), 1, 'лише messenger withdrawal (немає email, немає phone)')
         self.assertEqual(logs.purpose, 'marketing_email')
         self.assertFalse(logs.partner_id, 'немає partner_id у неідентифікованого контакту')
@@ -142,7 +161,11 @@ class TestRodoUnsubscribe(SendpulseWebhookTestCase):
         # .sudo() тут ОБОВ'ЯЗКОВИЙ, не стилістичний — security/ir.model.access.csv
         # дає доступ до sendpulse.privacy.consent.log лише
         # group_sendpulse_officer/admin.
-        logs = self.env['sendpulse.privacy.consent.log'].sudo().search([('connect_id', '=', connect.id)])
+        logs = (
+            self.env['sendpulse.privacy.consent.log']
+            .sudo()
+            .search([('connect_id', '=', connect.id)])
+        )
         self.assertEqual(len(logs), 2, 'email + messenger withdrawal, без sms (немає partner_id)')
         self.assertEqual(set(logs.mapped('purpose')), {'lead_magnet_email', 'marketing_email'})
         email_log = logs.filtered(lambda log: log.purpose == 'lead_magnet_email')
