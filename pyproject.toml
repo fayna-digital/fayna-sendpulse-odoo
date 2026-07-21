@@ -50,6 +50,7 @@ extend-immutable-calls = ["fields.Char", "fields.Many2one", "fields.One2many"]
 "tests/*" = ["S101", "S105", "S106", "S107"]  # asserts + hardcoded passwords у тестах ок
 "__manifest__.py" = ["S", "B018"]              # manifest file — bare dict literal (Odoo convention)
 "__init__.py" = ["F401", "N999"]               # Odoo init: F401 re-exports; N999 GitHub repo uses dashes у folder name, Python module use underscores у technical name
+"models/__init__.py" = ["I001"]                # sendpulse_connect МУСИТЬ бути першим sendpulse_*-імпортом (Odoo будує registry в порядку імпорту; _inherit-шард без _name, імпортований раніше за файл з _name='sendpulse.connect', валить весь модуль TypeError-ом). Алфавітний isort це ламає — INC 2026-07-21.
 "*/migrations/*" = ["ALL"]                     # migration scripts мають власну структуру
 
 [tool.ruff.format]
