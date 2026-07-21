@@ -12,6 +12,11 @@ class SendpulseFacebookPage(models.Model):
     _description = 'Facebook Page для автовідповідей'
     _order = 'is_default desc, name'
 
+    # ── Magic-number константи (аудит 19.07.2026, issue #8) ───────────────
+    _TOKEN_VERIFY_TIMEOUT = 10  # requests timeout(s) для GET /me (action_verify_token)
+    _META_SYNC_TIMEOUT = 15  # requests timeout(s) для GET /me/accounts (sync_from_meta)
+    _TOKEN_ERROR_PREVIEW_LEN = 100  # обрізка err/str(e) у token_status полі
+
     name = fields.Char(string='Назва', required=True)
     page_id = fields.Char(string='Page ID', required=True, index=True)
     access_token = fields.Char(string='Page Access Token', required=True)
@@ -70,16 +75,16 @@ class SendpulseFacebookPage(models.Model):
                 resp = requests.get(
                     f'https://graph.facebook.com/v25.0/{rec.page_id}',
                     params={'access_token': rec.access_token, 'fields': 'id,name'},
-                    timeout=10,
+                    timeout=self._TOKEN_VERIFY_TIMEOUT,
                 )
                 if resp.status_code == 200:
                     rec.token_status = 'valid'
                 else:
                     err = resp.json().get('error', {}).get('message', f'HTTP {resp.status_code}')
-                    rec.token_status = f'invalid: {err[:100]}'
+                    rec.token_status = f'invalid: {err[: self._TOKEN_ERROR_PREVIEW_LEN]}'
                 rec.last_checked_at = fields.Datetime.now()
             except Exception as e:
-                rec.token_status = f'check_failed: {str(e)[:100]}'
+                rec.token_status = f'check_failed: {str(e)[: self._TOKEN_ERROR_PREVIEW_LEN]}'
         return True
 
     @api.model
@@ -99,7 +104,7 @@ class SendpulseFacebookPage(models.Model):
                     'fields': 'id,name,access_token,instagram_business_account,category',
                     'limit': 100,
                 },
-                timeout=15,
+                timeout=self._META_SYNC_TIMEOUT,
             )
             if resp.status_code != 200:
                 err = resp.json().get('error', {}).get('message', f'HTTP {resp.status_code}')

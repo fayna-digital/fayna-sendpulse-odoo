@@ -11,6 +11,15 @@ _logger = logging.getLogger(__name__)
 class SendpulseConnectAiAssist(models.Model):
     _inherit = 'sendpulse.connect'
 
+    # ── Magic-number константи (аудит 19.07.2026, issue #8) ───────────────
+    _ANTHROPIC_API_TIMEOUT = 15  # requests timeout(s) для викликів Claude API
+    _LOG_TEXT_PREVIEW_LEN = 200  # обрізка resp.text/raw у _logger.warning
+    _LOG_RAW_JSON_PREVIEW_LEN = 500  # обрізка більшого RAW JSON-фрагменту (parse fail)
+    _EXCEPTION_MSG_PREVIEW_LEN = 100  # обрізка str(e) у reason-полях
+    _RAG_QUESTION_PROMPT_MAX_LEN = 500  # ліміт question_text у RAG-промпті
+    _RAG_QUESTION_NOTE_PREVIEW_LEN = 200  # ліміт question_text у Discuss-нотатці
+    _RAG_AUTO_ANSWER_RATE_LIMIT_HOURS = 1  # rate-limit авто-відповіді RAG (1x/год)
+
     # ── V2 F14: Live event seats context для AI prompts ──────────────────
     def _get_live_events_context(self, limit=15, low_ratio=0.3):
         """
@@ -252,13 +261,13 @@ class SendpulseConnectAiAssist(models.Model):
                     'max_tokens': 800,
                     'messages': [{'role': 'user', 'content': prompt}],
                 },
-                timeout=15,
+                timeout=self._ANTHROPIC_API_TIMEOUT,
             )
             if resp.status_code != 200:
                 _logger.warning(
                     'SendPulse Odoo: suggested_reply HTTP %d — %s',
                     resp.status_code,
-                    resp.text[:200],
+                    resp.text[: self._LOG_TEXT_PREVIEW_LEN],
                 )
                 return []
             raw = (resp.json().get('content') or [{}])[0].get('text', '').strip()
@@ -289,7 +298,7 @@ class SendpulseConnectAiAssist(models.Model):
             if not isinstance(data, dict):
                 _logger.warning(
                     'SendPulse Odoo: suggested_reply failed to parse JSON. RAW=%s',
-                    raw[:500],
+                    raw[: self._LOG_RAW_JSON_PREVIEW_LEN],
                 )
                 return []
             suggestions = data.get('suggestions') or []
@@ -337,13 +346,11 @@ class SendpulseConnectAiAssist(models.Model):
             email = m.group(0).lower().strip()
             vals = {'sp_booking_email': email}
             if not self.partner_id:
-                partner = (
-                    self.env['res.partner'].sudo().search([('email', '=ilike', email)], limit=1)
-                )
+                partner = self.env['res.partner'].search([('email', '=ilike', email)], limit=1)
                 if partner:
                     vals['partner_id'] = partner.id
                     if self.sendpulse_contact_id and not partner.sendpulse_contact_id:
-                        partner.sudo().write({'sendpulse_contact_id': self.sendpulse_contact_id})
+                        partner.write({'sendpulse_contact_id': self.sendpulse_contact_id})
             self.write(vals)
             _logger.info(
                 'SendPulse Odoo: F12 email extracted %s from connect %s, linked partner=%s',
@@ -400,13 +407,13 @@ class SendpulseConnectAiAssist(models.Model):
                     'max_tokens': 2000,
                     'messages': [{'role': 'user', 'content': prompt}],
                 },
-                timeout=15,
+                timeout=self._ANTHROPIC_API_TIMEOUT,
             )
             if resp.status_code != 200:
                 _logger.warning(
                     'SendPulse Odoo: translate HTTP %d — %s',
                     resp.status_code,
-                    resp.text[:200],
+                    resp.text[: self._LOG_TEXT_PREVIEW_LEN],
                 )
                 return {'translated': '', 'source_lang': '', 'error': f'http_{resp.status_code}'}
             raw = (resp.json().get('content') or [{}])[0].get('text', '').strip()
@@ -523,7 +530,7 @@ class SendpulseConnectAiAssist(models.Model):
             f'Ти — AI-асистент менеджера CampScout (дитячі табори 6-17 років у Польщі).\n'
             f'Наш стиль: продавці-консультанти, не сухі факти — ЦІННІСТЬ + ТЕРМІНОВІСТЬ + CTA.\n\n'
             f'Клієнт написав у приват:\n'
-            f'"""\n{question_text[:500]}\n"""\n\n'
+            f'"""\n{question_text[: self._RAG_QUESTION_PROMPT_MAX_LEN]}\n"""\n\n'
             f'{contact_hint}\n\n'
             f'{live_events_block}'
             f'База FAQ з canonical відповідями:\n\n'
@@ -570,13 +577,13 @@ class SendpulseConnectAiAssist(models.Model):
                     'max_tokens': 500,
                     'messages': [{'role': 'user', 'content': prompt}],
                 },
-                timeout=15,
+                timeout=self._ANTHROPIC_API_TIMEOUT,
             )
             if resp.status_code != 200:
                 _logger.warning(
                     'SendPulse Odoo: RAG HTTP %d — %s',
                     resp.status_code,
-                    resp.text[:200],
+                    resp.text[: self._LOG_TEXT_PREVIEW_LEN],
                 )
                 return {**empty, 'reason': f'http_{resp.status_code}'}
 
@@ -587,7 +594,10 @@ class SendpulseConnectAiAssist(models.Model):
 
             m = _re.search(r'\{[\s\S]*?\}', raw)
             if not m:
-                _logger.warning('SendPulse Odoo: RAG no JSON in response — %s', raw[:200])
+                _logger.warning(
+                    'SendPulse Odoo: RAG no JSON in response — %s',
+                    raw[: self._LOG_TEXT_PREVIEW_LEN],
+                )
                 return {**empty, 'reason': 'no_json'}
             data = _json.loads(m.group(0))
             faq_id_raw = data.get('faq_id')
@@ -642,7 +652,7 @@ class SendpulseConnectAiAssist(models.Model):
             }
         except Exception as e:
             _logger.error('SendPulse Odoo: RAG exception — %s', e)
-            return {**empty, 'reason': f'exception: {str(e)[:100]}'}
+            return {**empty, 'reason': f'exception: {str(e)[: self._EXCEPTION_MSG_PREVIEW_LEN]}'}
 
     def _try_rag_auto_answer(self, question_text):
         """
@@ -687,7 +697,9 @@ class SendpulseConnectAiAssist(models.Model):
 
         # Rate-limit: якщо нещодавно (< 1h) вже відповіли автоматично — skip
         now = fields.Datetime.now()
-        if self.rag_auto_answered_at and (now - self.rag_auto_answered_at) < timedelta(hours=1):
+        if self.rag_auto_answered_at and (now - self.rag_auto_answered_at) < timedelta(
+            hours=self._RAG_AUTO_ANSWER_RATE_LIMIT_HOURS
+        ):
             return
 
         result = self._rag_answer_question(question_text, contact_name=self.name or '')
@@ -729,7 +741,7 @@ class SendpulseConnectAiAssist(models.Model):
                     ).format(
                         faq_id=faq_id,
                         conf=result.get('confidence', 0.0),
-                        q=escape(question_text[:200]),
+                        q=escape(question_text[: self._RAG_QUESTION_NOTE_PREVIEW_LEN]),
                         a=escape(answer),
                     ),
                     message_type='comment',

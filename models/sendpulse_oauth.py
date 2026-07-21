@@ -14,6 +14,8 @@ _SENDPULSE_OAUTH_TOKEN_PARAM = 'odoo_chatwoot_connector.oauth_access_token'
 _SENDPULSE_OAUTH_UNTIL_PARAM = 'odoo_chatwoot_connector.oauth_valid_until'
 _SENDPULSE_OAUTH_LOCK_KEY1 = 94219
 _SENDPULSE_OAUTH_LOCK_KEY2 = 55817
+# Magic-number константа (аудит 19.07.2026, issue #8):
+_SENDPULSE_OAUTH_TIMEOUT = 15  # requests timeout(s) для POST oauth/access_token
 
 
 class SendpulseConnectOAuth(models.Model):
@@ -60,7 +62,7 @@ class SendpulseConnectOAuth(models.Model):
                         'client_id': client_id,
                         'client_secret': client_secret,
                     },
-                    timeout=15,
+                    timeout=_SENDPULSE_OAUTH_TIMEOUT,
                 )
                 if resp.status_code == 429:
                     ra = (resp.headers.get('Retry-After') or '').strip()

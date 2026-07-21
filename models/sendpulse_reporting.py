@@ -22,6 +22,10 @@ class SendpulseConnectReporting(models.Model):
 
     _DIALOGS_URL = 'https://api.sendpulse.com/chatbots/dialogs'
 
+    # ── Magic-number константи (аудит 19.07.2026, issue #8) ───────────────
+    _DIALOGS_FETCH_TIMEOUT = 15  # requests timeout(s) для GET /chatbots/dialogs
+    _WEEKLY_REPORT_MAX_LEN = 4000  # ліміт довжини Telegram-повідомлення
+
     @api.model
     def cron_check_dialogs_snapshot(self):
         """
@@ -51,7 +55,7 @@ class SendpulseConnectReporting(models.Model):
                 self._DIALOGS_URL,
                 params={'size': 100, 'order': 'desc'},
                 headers={'Authorization': f'Bearer {token}'},
-                timeout=15,
+                timeout=self._DIALOGS_FETCH_TIMEOUT,
             )
             resp.raise_for_status()
             dialogs = (resp.json().get('data') or {}).get('list') or []
@@ -307,4 +311,4 @@ class SendpulseConnectReporting(models.Model):
                     f'({worst.customer_replied_count}/{worst.use_count})'
                 )
 
-        return '\n'.join(lines)[:4000]
+        return '\n'.join(lines)[: self._WEEKLY_REPORT_MAX_LEN]

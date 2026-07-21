@@ -10,6 +10,12 @@ class SendpulseConnectDrip(models.Model):
     _inherit = 'sendpulse.connect'
 
     # ── V2 F2: Drip campaigns ─────────────────────────────────────────────
+    # Magic-number пороги (аудит 19.07.2026, issue #8) — три cron-стріми нижче:
+    _DRIP_REMINDER_6H_HOURS = 6  # Stream 1: private_sent без відповіді → нагадування
+    _DRIP_OPERATOR_ALERT_HOURS = 2  # Stream 2: customer_replied без відповіді оператора
+    _DRIP_BOOKING_REMINDER_DAYS = 3  # Stream 3: lead_created без оплати → нагадування про бронь
+    _DRIP_MESSAGE_PREVIEW_LEN = 200  # обрізка last_message_preview у Telegram-алерті
+
     _DRIP_STOP_KEYWORDS = (
         'stop',
         'не писати',
@@ -67,7 +73,7 @@ class SendpulseConnectDrip(models.Model):
             'Будемо раді відповісти на будь-які питання 🏕️',
         )
         if ICP.get_param('odoo_chatwoot_connector.drip_reminder_6h_enabled', 'True') == 'True':
-            threshold_6h = now - timedelta(hours=6)
+            threshold_6h = now - timedelta(hours=self._DRIP_REMINDER_6H_HOURS)
             candidates = self.search(
                 [
                     ('sp_funnel_stage', '=', 'private_sent'),
@@ -95,7 +101,7 @@ class SendpulseConnectDrip(models.Model):
 
         # ── Stream 2: customer_replied → оператор silent 2h → Telegram alert ─
         if ICP.get_param('odoo_chatwoot_connector.drip_operator_alert_enabled', 'True') == 'True':
-            threshold_2h = now - timedelta(hours=2)
+            threshold_2h = now - timedelta(hours=self._DRIP_OPERATOR_ALERT_HOURS)
             # Шукаємо розмови де клієнт написав але оператор НЕ відповів 2h
             stalled = self.search(
                 [
@@ -116,7 +122,7 @@ class SendpulseConnectDrip(models.Model):
                     self._notify_telegram(
                         f'⏱ <b>Клієнт чекає відповідь 2h+</b>\n\n'
                         f'👤 {rec.name} ({rec._get_service_label()})\n'
-                        f'💬 Останнє: <i>{(rec.last_message_preview or "")[:200]}</i>\n\n'
+                        f'💬 Останнє: <i>{(rec.last_message_preview or "")[: self._DRIP_MESSAGE_PREVIEW_LEN]}</i>\n\n'
                         f'Розмова у черзі SendPulse → Нове повідомлення. Прошу підключитись 🙂',
                         silent=False,
                     )
@@ -136,7 +142,7 @@ class SendpulseConnectDrip(models.Model):
             'підготуємо договір і рахунок 🏕️',
         )
         if ICP.get_param('odoo_chatwoot_connector.drip_booking_3d_enabled', 'True') == 'True':
-            threshold_3d = now - timedelta(days=3)
+            threshold_3d = now - timedelta(days=self._DRIP_BOOKING_REMINDER_DAYS)
             candidates = self.search(
                 [
                     ('sp_funnel_stage', '=', 'lead_created'),

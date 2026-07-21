@@ -23,6 +23,11 @@ _logger = logging.getLogger(__name__)
 class SendpulseConnectMessaging(models.Model):
     _inherit = 'sendpulse.connect'
 
+    # ── Magic-number константи (аудит 19.07.2026, issue #8) ───────────────
+    _SENDPULSE_API_TIMEOUT = 15  # requests timeout(s) для send/pull-контактів
+    _LOG_RESPONSE_BODY_PREVIEW_LEN = 500  # обрізка resp.text у _logger.info/warning
+    _ERROR_RAW_TEXT_PREVIEW_LEN = 200  # обрізка raw resp.text у 400-hint
+
     # Ліміти SendPulse API по довжині тексту (chars). Перевищення → 400 (#100).
     _SERVICE_TEXT_LIMITS = {
         'telegram': 4096,
@@ -239,11 +244,15 @@ class SendpulseConnectMessaging(models.Model):
                 self.sendpulse_contact_id,
                 payload,
             )
-            resp = requests.post(endpoint, headers=headers, json=payload, timeout=15)
+            resp = requests.post(
+                endpoint, headers=headers, json=payload, timeout=self._SENDPULSE_API_TIMEOUT
+            )
             _logger.info(
                 'SendPulse Odoo: відповідь API status=%s body=%s',
                 resp.status_code,
-                resp.text.replace('\n', ' ').replace('\r', '')[:500],
+                resp.text.replace('\n', ' ').replace('\r', '')[
+                    : self._LOG_RESPONSE_BODY_PREVIEW_LEN
+                ],
             )
 
             if resp.status_code == 401:
@@ -251,11 +260,18 @@ class SendpulseConnectMessaging(models.Model):
                 token = self._get_access_token(force_refresh=True)
                 if token:
                     headers['Authorization'] = f'Bearer {token}'
-                    resp = requests.post(endpoint, headers=headers, json=payload, timeout=15)
+                    resp = requests.post(
+                        endpoint,
+                        headers=headers,
+                        json=payload,
+                        timeout=self._SENDPULSE_API_TIMEOUT,
+                    )
                     _logger.info(
                         'SendPulse Odoo: повтор після 401 status=%s body=%s',
                         resp.status_code,
-                        resp.text.replace('\n', ' ').replace('\r', '')[:500],
+                        resp.text.replace('\n', ' ').replace('\r', '')[
+                            : self._LOG_RESPONSE_BODY_PREVIEW_LEN
+                        ],
                     )
 
             # Карта назв каналів для повідомлень оператору
@@ -294,7 +310,11 @@ class SendpulseConnectMessaging(models.Model):
                             'клієнт відписався від бота або заблокував його.'
                         )
                 else:
-                    raw = (resp.text or '').replace('\n', ' ').strip()[:200]
+                    raw = (
+                        (resp.text or '')
+                        .replace('\n', ' ')
+                        .strip()[: self._ERROR_RAW_TEXT_PREVIEW_LEN]
+                    )
                     hint = f'API відхилив запит. Код: {err_code or raw or "невідомо"}.'
 
                 _logger.warning(
@@ -462,7 +482,7 @@ class SendpulseConnectMessaging(models.Model):
                         endpoint,
                         params={'bot_id': bot_id, 'from': offset, 'count': page_size},
                         headers={'Authorization': f'Bearer {token}'},
-                        timeout=15,
+                        timeout=self._SENDPULSE_API_TIMEOUT,
                     )
                     if resp.status_code == 401:
                         self._sendpulse_oauth_invalidate_cache()
@@ -474,7 +494,7 @@ class SendpulseConnectMessaging(models.Model):
                             endpoint,
                             params={'bot_id': bot_id, 'from': offset, 'count': page_size},
                             headers={'Authorization': f'Bearer {token}'},
-                            timeout=15,
+                            timeout=self._SENDPULSE_API_TIMEOUT,
                         )
                     resp.raise_for_status()
                     data = resp.json()

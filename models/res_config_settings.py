@@ -180,7 +180,7 @@ class ResConfigSettings(models.TransientModel):
             from odoo.exceptions import UserError
 
             raise UserError(_('Введіть User Access Token перш ніж синхронізувати.'))
-        Page = self.env['sendpulse.facebook.page'].sudo()
+        Page = self.env['sendpulse.facebook.page']
         processed = Page.sync_from_meta(self.fb_sync_user_token)
         created = sum(1 for _p, action in processed if action == 'created')
         updated = sum(1 for _p, action in processed if action == 'updated')
@@ -320,7 +320,7 @@ class ResConfigSettings(models.TransientModel):
         string='SMS provider ID (kw_sms_provider)',
         config_parameter='odoo_chatwoot_connector.sms_provider_id',
         default=2,
-        help='ID запису з kw_sms_provider (TurboSMS=2 за замовчуванням). ' 'Див. SMS → Providers.',
+        help='ID запису з kw_sms_provider (TurboSMS=2 за замовчуванням). Див. SMS → Providers.',
     )
 
     # ── Drip campaigns (V2 F2) ───────────────────────────────────────────

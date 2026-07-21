@@ -8,6 +8,9 @@ _logger = logging.getLogger(__name__)
 class SendpulseConnectRodo(models.Model):
     _inherit = 'sendpulse.connect'
 
+    # ── Magic-number константи (аудит 19.07.2026, issue #8) ───────────────
+    _UNSUBSCRIBE_EXACT_RESPONSE_LEN = 500  # обрізка exact_response у consent-логах
+
     # ── V2 F13b: RODO unsubscribe detection ───────────────────────────────
     # Ключові фрази де клієнт просить НЕ надсилати більше маркетингові матеріали.
     # Мультимовно: UK + PL + RU + EN. Case-insensitive, whole-word.
@@ -63,7 +66,7 @@ class SendpulseConnectRodo(models.Model):
                 message_id=message.id if message else False,
                 email=email,
                 consent_given=False,
-                exact_response=text[:500],
+                exact_response=text[: self._UNSUBSCRIBE_EXACT_RESPONSE_LEN],
                 notes=f'Auto-recorded unsubscribe (pattern: {matched})',
             )
             recorded.append('email')
@@ -77,7 +80,7 @@ class SendpulseConnectRodo(models.Model):
                 message_id=message.id if message else False,
                 phone=phone,
                 consent_given=False,
-                exact_response=text[:500],
+                exact_response=text[: self._UNSUBSCRIBE_EXACT_RESPONSE_LEN],
                 notes=f'Auto-recorded unsubscribe (pattern: {matched})',
             )
             recorded.append('sms')
@@ -90,7 +93,7 @@ class SendpulseConnectRodo(models.Model):
                 connect_id=self.id,
                 message_id=message.id if message else False,
                 consent_given=False,
-                exact_response=text[:500],
+                exact_response=text[: self._UNSUBSCRIBE_EXACT_RESPONSE_LEN],
                 notes=f'Auto-recorded unsubscribe via messenger (pattern: {matched})',
             )
             recorded.append('messenger')
