@@ -9,15 +9,18 @@
             <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-100">
                 <span class="fw-semibold text-muted small text-uppercase">SendPulse</span>
                 <div class="d-flex gap-1">
-                    <button class="btn btn-sm btn-link p-0 text-muted"
+                    <button class="btn btn-sm btn-link p-0 text-muted d-flex align-items-center gap-1"
                             title="Оновити профіль з API"
-                            t-on-click="onRefreshClick">
-                        <i class="fa fa-refresh"/>
+                            t-on-click="onRefreshClick"
+                            t-att-disabled="state.refreshLoading">
+                        <i t-attf-class="fa fa-refresh {{ state.refreshLoading ? 'fa-spin' : '' }}"/>
+                        <span style="font-size: 10px;">Оновити</span>
                     </button>
-                    <button class="btn btn-sm btn-link p-0 text-muted"
+                    <button class="btn btn-sm btn-link p-0 text-muted d-flex align-items-center gap-1"
                             title="Відкрити картку розмови"
                             t-on-click="onOpenFormClick">
                         <i class="fa fa-external-link"/>
+                        <span style="font-size: 10px;">Картка</span>
                     </button>
                 </div>
             </div>
@@ -32,7 +35,10 @@
             <!-- Error -->
             <t t-elif="state.error">
                 <div class="p-3 text-danger small">
-                    <i class="fa fa-exclamation-circle"/> Помилка завантаження
+                    <div class="mb-2"><i class="fa fa-exclamation-circle"/> Помилка завантаження</div>
+                    <button class="btn btn-sm btn-outline-danger" t-on-click="onRetryLoad">
+                        <i class="fa fa-refresh"/> Спробувати ще раз
+                    </button>
                 </div>
             </t>
 
@@ -87,9 +93,9 @@
                     </t>
 
                     <t t-if="state.connect.language_code">
-                        <div class="d-flex gap-2 mb-1 small">
+                        <div class="d-flex gap-2 mb-1 small" t-att-title="'Мова: ' + languageLabel">
                             <i class="fa fa-language text-muted mt-1" style="width:14px;"/>
-                            <span t-esc="state.connect.language_code"/>
+                            <span t-esc="languageLabel"/>
                         </div>
                     </t>
 
@@ -299,13 +305,16 @@
                                            t-att-disabled="state.smsLoading"/>
                                     <button class="btn btn-outline-primary"
                                             t-on-click="onSendSmsCoupon"
-                                            t-att-disabled="state.smsLoading or !state.smsPhone">
+                                            t-att-disabled="state.smsLoading or !state.smsPhone or !smsPhoneValid">
                                         <t t-if="state.smsLoading">
                                             <i class="fa fa-spinner fa-spin"/>
                                         </t>
                                         <t t-else="">Надіслати</t>
                                     </button>
                                 </div>
+                                <t t-if="state.smsPhone and !smsPhoneValid">
+                                    <div class="text-warning small mt-1">Схоже на неповний номер — перевірте перед відправкою</div>
+                                </t>
                                 <t t-if="state.smsError">
                                     <div class="text-danger small mt-1"><t t-esc="state.smsError"/></div>
                                 </t>

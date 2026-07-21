@@ -2,6 +2,20 @@
 import { Component, useState, onWillStart, onWillUpdateProps } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { browser } from "@web/core/browser/browser";
+import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
+
+/** UX-аудит 21.07.2026: мінімальна довжина цифр телефону, щоб вважати prefill валідним
+ *  (лише проти явно биткого значення типу "901" — не повноцінна валідація формату). */
+const MIN_PHONE_DIGITS = 9;
+
+/** Код мови → людська назва для підпису біля ISO-коду в панелі. */
+const LANGUAGE_LABELS = {
+    uk: "Українська",
+    pl: "Polski",
+    en: "English",
+    ru: "Русский",
+    de: "Deutsch",
+};
 
 /**
  * SendpulseInfoPanel — бічна панель в Odoo Discuss для SendPulse каналів.
@@ -19,10 +33,12 @@ export class SendpulseInfoPanel extends Component {
         this.orm = useService("orm");
         this.action = useService("action");
         this.notification = useService("notification");
+        this.dialog = useService("dialog");
         this.state = useState({
             connect: null,
             loading: true,
             error: false,
+            refreshLoading: false,
             suggestions: [],
             suggestLoading: false,
             suggestError: false,
@@ -65,10 +81,13 @@ export class SendpulseInfoPanel extends Component {
                 [channelId],
             );
             this.state.connect = data || null;
-            // F13: prefill email/phone
+            // F13: prefill email/phone — телефон лише якщо схожий на реальний
+            // (UX-аудит 21.07.2026: явно биті значення типу "901" раніше
+            // префілились і давали натиснути "Надіслати" не дивлячись).
             if (data) {
                 this.state.pdfEmail = data.prefill_email || "";
-                this.state.smsPhone = data.prefill_phone || "";
+                const digits = (data.prefill_phone || "").replace(/\D/g, "");
+                this.state.smsPhone = digits.length >= MIN_PHONE_DIGITS ? data.prefill_phone : "";
             }
         } catch (e) {
             this.state.error = true;
@@ -80,16 +99,29 @@ export class SendpulseInfoPanel extends Component {
 
     /**
      * F13: Надіслати PDF-каталог на email клієнта.
+     * UX-аудит 21.07.2026: реальний зовнішній send — питаємо підтвердження,
+     * бо помилковий клік не можна скасувати (лист уже пішов клієнту).
      */
     async onSendPdf() {
         if (!this.props.thread?.id || !this.state.pdfEmail) return;
+        const email = this.state.pdfEmail;
+        this.dialog.add(ConfirmationDialog, {
+            title: "Надіслати PDF-каталог?",
+            body: `Клієнту реально піде email на ${email}. Продовжити?`,
+            confirmLabel: "Так, надіслати",
+            cancelLabel: "Скасувати",
+            confirm: () => this._doSendPdf(email),
+        });
+    }
+
+    async _doSendPdf(email) {
         this.state.pdfLoading = true;
         this.state.pdfError = "";
         try {
             const result = await this.orm.call(
                 "sendpulse.connect",
                 "send_pdf_catalog_for_channel",
-                [this.props.thread.id, this.state.pdfEmail],
+                [this.props.thread.id, email],
             );
             if (!result || !result.ok) {
                 const errMap = {
@@ -100,10 +132,10 @@ export class SendpulseInfoPanel extends Component {
                     already_sent: "Уже надіслано на цей email",
                     no_connect: "Контакт не знайдено",
                 };
-                this.state.pdfError = errMap[result?.error] || result?.error || "Помилка відправки";
+                this.state.pdfError = errMap[result?.error] || "Сталася помилка, спробуйте пізніше";
                 return;
             }
-            this.notification.add("PDF-каталог надіслано на " + this.state.pdfEmail, {
+            this.notification.add("PDF-каталог надіслано на " + email, {
                 type: "success",
             });
             await this._loadConnect(this.props.thread.id);
@@ -115,11 +147,29 @@ export class SendpulseInfoPanel extends Component {
         }
     }
 
+    /** Груба перевірка, що в полі не явний сміттєвий ввід типу "901". */
+    get smsPhoneValid() {
+        return this.state.smsPhone.replace(/\D/g, "").length >= MIN_PHONE_DIGITS;
+    }
+
     /**
      * F13: Надіслати SMS-купон 5% на телефон клієнта.
+     * UX-аудит 21.07.2026: обмежений пул купонів + реальний зовнішній send —
+     * питаємо підтвердження перед відправкою.
      */
     async onSendSmsCoupon() {
-        if (!this.props.thread?.id || !this.state.smsPhone) return;
+        if (!this.props.thread?.id || !this.state.smsPhone || !this.smsPhoneValid) return;
+        const phone = this.state.smsPhone;
+        this.dialog.add(ConfirmationDialog, {
+            title: "Надіслати SMS-купон?",
+            body: `Клієнту реально піде SMS з купоном на ${phone}, купон буде списано з пулу. Продовжити?`,
+            confirmLabel: "Так, надіслати",
+            cancelLabel: "Скасувати",
+            confirm: () => this._doSendSmsCoupon(phone),
+        });
+    }
+
+    async _doSendSmsCoupon(phone) {
         this.state.smsLoading = true;
         this.state.smsError = "";
         this.state.smsSuccess = null;
@@ -127,7 +177,7 @@ export class SendpulseInfoPanel extends Component {
             const result = await this.orm.call(
                 "sendpulse.connect",
                 "send_sms_coupon_for_channel",
-                [this.props.thread.id, this.state.smsPhone],
+                [this.props.thread.id, phone],
             );
             if (!result || !result.ok) {
                 const errMap = {
@@ -139,7 +189,7 @@ export class SendpulseInfoPanel extends Component {
                     already_sent: "Уже надіслано купон цьому клієнту",
                     no_connect: "Контакт не знайдено",
                 };
-                this.state.smsError = errMap[result?.error] || result?.error || "Помилка SMS";
+                this.state.smsError = errMap[result?.error] || "Сталася помилка, спробуйте пізніше";
                 return;
             }
             this.state.smsSuccess = {
@@ -147,7 +197,7 @@ export class SendpulseInfoPanel extends Component {
                 remaining: result.remaining,
             };
             this.notification.add(
-                `SMS-купон ${result.code} надіслано на ${this.state.smsPhone}`,
+                `SMS-купон ${result.code} надіслано на ${phone}`,
                 { type: "success" }
             );
             await this._loadConnect(this.props.thread.id);
@@ -161,6 +211,7 @@ export class SendpulseInfoPanel extends Component {
 
     async onRefreshClick() {
         if (!this.state.connect) return;
+        this.state.refreshLoading = true;
         try {
             await this.orm.call(
                 "sendpulse.connect",
@@ -169,8 +220,12 @@ export class SendpulseInfoPanel extends Component {
             );
             // Перезавантажуємо дані після синхронізації
             await this._loadConnect(this.props.thread.id);
+            this.notification.add("Профіль оновлено", { type: "success" });
         } catch (e) {
             console.error("SendpulseInfoPanel: refresh failed", e);
+            this.notification.add("Не вдалося оновити профіль", { type: "danger" });
+        } finally {
+            this.state.refreshLoading = false;
         }
     }
 
@@ -211,6 +266,17 @@ export class SendpulseInfoPanel extends Component {
             views: [[false, "form"]],
             target: "new",
         });
+    }
+
+    /** UX-аудит 21.07.2026: кнопка "Спробувати ще раз" на екрані помилки завантаження. */
+    async onRetryLoad() {
+        await this._loadConnect(this.props.thread.id);
+    }
+
+    get languageLabel() {
+        const code = this.state.connect?.language_code;
+        if (!code) return "";
+        return LANGUAGE_LABELS[code] || code;
     }
 
     get serviceIcon() {
