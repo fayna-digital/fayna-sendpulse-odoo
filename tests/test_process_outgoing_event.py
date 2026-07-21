@@ -6,6 +6,7 @@
 partner.sendpulse.message", який винесено у спільний
 `_record_conversation_message()` helper (див. test_record_conversation_message.py).
 """
+
 from .common import SendpulseWebhookTestCase
 
 
@@ -21,12 +22,12 @@ class TestProcessOutgoingEvent(SendpulseWebhookTestCase):
             {}, contact_in, self._bot(), 'telegram', 'incoming_message', 0
         )
 
-        contact_out = self._contact(id='backfill-1', last_message='Пропущене SendPulse повідомлення')
+        contact_out = self._contact(
+            id='backfill-1', last_message='Пропущене SendPulse повідомлення'
+        )
         Connect._process_outgoing_event(contact_out, 'telegram', 0)
 
-        msgs = self.env['sendpulse.message'].search(
-            [('connect_id', '=', connect.id)], order='id'
-        )
+        msgs = self.env['sendpulse.message'].search([('connect_id', '=', connect.id)], order='id')
         self.assertEqual(len(msgs), 2)
         backfilled = msgs.filtered(
             lambda m: 'Пропущене SendPulse повідомлення' in (m.raw_json or '')

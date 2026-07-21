@@ -16,15 +16,18 @@ Call-sites (звірено з поточним кодом, не зі стари�
 відносно posting — частина поточної поведінки (див. коментарі в самому
 sendpulse_connect.py біля кожного call-site).
 """
-from odoo import fields
+
 from markupsafe import Markup
+from odoo import fields
 
 from .common import SendpulseWebhookTestCase
 
 
 class TestRecordConversationMessage(SendpulseWebhookTestCase):
     def _connect_with_channel_and_partner(self):
-        partner = self.env['res.partner'].create({'name': 'Хелпер Партнер', 'email': 'helper@example.com'})
+        partner = self.env['res.partner'].create(
+            {'name': 'Хелпер Партнер', 'email': 'helper@example.com'}
+        )
         connect = self.env['sendpulse.connect'].create(
             {
                 'name': 'Хелпер Розмова',
@@ -86,7 +89,11 @@ class TestRecordConversationMessage(SendpulseWebhookTestCase):
         self.assertEqual(msg.text_message, 'Пропущене повідомлення')
 
         channel_msg = self.env['mail.message'].search(
-            [('model', '=', 'discuss.channel'), ('res_id', '=', channel.id), ('author_id', '=', author.id)],
+            [
+                ('model', '=', 'discuss.channel'),
+                ('res_id', '=', channel.id),
+                ('author_id', '=', author.id),
+            ],
             order='id desc',
             limit=1,
         )

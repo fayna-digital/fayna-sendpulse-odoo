@@ -18,6 +18,7 @@
     request-transaction, включно з щойно створеним sendpulse.message
   - основний happy-path (нова розмова, оновлення існуючої)
 """
+
 from unittest.mock import patch
 
 from psycopg2 import IntegrityError
@@ -84,9 +85,7 @@ class TestProcessIncomingEvent(SendpulseWebhookTestCase):
             1,
             'жодного дубля sendpulse.connect',
         )
-        msgs = self.env['sendpulse.message'].search(
-            [('connect_id', '=', c1.id)], order='date'
-        )
+        msgs = self.env['sendpulse.message'].search([('connect_id', '=', c1.id)], order='date')
         self.assertEqual(len(msgs), 2, 'обидва повідомлення збережені')
         self.assertEqual(msgs.mapped('text_message'), ['Перше', 'Друге'])
 
@@ -169,8 +168,9 @@ class TestProcessIncomingEvent(SendpulseWebhookTestCase):
                 return other_worker_record
             return real_search(rec_self, args, *a, **kw)
 
-        with patch.object(model_cls, 'create', flaky_create), patch.object(
-            model_cls, 'search', search_with_other_worker_after_raise
+        with (
+            patch.object(model_cls, 'create', flaky_create),
+            patch.object(model_cls, 'search', search_with_other_worker_after_raise),
         ):
             result = Connect._process_incoming_event(
                 {}, contact, self._bot(), 'telegram', 'incoming_message', 0
@@ -211,7 +211,9 @@ class TestProcessIncomingEvent(SendpulseWebhookTestCase):
             {'name': 'Ганна Клієнтка', 'email': 'ganna.race@example.com'}
         )
 
-        contact1 = self._contact(id='sp-race-1', email='ganna.race@example.com', last_message='Перше')
+        contact1 = self._contact(
+            id='sp-race-1', email='ganna.race@example.com', last_message='Перше'
+        )
         c1 = Connect._process_incoming_event(
             {}, contact1, self._bot(), 'telegram', 'incoming_message', 0
         )
@@ -229,7 +231,10 @@ class TestProcessIncomingEvent(SendpulseWebhookTestCase):
         real_execute = self.env.cr.execute
 
         def flaky_execute(query, params=None, *a, **kw):
-            if isinstance(query, str) and 'UPDATE partner_sendpulse_channel SET message_count' in query:
+            if (
+                isinstance(query, str)
+                and 'UPDATE partner_sendpulse_channel SET message_count' in query
+            ):
                 query = query.replace('message_count = message_count + 1', 'no_such_column_xyz = 1')
             return real_execute(query, params, *a, **kw)
 
@@ -257,7 +262,8 @@ class TestProcessIncomingEvent(SendpulseWebhookTestCase):
             ]
         )
         self.assertTrue(
-            msg, 'inbound-повідомлення має пережити збій UPDATE у _update_partner_source (savepoint)'
+            msg,
+            'inbound-повідомлення має пережити збій UPDATE у _update_partner_source (savepoint)',
         )
 
         # 3) транзакція не «отруєна» — подальші ORM-операції в тому ж cr

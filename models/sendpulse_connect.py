@@ -941,8 +941,10 @@ class SendpulseConnect(models.Model):
             }
         )
 
-        if post_to_channel and connect.channel_id and (
-            channel_body is not None or channel_attachment_ids
+        if (
+            post_to_channel
+            and connect.channel_id
+            and (channel_body is not None or channel_attachment_ids)
         ):
             post_kwargs = {
                 'body': channel_body if channel_body is not None else '',
