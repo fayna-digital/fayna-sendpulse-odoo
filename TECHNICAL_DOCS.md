@@ -1,6 +1,6 @@
 # Technical Documentation — Fayna SendPulse Odoo
 
-**Module version:** `17.0.14.10` · **Last updated:** 2026-06-18
+**Module version:** `17.0.1.15.13` · **Last updated:** 2026-07-21
 **Product:** Fayna Digital — [fayna.agency](https://fayna.agency)
 **Author:** Volodymyr Shevchenko
 **License:** OPL-1 (Odoo Proprietary License v1.0)

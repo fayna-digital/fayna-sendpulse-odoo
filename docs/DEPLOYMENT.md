@@ -1,6 +1,6 @@
 # Deployment — Fayna SendPulse Odoo
 
-**Module version:** `17.0.3.7.1` · **Last updated:** 2026-04-20
+**Module version:** `17.0.1.15.13` · **Last updated:** 2026-07-21
 
 Інструкції для установки, оновлення і rollback на production (Odoo у Docker).
 
@@ -86,7 +86,7 @@ docker exec <odoo_web_container> /usr/bin/odoo \
 ```bash
 docker exec <db_container> psql -U odoo -d <db> -tAc \
     "SELECT state, latest_version FROM ir_module_module WHERE name='odoo_chatwoot_connector';"
-# Очікувано: installed | 17.0.3.7.1
+# Очікувано: installed | 17.0.1.15.13
 ```
 
 ### 2.4 Restart web
@@ -125,7 +125,7 @@ ssh campscout "cd /opt/campscout/custom-addons/odoo_chatwoot_connector && \
 
 **`chmod -R o+rX .` після `git pull` — обов'язковий, не опційний.** Odoo-процес у контейнері читає модуль під іншим UID, ніж `deploy`-юзер що робить `git pull` — без world-read апдейт падає з `PermissionError` на будь-якому зміненому файлі (INC-244, 2026-07-20). Той самий крок потрібен і на staging. На staging встановлено `.git/hooks/post-merge`, що робить це автоматично при кожному `git pull`; на prod — робити вручну (або встановити ідентичний hook, ще не зроблено).
 
-Очікуваний output — остання строка показує нову версію (напр. `17.0.3.7.1`).
+Очікуваний output — остання строка показує нову версію (напр. `17.0.1.15.13`).
 
 ### 3.2 Правила upgrade
 
@@ -245,7 +245,7 @@ SendPulse: Settings → Webhooks → Test webhook → чи прийшов POST, 
 ```bash
 docker exec -i campscout_web /usr/bin/odoo shell -d campscout --no-http << 'EOF'
 env['sendpulse.connect'].sudo()._notify_telegram(
-    '✅ Deploy OK — module v17.0.3.7.1', silent=False
+    '✅ Deploy OK — module v17.0.1.15.13', silent=False
 )
 EOF
 ```

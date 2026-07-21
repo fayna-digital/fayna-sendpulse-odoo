@@ -7,7 +7,7 @@
 
 Omnichannel-міст **SendPulse ↔ Odoo 17 Discuss** + AI-асистент для CampScout. Канали: Telegram, Instagram, Facebook/Messenger, Viber, WhatsApp, LiveChat, TikTok. Авто-ідентифікація контактів, черга pickup, UTM-атрибуція, FB/IG коментарі з автовідповіддю, AI-драфти (Claude), lead magnet, drip-кампанії, RODO audit.
 
-**Версія:** `17.0.14.7` | License: LGPL-3 | **Depends:** `mail`, `contacts`, `crm`, `web` + python `requests`
+**Версія:** `17.0.1.15.13` | License: LGPL-3 | **Depends:** `mail`, `contacts`, `crm`, `web` + python `requests`
 
 ## Ключові файли
 

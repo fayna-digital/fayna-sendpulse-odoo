@@ -1,6 +1,6 @@
 # Architecture — Fayna SendPulse Odoo
 
-**Module version:** `17.0.3.7.1` · **Last updated:** 2026-04-20
+**Module version:** `17.0.1.15.13` · **Last updated:** 2026-07-21
 
 ---
 
