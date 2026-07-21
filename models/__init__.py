@@ -12,6 +12,7 @@ from . import (
     sendpulse_identify_wizard,
     sendpulse_lead_magnet,
     sendpulse_message,
+    sendpulse_meta_api,
     sendpulse_oauth,
     sendpulse_privacy_consent_log,
     sendpulse_profile_sync,
