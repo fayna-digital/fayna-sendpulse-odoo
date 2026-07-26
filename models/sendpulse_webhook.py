@@ -301,7 +301,28 @@ class SendpulseConnectWebhook(models.Model):
                 update_vals['sp_child_name'] = sp_child_name
             if sp_booking_email and not connect.sp_booking_email:
                 update_vals['sp_booking_email'] = sp_booking_email
-            connect.write(update_vals)
+            # Два webhook-и по тому самому contact_id+service майже одночасно
+            # (advisory lock вище блокує лише дублі-create, не цей write —
+            # другий worker прокидається зі своїм старим snapshot і ловить
+            # SerializationFailure на UPDATE конкурентно зміненого рядка).
+            # На відміну від message_count (sendpulse_connect.py) тут дані НЕ
+            # косметичні (last_message/stage/funnel) — не пропускаємо, а
+            # ретраїмо один раз: конкурент до цього моменту вже закомітився,
+            # повторний write майже завжди проходить чисто.
+            from psycopg2.errors import SerializationFailure
+
+            try:
+                with self.env.cr.savepoint():
+                    connect.write(update_vals)
+            except SerializationFailure:
+                _logger.info(
+                    'SendPulse Odoo: concurrent update on connect=%s (contact=%s), '
+                    'retrying write once',
+                    connect.id,
+                    contact_id,
+                )
+                self.env.invalidate_all()
+                connect.write(update_vals)
 
             # V2 F4: Auto-create crm.lead коли клієнт вперше відповідає у приват
             # (comment_only / private_sent → customer_replied). Ідемпотентно:
