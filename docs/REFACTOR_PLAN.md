@@ -2,7 +2,7 @@
 
 > Стан на коміт `b23edba` (20.07.2026), файл 5649 рядків, `class SendpulseConnect(models.Model): _name = 'sendpulse.connect'`.
 > Цей документ — лише план. Код ще не чіпали (Фаза 3 виконує його крок за кроком).
-> Контекст і повний Odoo/OCA аудит (10 пунктів) — `~/Developer/Fayna-Workspace/Projects/DevJournal/claude-memory/project_sendpulse_refactor_brief_345_2026-07-20.md`.
+> Контекст і повний Odoo/OCA аудит (10 пунктів) — `~/Developer/Fayna-Workspace/Projects/DevJournal/project_sendpulse_refactor_brief_345_2026-07-20.md`.
 
 ## 0. Ключове архітектурне рішення
 

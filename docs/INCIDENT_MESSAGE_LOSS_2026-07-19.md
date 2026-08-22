@@ -100,7 +100,7 @@ WHERE wd.event_type='incoming_message'
 4. 🔴 `__manifest__.py depends` не містить `loyalty`/`sms`, хоча код їх реально використовує (`loyalty.program`, `sms.sms`) — install/upgrade працює лише через транзитивність.
 5. 🟡 Дубльований патерн "sendpulse.message → message_post → partner.sendpulse.message" незалежно в 3 місцях, без спільного helper.
 
-Повний звіт — у сесійній пам'яті (`claude-memory/project_sendpulse_message_loss_savepoint_fix_2026-07-19.md`), не перенесено сюди повністю (репо не для внутрішньої build-документації Fayna).
+Повний звіт — у сесійній пам'яті (`/project_sendpulse_message_loss_savepoint_fix_2026-07-19.md`), не перенесено сюди повністю (репо не для внутрішньої build-документації Fayna).
 
 ### 7.3 /dialogs API — обмеження
 `GET /chatbots/dialogs` не має фільтра по `contact_id`/даті — лише пагінація. `cron_check_dialogs_snapshot` (п.6) тому бере тільки 100 найсвіжіших (`order=desc`), не всю історію — це свідоме обмеження, не недогляд.
