@@ -94,7 +94,7 @@ sendpulse-odoo/
 
 ```bash
 cd /opt/<client>/custom-addons
-git clone https://github.com/VladSh77/fayna-sendpulse-odoo.git odoo_chatwoot_connector
+git clone https://github.com/fayna-digital/fayna-sendpulse-odoo.git odoo_chatwoot_connector
 ```
 
 > **Примітка:** технічна назва директорії — `odoo_chatwoot_connector` (з історичних причин після перейменування репо). Технічна назва модуля Odoo залишається `odoo_chatwoot_connector` в маніфесті.
@@ -248,7 +248,7 @@ self.env['sendpulse.privacy.consent.log'].record_consent(
 ## Локальна розробка
 
 ```bash
-git clone https://github.com/VladSh77/fayna-sendpulse-odoo.git
+git clone https://github.com/fayna-digital/fayna-sendpulse-odoo.git
 cd fayna-sendpulse-odoo
 
 # Запуск тимчасового Odoo з підключеним модулем:
@@ -301,8 +301,8 @@ curl -X POST http://localhost:8069/sendpulse/webhook \
 
 | Суміжний модуль | Зв'язок |
 |----------------|--------------|
-| [omnichannel-bridge](https://github.com/VladSh77/omnichannel-bridge) | Абстрактний агрегатор месенджерів — sendpulse-odoo є одним з адаптерів |
-| [zadarma-odoo](https://github.com/VladSh77/zadarma-odoo) | Голосовий канал (доповнює месенджери) |
+| [fayna-omnichannel-bridge](https://github.com/fayna-digital/fayna-omnichannel-bridge) | Абстрактний агрегатор месенджерів — sendpulse-odoo є одним з адаптерів |
+| [fayna-zadarma-odoo](https://github.com/fayna-digital/fayna-zadarma-odoo) | Голосовий канал (доповнює месенджери) |
 | [campscout-management](https://github.com/VladSh77/campscout-management) | Вертикальний шар CampScout — використовує sendpulse-odoo для всіх chat flow |
 
 Документація архітектури: [fayna-digital-docs](https://github.com/VladSh77/fayna-digital-docs) (приватне).

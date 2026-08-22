@@ -56,7 +56,7 @@ ssh-copy-id -i ~/.ssh/id_ed25519_fayna.pub deploy@<server>
 ```bash
 ssh campscout
 cd /opt/campscout/custom-addons
-git clone git@github.com:VladSh77/fayna-sendpulse-odoo.git odoo_chatwoot_connector
+git clone git@github.com:fayna-digital/fayna-sendpulse-odoo.git odoo_chatwoot_connector
 ```
 
 **⚠️ Важливо:** папка називається `odoo_chatwoot_connector` (legacy ім'я з першої версії, не міняти — backward compatibility з `ir.config_parameter` ключами і addons_path).

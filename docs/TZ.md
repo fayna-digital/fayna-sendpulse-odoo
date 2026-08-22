@@ -117,4 +117,4 @@ sendpulse-odoo/
 - 3 CRITICAL_INCIDENT post-mortems → винести правила в Boundaries (частково зроблено тут).
 
 ## Зв'язки
-[[REPO_STANDARD]] · docs/PLAN.md · docs/TZ_V2_AUTOMATION.md · docs/ARCHITECTURE.md · [[claude-memory/project_sendpulse_pl_messenger_webhook_2026-05-29]] · [[library/tools/sendpulse]] · Repo: `VladSh77/sendpulse-odoo`
+[[REPO_STANDARD]] · docs/PLAN.md · docs/TZ_V2_AUTOMATION.md · docs/ARCHITECTURE.md ·  · [[library/tools/sendpulse]] · Repo: `fayna-digital/fayna-sendpulse-odoo`
