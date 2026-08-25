@@ -113,7 +113,7 @@ class MetaProfile(models.Model):
         if not self.user_access_token:
             raise UserError(_('Спершу підключіть профіль (User Access Token).'))
         Page = self.env['sendpulse.facebook.page'].sudo()
-        processed = Page.sync_from_meta(self.user_access_token)
+        processed = Page.sync_from_meta(self.user_access_token, profile_id=self.id)
         subscribed = 0
         failed = 0
         for page, _action in processed:

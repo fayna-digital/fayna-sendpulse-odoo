@@ -42,8 +42,8 @@ services:
     volumes:
       # Модуль fayna_channel_bridge (цей каталог)
       - ./:/mnt/extra-addons/fayna_channel_bridge
-      # Базовий модуль odoo_chatwoot_connector (корень репо = сам модуль)
-      - ../:/mnt/extra-addons/odoo_chatwoot_connector
+      # Базовий модуль odoo_chatwoot_connector (корінь репо = сам модуль)
+      - ../../:/mnt/extra-addons/odoo_chatwoot_connector
     command: /bin/bash -c "pip3 install -q pytest pytest-cov && odoo --db_host=db --db_port=5432 --db_user=odoo --db_password=${DB_PASSWORD:-odoo} -d fayna_bridge_test --stop-after-init -i odoo_chatwoot_connector,fayna_channel_bridge && odoo --db_host=db --db_port=5432 --db_user=odoo --db_password=${DB_PASSWORD:-odoo} -d fayna_bridge_test --workers=1 --max-cron-threads=1"
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8069/web/login', timeout=5)\" || exit 1"]

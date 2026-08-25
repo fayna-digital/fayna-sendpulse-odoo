@@ -1,11 +1,11 @@
 from . import (
     mail_channel,
+    sendpulse_connect,
     meta_profile,
     res_config_settings,
     res_partner,
     sendpulse_ai_assist,
     sendpulse_comment_autoreply,
-    sendpulse_connect,
     sendpulse_crm_lead,
     sendpulse_drip,
     sendpulse_facebook_page,
