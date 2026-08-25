@@ -103,7 +103,14 @@ class ChannelBridgeController(http.Controller):
             return self._json({"status": "ok"})
 
         # ── Нормалізуємо payload до загальної структури (див. ТЗ §8) ──
-        own_contact_id = f"own:telegram:{provider_user_id}"
+        # Формат own:telegram:{bot_id}:{user_id} — bot_id дозволяє розрізняти
+        # кілька Telegram-ботів при виборі backend-а для відправки.
+        bot_id = backend.bot_id or ""
+        own_contact_id = (
+            f"own:telegram:{bot_id}:{provider_user_id}"
+            if bot_id
+            else f"own:telegram:{provider_user_id}"
+        )
         normalized = {
             "service": "telegram",
             "contact": {
@@ -118,7 +125,7 @@ class ChannelBridgeController(http.Controller):
                     "profile_url": f"https://t.me/{username}" if username else "",
                 },
             },
-            "bot": {"id": backend.bot_id or "", "name": backend.name},
+            "bot": {"id": bot_id, "name": backend.name},
             "title": "incoming_message",
             "date": int(message.get("date", 0)) * 1000,
         }
