@@ -56,6 +56,7 @@
         'data/lead_autocreate_config.xml',
         'views/sendpulse_connect_views.xml',
         'views/sendpulse_identify_wizard_views.xml',
+        'views/meta_profile_views.xml',
         'views/sendpulse_facebook_page_views.xml',
         'views/sendpulse_faq_entry_views.xml',
         'views/sendpulse_public_template_views.xml',

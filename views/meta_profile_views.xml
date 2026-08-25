@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_meta_profile_tree" model="ir.ui.view">
+        <field name="name">meta.profile.tree</field>
+        <field name="model">meta.profile</field>
+        <field name="arch" type="xml">
+            <tree string="Meta Profiles">
+                <field name="name" />
+                <field name="fb_user_id" />
+                <field name="user_id" />
+                <field name="expires_at" />
+                <field name="last_sync_at" />
+                <field name="active" widget="boolean_toggle" />
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_meta_profile_form" model="ir.ui.view">
+        <field name="name">meta.profile.form</field>
+        <field name="model">meta.profile</field>
+        <field name="arch" type="xml">
+            <form string="Meta Profile">
+                <header>
+                    <button name="action_connect" type="object"
+                        string="Підключити профіль (OAuth)"
+                        class="oe_highlight"
+                        invisible="user_access_token" />
+                    <button name="action_sync_pages" type="object"
+                        string="Синхронізувати сторінки + підписати webhook"
+                        invisible="not user_access_token" />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" />
+                        <h1>
+                            <field name="name" placeholder="Назва профілю" />
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Профіль">
+                            <field name="user_id" />
+                            <field name="fb_user_id" readonly="1" />
+                            <field name="expires_at" readonly="1" />
+                            <field name="last_sync_at" readonly="1" />
+                            <field name="active" />
+                        </group>
+                        <group string="Автентифікація">
+                            <field name="user_access_token" password="True"
+                                placeholder="Заповнюється автоматично після OAuth" />
+                        </group>
+                    </group>
+                    <group string="Сторінки">
+                        <field name="page_ids" readonly="1">
+                            <tree string="Pages">
+                                <field name="name" />
+                                <field name="page_id" />
+                                <field name="ig_business_id" />
+                                <field name="token_status" />
+                            </tree>
+                        </field>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_meta_profile" model="ir.actions.act_window">
+        <field name="name">Meta Profiles</field>
+        <field name="res_model">meta.profile</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_meta_profile"
+        name="Meta Profiles"
+        parent="menu_sendpulse_root"
+        action="action_meta_profile"
+        sequence="60"
+        groups="odoo_chatwoot_connector.group_sendpulse_admin" />
+
+</odoo>

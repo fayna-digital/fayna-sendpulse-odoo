@@ -166,6 +166,44 @@ class ResConfigSettings(models.TransientModel):
         string='Зареєстрованих Pages',
         compute='_compute_fb_pages_count',
     )
+    meta_profile_count = fields.Integer(
+        string='Meta Profiles',
+        compute='_compute_meta_profile_count',
+        help='Кількість підключених особистих профілів (User Access Token).',
+    )
+    meta_connect_url = fields.Char(
+        string='Підключити профіль (URL)',
+        compute='_compute_meta_connect_url',
+        readonly=True,
+        help='URL для OAuth-підключення особистого профілю Meta.',
+    )
+
+    @api.depends('fb_sync_user_token')
+    def _compute_meta_profile_count(self):
+        count = self.env['meta.profile'].sudo().search_count([('active', '=', True)])
+        for rec in self:
+            rec.meta_profile_count = count
+
+    @api.depends('fb_app_id')
+    def _compute_meta_connect_url(self):
+        for rec in self:
+            app_id = (
+                self.env['ir.config_parameter']
+                .sudo()
+                .get_param('odoo_chatwoot_connector.fb_app_id', '')
+            )
+            if not app_id:
+                rec.meta_connect_url = False
+                continue
+            base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url', '')
+            redirect_uri = f'{base_url}/bridge/meta/oauth/callback'
+            rec.meta_connect_url = (
+                f'https://www.facebook.com/v25.0/dialog/oauth'
+                f'?client_id={app_id}'
+                f'&redirect_uri={redirect_uri}'
+                f'&scope=pages_show_list,pages_messaging,business_management,'
+                f'instagram_business_manage_messages'
+            )
 
     @api.depends('fb_sync_user_token')
     def _compute_fb_pages_count(self):
@@ -198,6 +236,25 @@ class ResConfigSettings(models.TransientModel):
                 'next': {'type': 'ir.actions.act_window_close'},
             },
         }
+
+    def action_connect_meta_profile(self):
+        """
+        Кнопка «Підключити профіль» у Settings — створює meta.profile
+        (якщо ще немає для поточного користувача) і redirect на OAuth.
+        """
+        self.ensure_one()
+        Profile = self.env['meta.profile'].sudo()
+        profile = Profile.search(
+            [('user_id', '=', self.env.user.id), ('active', '=', True)], limit=1
+        )
+        if not profile:
+            profile = Profile.create(
+                {
+                    'name': f'Meta Profile — {self.env.user.name}',
+                    'user_id': self.env.user.id,
+                }
+            )
+        return profile.action_connect()
 
     # ── Auto-archive old comments (V2 F7) ────────────────────────────────
     auto_archive_comments_enabled = fields.Boolean(

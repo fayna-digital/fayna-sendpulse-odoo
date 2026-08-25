@@ -6,14 +6,15 @@
         <field name="model">sendpulse.facebook.page</field>
         <field name="arch" type="xml">
             <tree string="Facebook Pages">
-                <field name="name"/>
-                <field name="page_id"/>
-                <field name="ig_business_id"/>
-                <field name="category"/>
-                <field name="token_status"/>
-                <field name="last_checked_at"/>
-                <field name="is_default" widget="boolean_toggle"/>
-                <field name="active" widget="boolean_toggle"/>
+                <field name="name" />
+                <field name="page_id" />
+                <field name="ig_business_id" />
+                <field name="category" />
+                <field name="profile_id" />
+                <field name="token_status" />
+                <field name="last_checked_at" />
+                <field name="is_default" widget="boolean_toggle" />
+                <field name="active" widget="boolean_toggle" />
             </tree>
         </field>
     </record>
@@ -24,34 +25,38 @@
         <field name="arch" type="xml">
             <form string="Facebook Page">
                 <header>
-                    <button name="action_verify_token" type="object" string="Перевірити токен" class="oe_highlight"/>
+                    <button name="action_verify_token" type="object" string="Перевірити токен"
+                        class="oe_highlight" />
                 </header>
                 <sheet>
-                    <widget name="web_ribbon" title="За замовчуванням" invisible="not is_default"/>
+                    <widget name="web_ribbon" title="За замовчуванням" invisible="not is_default" />
                     <div class="oe_title">
-                        <label for="name"/>
-                        <h1><field name="name" placeholder="Назва Page"/></h1>
+                        <label for="name" />
+                        <h1>
+                            <field name="name" placeholder="Назва Page" />
+                        </h1>
                     </div>
                     <group>
                         <group string="Ідентифікатори">
-                            <field name="page_id" placeholder="106771868966309"/>
-                            <field name="ig_business_id" placeholder="17841457668400063"/>
-                            <field name="category"/>
+                            <field name="page_id" placeholder="106771868966309" />
+                            <field name="ig_business_id" placeholder="17841457668400063" />
+                            <field name="category" />
+                            <field name="profile_id" />
                         </group>
                         <group string="Стан">
-                            <field name="active"/>
-                            <field name="is_default"/>
-                            <field name="token_status" readonly="1"/>
-                            <field name="last_checked_at" readonly="1"/>
+                            <field name="active" />
+                            <field name="is_default" />
+                            <field name="token_status" readonly="1" />
+                            <field name="last_checked_at" readonly="1" />
                         </group>
                     </group>
                     <group string="Автентифікація">
-                        <field name="access_token" password="True" placeholder="EAAjIM..."/>
+                        <field name="access_token" password="True" placeholder="EAAjIM..." />
                     </group>
                     <group string="Шаблони (overrides)">
-                        <field name="landing_url" placeholder="https://lato2026.campscout.eu"/>
-                        <field name="tg_url" placeholder="https://t.me/campscouting"/>
-                        <field name="yt_url"/>
+                        <field name="landing_url" placeholder="https://lato2026.campscout.eu" />
+                        <field name="tg_url" placeholder="https://t.me/campscouting" />
+                        <field name="yt_url" />
                     </group>
                 </sheet>
             </form>

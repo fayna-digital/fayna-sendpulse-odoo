@@ -20,3 +20,5 @@ access_sendpulse_public_template_admin,sendpulse.public.template admin,model_sen
 access_sendpulse_privacy_consent_log_officer,sendpulse.privacy.consent.log officer,model_sendpulse_privacy_consent_log,group_sendpulse_officer,1,0,0,0
 access_sendpulse_privacy_consent_log_admin,sendpulse.privacy.consent.log admin,model_sendpulse_privacy_consent_log,group_sendpulse_admin,1,1,1,0
 access_oboz300_quick_send_user,oboz300.quick.send user,model_oboz300_quick_send,base.group_user,1,1,1,1
+access_meta_profile_officer,meta.profile officer,model_meta_profile,group_sendpulse_officer,1,0,0,0
+access_meta_profile_admin,meta.profile admin,model_meta_profile,group_sendpulse_admin,1,1,1,1

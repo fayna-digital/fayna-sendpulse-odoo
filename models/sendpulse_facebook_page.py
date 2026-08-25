@@ -27,6 +27,13 @@ class SendpulseFacebookPage(models.Model):
         string='За замовчуванням',
         help='Використовується для webhook-ів де page_id не вказано або не знайдено.',
     )
+    profile_id = fields.Many2one(
+        'meta.profile',
+        string='Meta Profile',
+        ondelete='set null',
+        index=True,
+        help='Профіль (User Access Token), з якого синхронізована ця сторінка.',
+    )
     last_checked_at = fields.Datetime(string='Остання перевірка токена')
     token_status = fields.Char(string='Статус токена', readonly=True, default='not_checked')
 
@@ -88,11 +95,12 @@ class SendpulseFacebookPage(models.Model):
         return True
 
     @api.model
-    def sync_from_meta(self, user_token):
+    def sync_from_meta(self, user_token, profile_id=None):
         """
         Синхронізує Pages з Meta через /me/accounts.
         Створює нові записи і оновлює існуючі (токени, IG business).
-        Повертає список створених/оновлених сторінок.
+        Якщо передано profile_id — прив'язує сторінки до meta.profile.
+        Повертає список створених/оноволених сторінок.
         """
         if not user_token:
             raise UserError(_('Потрібен User Access Token з правом pages_show_list.'))
@@ -129,6 +137,8 @@ class SendpulseFacebookPage(models.Model):
                 'category': item.get('category') or '',
                 'active': True,
             }
+            if profile_id:
+                vals['profile_id'] = profile_id
             existing = self.search([('page_id', '=', pid)], limit=1)
             if existing:
                 existing.write(vals)
@@ -137,3 +147,34 @@ class SendpulseFacebookPage(models.Model):
                 new = self.create(vals)
                 processed.append((new, 'created'))
         return processed
+
+    def _subscribe_messages_webhook(self):
+        """
+        Підписує цю Page на webhook з полем `messages` через
+        POST /{page_id}/subscribed_apps?subscribed_fields=messages.
+        Повертає (ok: bool, error: str|None).
+        """
+        self.ensure_one()
+        if not self.page_id or not self.access_token:
+            return False, 'Page ID або access_token відсутній'
+        try:
+            resp = requests.post(
+                f'https://graph.facebook.com/v25.0/{self.page_id}/subscribed_apps',
+                params={
+                    'access_token': self.access_token,
+                    'subscribed_fields': 'messages',
+                },
+                timeout=self._META_SYNC_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                _logger.info(
+                    'Channel Bridge: page %s subscribed to messages webhook',
+                    self.page_id,
+                )
+                return True, None
+            err = resp.json().get('error', {}).get('message', f'HTTP {resp.status_code}')
+            _logger.warning('Channel Bridge: subscribe failed for page %s — %s', self.page_id, err)
+            return False, err
+        except Exception as e:
+            _logger.error('Channel Bridge: subscribe exception for page %s — %s', self.page_id, e)
+            return False, str(e)
