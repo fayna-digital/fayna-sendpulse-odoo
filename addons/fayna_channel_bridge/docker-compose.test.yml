@@ -1,0 +1,59 @@
+# =============================================================
+# Fayna Channel Bridge — ізольоване тестове середовище (Docker)
+# Запуск: docker compose -f docker-compose.test.yml up
+# Тести:  docker compose -f docker-compose.test.yml exec web pytest
+# =============================================================
+
+services:
+  # PostgreSQL для тестового Odoo
+  db:
+    image: postgres:15-alpine
+    container_name: fayna_bridge_test_db
+    environment:
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-odoo}
+      POSTGRES_DB: fayna_bridge_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fayna_bridge_test
+
+  # Odoo 17 + fayna_channel_bridge
+  web:
+    image: odoo:17.0
+    container_name: fayna_bridge_test_web
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOST: db
+      PORT: 5432
+      USER: odoo
+      PASSWORD: ${DB_PASSWORD:-odoo}
+      DB_NAME: fayna_bridge_test
+      ODOO_MASTER_PASS: ${ODOO_MASTER_PASS:-admin}
+      # Модули: базовий odoo_chatwoot_connector + fayna_channel_bridge
+      ADDONS: odoo_chatwoot_connector,fayna_channel_bridge,mail,web
+    ports:
+      - "8069:8069"
+    volumes:
+      # Модуль fayna_channel_bridge (цей каталог)
+      - ./:/mnt/extra-addons/fayna_channel_bridge
+      # Базовий модуль odoo_chatwoot_connector (корень репо = сам модуль)
+      - ../:/mnt/extra-addons/odoo_chatwoot_connector
+    command: /bin/bash -c "pip3 install -q pytest pytest-cov && odoo --db_host=db --db_port=5432 --db_user=odoo --db_password=${DB_PASSWORD:-odoo} -d fayna_bridge_test --stop-after-init -i odoo_chatwoot_connector,fayna_channel_bridge && odoo --db_host=db --db_port=5432 --db_user=odoo --db_password=${DB_PASSWORD:-odoo} -d fayna_bridge_test --workers=1 --max-cron-threads=1"
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8069/web/login', timeout=5)\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    networks:
+      - fayna_bridge_test
+
+networks:
+  fayna_bridge_test:
+    driver: bridge

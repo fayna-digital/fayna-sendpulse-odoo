@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+        <!-- ─── Security Categories ─────────────────────────────── -->
+        <record id="module_channel_bridge" model="ir.module.category">
+            <field name="name">Channel Bridge</field>
+            <field name="sequence">110</field>
+        </record>
+
+        <!-- ─── Groups ───────────────────────────────────────────── -->
+
+        <!-- Officer: бачить канали, читає журнал повідомлень -->
+        <record id="group_channel_bridge_officer" model="res.groups">
+            <field name="name">Officer</field>
+            <field name="category_id" ref="module_channel_bridge" />
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]" />
+            <field name="comment">Оператор підтримки. Читає канали и журнал повідомлень власного
+                транспорту.</field>
+        </record>
+
+        <!-- Administrator: повний доступ до налаштувань каналів -->
+        <record id="group_channel_bridge_admin" model="res.groups">
+            <field name="name">Administrator</field>
+            <field name="category_id" ref="module_channel_bridge" />
+            <field name="implied_ids" eval="[(4, ref('group_channel_bridge_officer'))]" />
+            <field name="comment">Адміністратор Channel Bridge. Повний доступ до налаштувань
+                каналів.</field>
+        </record>
+
+        <!-- ─── Record Rules ──────────────────────────────────────── -->
+
+        <!-- Officer бачить тільки канали, де призначений оператором -->
+        <record id="rule_channel_backend_officer" model="ir.rule">
+            <field name="name">Channel Backend: Officer sees own channels</field>
+            <field name="model_id" ref="model_channel_backend" />
+            <field name="domain_force">
+                ['|', ('user_ids', 'in', [user.id]), ('user_ids', '=', False)]
+            </field>
+            <field name="groups" eval="[(4, ref('group_channel_bridge_officer'))]" />
+        </record>
+
+        <!-- Admin бачить все -->
+        <record id="rule_channel_backend_admin" model="ir.rule">
+            <field name="name">Channel Backend: Admin sees all</field>
+            <field name="model_id" ref="model_channel_backend" />
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_channel_bridge_admin'))]" />
+        </record>
+
+</odoo>

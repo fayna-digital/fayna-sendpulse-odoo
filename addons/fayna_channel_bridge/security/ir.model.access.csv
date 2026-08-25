@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_channel_backend_officer,channel.backend officer,model_channel_backend,group_channel_bridge_officer,1,0,0,0
+access_channel_backend_admin,channel.backend admin,model_channel_backend,group_channel_bridge_admin,1,1,1,1
+access_channel_message_officer,channel.message officer,model_channel_message,group_channel_bridge_officer,1,0,0,0
+access_channel_message_admin,channel.message admin,model_channel_message,group_channel_bridge_admin,1,1,1,1

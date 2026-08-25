@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+        <!-- Healthcheck: кожні 60 хв -->
+        <record id="ir_cron_bridge_healthcheck" model="ir.cron">
+            <field name="name">Channel Bridge: Healthcheck власного транспорту</field>
+            <field name="model_id" ref="model_channel_backend" />
+            <field name="state">code</field>
+            <field name="code">model.cron_bridge_healthcheck()</field>
+            <field name="interval_number">60</field>
+            <field name="interval_type">minutes</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+            <field name="nextcall">2026-08-23 08:00:00</field>
+        </record>
+
+        <!-- Retry: кожні 15 хв -->
+        <record id="ir_cron_bridge_retry" model="ir.cron">
+            <field name="name">Channel Bridge: Повтор відправки тих, що впали</field>
+            <field name="model_id" ref="model_channel_backend" />
+            <field name="state">code</field>
+            <field name="code">model.cron_bridge_retry()</field>
+            <field name="interval_number">15</field>
+            <field name="interval_type">minutes</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+            <field name="nextcall">2026-08-23 08:15:00</field>
+        </record>
+
+        <!-- Switch check: кожні 30 хв -->
+        <record id="ir_cron_bridge_switch_check" model="ir.cron">
+            <field name="name">Channel Bridge: Auto-failover перевірка</field>
+            <field name="model_id" ref="model_channel_backend" />
+            <field name="state">code</field>
+            <field name="code">model.cron_bridge_switch_check()</field>
+            <field name="interval_number">30</field>
+            <field name="interval_type">minutes</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+            <field name="nextcall">2026-08-23 08:30:00</field>
+        </record>
+
+</odoo>
