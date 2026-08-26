@@ -6,8 +6,7 @@ from odoo import api, fields, models
 
 _logger = logging.getLogger(__name__)
 
-# Перевикористовуємо SERVICE_SELECTION із sendpulse.connect, щоб mail_channel
-# і обробник розуміли канал без змін.
+# Список каналів власного прямого транспорту.
 SERVICE_SELECTION = [
     ("telegram", "Telegram"),
     ("instagram", "Instagram"),
@@ -21,12 +20,10 @@ SERVICE_SELECTION = [
 
 PROVIDER_SELECTION = [
     ("direct", "Direct (власний транспорт)"),
-    ("sendpulse", "SendPulse"),
 ]
 
 TRANSPORT_PRIORITY_SELECTION = [
     ("own", "Own (власний)"),
-    ("sendpulse", "SendPulse"),
     ("auto", "Auto (fallback)"),
 ]
 
@@ -63,21 +60,21 @@ class ChannelBackend(models.Model):
         string="Канал",
         required=True,
         index=True,
-        help="Перевикористовує SERVICE_SELECTION із sendpulse.connect",
+        help="Канал власного прямого транспорту",
     )
     provider = fields.Selection(
         PROVIDER_SELECTION,
         string="Провайдер",
         default="direct",
         required=True,
-        help="direct = власний транспорт, sendpulse = для майбутньої міграції",
+        help="direct = власний транспорт",
     )
     transport_priority = fields.Selection(
         TRANSPORT_PRIORITY_SELECTION,
         string="Пріоритет транспорту",
         default="auto",
         required=True,
-        help="own = власний, sendpulse = SendPulse, auto = fallback SendPulse→own",
+        help="own = власний, auto = fallback",
     )
     active = fields.Boolean(string="Увімкнено", default=True, index=True)
 
@@ -225,24 +222,10 @@ class ChannelBackend(models.Model):
 
     def _get_meta_token(self):
         """
-        Повертає Page Access Token для Meta (перевикористовує наявні токени
-        з sendpulse.facebook.page або legacy ir.config_parameter).
+        Повертає Page Access Token для Meta з credentials цього backend-а.
         """
         self.ensure_one()
-        Page = self.env["sendpulse.facebook.page"].sudo()
-        # Default Page
-        default = Page.search(
-            [("is_default", "=", True), ("active", "=", True)], limit=1
-        )
-        if default and default.access_token:
-            return default.access_token
-        # Legacy fallback
-        return (
-            self.env["ir.config_parameter"]
-            .sudo()
-            .get_param("odoo_chatwoot_connector.fb_page_access_token", "")
-            or ""
-        )
+        return self._get_credentials().get("access_token", "") or ""
 
     def _meta_send_single(self, text, attachment_url, provider_user_id):
         """
@@ -254,25 +237,15 @@ class ChannelBackend(models.Model):
         if not token:
             return False, None, "Meta Page Access Token не налаштований"
 
+        creds = self._get_credentials()
         # Для Instagram потрібен ig_business_id, для Messenger — page_id
         if self.service == "instagram":
-            Page = self.env["sendpulse.facebook.page"].sudo()
-            ig_id = Page.search(
-                [("is_default", "=", True), ("active", "=", True)], limit=1
-            ).ig_business_id or self.env["ir.config_parameter"].sudo().get_param(
-                "odoo_chatwoot_connector.ig_user_id", ""
-            )
+            ig_id = creds.get("ig_business_id", "") or ""
             if not ig_id:
                 return False, None, "Instagram Business Account ID не налаштований"
             endpoint = f"{self._META_API}/{ig_id}/messages"
         else:
-            Page = self.env["sendpulse.facebook.page"].sudo()
-            page_id = (
-                Page.search(
-                    [("is_default", "=", True), ("active", "=", True)], limit=1
-                ).page_id
-                or ""
-            )
+            page_id = creds.get("page_id", "") or ""
             if not page_id:
                 return False, None, "Facebook Page ID не налаштований"
             endpoint = f"{self._META_API}/{page_id}/messages"
@@ -557,7 +530,7 @@ class ChannelBackend(models.Model):
 
     @staticmethod
     def _split_text_by_limit(text, max_chars):
-        """Розбиває текст на частини не довші за max_chars (аналог sendpulse_messaging)."""
+        """Розбиває текст на частини не довші за max_chars."""
         if not text or len(text) <= max_chars:
             return [text] if text else []
 
@@ -714,73 +687,10 @@ class ChannelBackend(models.Model):
                 msg.write({"retry_count": msg.retry_count + 1, "last_error": err})
 
     @api.model
-    def cron_bridge_switch_check(self):
-        """
-        Кожні 30 хви. Auto-failover: чи доступний SendPulse, чи треба перемкнути
-        канал на власний транспорт. M0 — логує стан; M1+ — реальне перемикання.
-        """
-        for backend in self.search(
-            [("active", "=", True), ("transport_priority", "=", "auto")]
-        ):
-            # M1: реальна healthcheck SendPulse API + перемикання transport_priority.
-            sendpulse_ok = self._check_sendpulse_available()
-            if not sendpulse_ok:
-                # SendPulse недоступний — перемикаємо канал на власний транспорт
-                if backend.transport_priority != "own":
-                    _logger.warning(
-                        "Channel Bridge: SendPulse недоступний, перемикаємо backend=%s "
-                        "(service=%s) на own transport",
-                        backend.id,
-                        backend.service,
-                    )
-                    backend.write({"transport_priority": "own"})
-            else:
-                # SendPulse доступний — повертаємо auto (якщо був перемкнений вручну на own)
-                if backend.transport_priority == "own":
-                    _logger.info(
-                        "Channel Bridge: SendPulse знову доступний, повертаємо backend=%s "
-                        "(service=%s) на auto",
-                        backend.id,
-                        backend.service,
-                    )
-                    backend.write({"transport_priority": "auto"})
-            _logger.info(
-                "Channel Bridge: switch_check backend=%s service=%s priority=%s sendpulse_ok=%s",
-                backend.id,
-                backend.service,
-                backend.transport_priority,
-                sendpulse_ok,
-            )
-
-    @api.model
-    def _check_sendpulse_available(self):
-        """
-        Перевіряє доступність SendPulse API (OAuth token refresh).
-        Повертає True якщо SendPulse доступний, False — якщо ні.
-        """
-        ICP = self.env["ir.config_parameter"].sudo()
-        client_id = ICP.get_param("odoo_chatwoot_connector.client_id", "")
-        client_secret = ICP.get_param("odoo_chatwoot_connector.client_secret", "")
-        if not client_id or not client_secret:
-            # Немає налаштувань SendPulse — вважаємо недоступним (перемикаємо на own)
-            return False
-        try:
-            # Спробуємо отримати токен — якщо OAuth працює, SendPulse доступний
-            sample = self.env["sendpulse.connect"].sudo().search([], limit=1)
-            if not sample:
-                return False
-            token = sample._get_access_token()
-            return bool(token)
-        except Exception as e:
-            _logger.warning("Channel Bridge: SendPulse healthcheck failed — %s", e)
-            return False
-
-    @api.model
     def action_switch_all_to_own(self):
         """
-        M4: примусово перемикає ВСІ активні канали на власний транспорт (own)
-        і вимикає SendPulse як транспорт. Виконується після підтвердження
-        всіх каналів на продакшені.
+        M4: примусово перемикає ВСІ активні канали на власний транспорт (own).
+        Модуль повністю автономний — використовується лише власний транспорт.
         """
         switched = 0
         for backend in self.search([("active", "=", True)]):
@@ -793,14 +703,8 @@ class ChannelBackend(models.Model):
                 )
                 backend.write({"transport_priority": "own"})
                 switched += 1
-        # Вимикаємо SendPulse як транспорт для всіх розмов
-        Connect = self.env["sendpulse.connect"].sudo()
-        updated = Connect.search([("transport", "!=", "own")]).write(
-            {"transport": "own"}
-        )
         _logger.info(
-            "Channel Bridge M4: перемкнено %d backend-ів на own, %d розмов на own transport",
+            "Channel Bridge M4: перемкнено %d backend-ів на own transport",
             switched,
-            updated,
         )
         return switched

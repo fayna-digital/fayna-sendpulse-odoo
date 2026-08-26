@@ -1,11 +1,11 @@
 # Fayna Channel Bridge
 
-Власний транспортний шар для DM-каналів Odoo (резерв до SendPulse).
+Власний прямий транспортний шар для DM-каналів Odoo (без зовнішнього посередника).
 
 ## Статус
 
 **M0** — каркас модуля + модель channel.backend + Telegram пілот.
-**M1** — real auto-failover (SendPulse healthcheck + перемикання transport_priority).
+**M1** — real auto-failover (healthcheck + перемикання transport_priority).
 **M2** — Meta (IG, Messenger) send через наявні page токени + Messenger webhook (verify + POST).
 **M3** — Viber, WhatsApp Cloud, TikTok, LiveChat send + webhook.
 
@@ -20,8 +20,8 @@ fayna_channel_bridge/
 ├── models/
 │   ├── __init__.py
 │   ├── channel_backend.py      # модель "підключений канал"
+│   ├── channel_conversation.py # автономна модель розмов + receive handler
 │   ├── channel_message.py      # журнал повідомлень + ідемпотентність
-│   ├── sendpulse_connect.py    # _inherit: transport + _send_single_message branching
 │   └── mail_channel.py         # _inherit: маршрутизація вихідних
 ├── security/
 │   ├── security.xml
@@ -31,7 +31,8 @@ fayna_channel_bridge/
 ├── views/
 │   └── channel_backend_views.xml
 ├── tests/
-│   └── test_telegram_webhook.py
+│   ├── test_telegram_webhook.py
+│   └── test_archive_feature.py
 ├── Dockerfile.test
 ├── docker-compose.test.yml
 └── README.md
@@ -69,19 +70,19 @@ ruff format fayna_channel_bridge/
 Канали керуються через меню **Channel Bridge → Канали** (модель `channel.backend`):
 
 - `service` — канал (telegram/instagram/facebook/messenger/viber/whatsapp/tiktok/livechat)
-- `provider` — `direct` (власний) або `sendpulse` (для майбутньої міграції)
-- `transport_priority` — `own` / `sendpulse` / `auto`
+- `provider` — `direct` (власний транспорт)
+- `transport_priority` — `own` / `auto`
 - `bot_token` — Telegram Bot Token (encrypted)
-- `heal_url` — webhook URL (авто-заполнюється при `register_telegram_webhook`)
+- `heal_url` — webhook URL (авто-заповнюється при `register_telegram_webhook`)
 
 ## Telegram webhook
 
-Реєстрация: `POST https://api.telegram.org/bot<TOKEN>/setWebhook` →
+Реєстрація: `POST https://api.telegram.org/bot<TOKEN>/setWebhook` →
 `https://<odoo>/bridge/telegram/webhook/<TOKEN>`.
 
 Прийом: `POST /bridge/telegram/webhook/<token>` — токен у URL є аутентифікацією.
 Payload нормалізується до загальної структури і передається в
-`sendpulse.connect._process_incoming_event` (той самий обробник, що й для SendPulse).
+`channel.conversation._process_incoming_event` (власний обробник вхідних).
 
 ## Ідемпотентність
 
@@ -91,7 +92,13 @@ Payload нормалізується до загальної структури 
 
 ## Транспорт
 
-`sendpulse.connect.transport`:
-- `sendpulse` — поточний шлях (за замовчуванням)
+`channel.conversation.transport`:
 - `own` — власний транспорт через `channel.backend`
-- `auto` — спершу SendPulse, при помилці fallback на власний
+- `auto` — спершу власний, при помилці fallback
+
+## Архів розмов
+
+`channel.conversation` підтримує архівацію старих розмов через нативний
+механізм Odoo (`active`). Cron `cron_archive_old_conversations` стискає
+розмови старші за налаштований період (за замовчуванням 30 днів),
+зберігаючи історію переписок без видалення даних.

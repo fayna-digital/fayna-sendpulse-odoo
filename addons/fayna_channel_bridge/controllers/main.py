@@ -11,9 +11,8 @@ class ChannelBridgeController(http.Controller):
     """
     Webhook-рути провайдерів власного транспорту.
 
-    M0: Telegram пілот. Кожен провайдер приводить payload до загальної
-    структури і викликає sendpulse.connect._process_incoming_event
-    (той самий обробник, що й для SendPulse).
+    Кожен провайдер приводить payload до загальної структури і викликає
+    channel.conversation._process_incoming_event (обробник власного транспорту).
     """
 
     def _json(self, data, status=200):
@@ -144,10 +143,10 @@ class ChannelBridgeController(http.Controller):
             }
         )
 
-        # ── Той самий обробник, що й для SendPulse ──
+        # ── Обробник вхідних подій власного транспорту ──
         try:
             with request.env.cr.savepoint():
-                request.env["sendpulse.connect"].sudo()._process_incoming_event(
+                request.env["channel.conversation"].sudo()._process_incoming_event(
                     data=normalized,
                     contact=normalized["contact"],
                     bot=normalized["bot"],
@@ -295,7 +294,9 @@ class ChannelBridgeController(http.Controller):
 
                 try:
                     with request.env.cr.savepoint():
-                        request.env["sendpulse.connect"].sudo()._process_incoming_event(
+                        request.env[
+                            "channel.conversation"
+                        ].sudo()._process_incoming_event(
                             data=normalized,
                             contact=normalized["contact"],
                             bot=normalized["bot"],
@@ -379,7 +380,7 @@ class ChannelBridgeController(http.Controller):
 
         try:
             with request.env.cr.savepoint():
-                request.env["sendpulse.connect"].sudo()._process_incoming_event(
+                request.env["channel.conversation"].sudo()._process_incoming_event(
                     data=normalized,
                     contact=normalized["contact"],
                     bot=normalized["bot"],

@@ -29,7 +29,7 @@
                         invisible="service != 'telegram'" />
                     <button name="action_switch_all_to_own" type="object"
                         string="M4: Перемкнути всі на own"
-                        confirm="Перемкнути ВСІ канали на власний транспорт і вимкнути SendPulse?" />
+                        confirm="Перемкнути ВСІ канали на власний транспорт?" />
                     <field name="active" widget="boolean_toggle" />
                 </header>
                 <sheet>

@@ -14,15 +14,14 @@ class ChannelMessage(models.Model):
     від провайдера не дублює повідомлення.
     """
 
-    _name = 'channel.message'
-    _description = 'Channel Bridge Message'
-    _order = 'date asc'
+    _name = "channel.message"
+    _description = "Channel Bridge Message"
+    _order = "date asc"
 
     def init(self):
         """
         Partial unique index: (provider_message_id, service) унікальні для
-        вхідних повідомлень — аналог існуючого partial unique index у
-        sendpulse.connect. Захищає від дублікатів при повторних webhook-ах.
+        вхідних повідомлень. Захищає від дублікатів при повторних webhook-ах.
         """
         super().init()
         self.env.cr.execute("""
@@ -32,53 +31,53 @@ class ChannelMessage(models.Model):
               AND provider_message_id != ''
         """)
 
-    name = fields.Char(string='Мітка часу')
-    date = fields.Datetime(string='Дата', default=fields.Datetime.now)
+    name = fields.Char(string="Мітка часу")
+    date = fields.Datetime(string="Дата", default=fields.Datetime.now)
     backend_id = fields.Many2one(
-        'channel.backend',
-        string='Backend',
-        ondelete='cascade',
+        "channel.backend",
+        string="Backend",
+        ondelete="cascade",
         index=True,
     )
     service = fields.Selection(
         [
-            ('telegram', 'Telegram'),
-            ('instagram', 'Instagram'),
-            ('facebook', 'Facebook'),
-            ('messenger', 'Messenger'),
-            ('viber', 'Viber'),
-            ('whatsapp', 'WhatsApp'),
-            ('tiktok', 'TikTok'),
-            ('livechat', 'LiveChat'),
+            ("telegram", "Telegram"),
+            ("instagram", "Instagram"),
+            ("facebook", "Facebook"),
+            ("messenger", "Messenger"),
+            ("viber", "Viber"),
+            ("whatsapp", "WhatsApp"),
+            ("tiktok", "TikTok"),
+            ("livechat", "LiveChat"),
         ],
-        string='Канал',
+        string="Канал",
         index=True,
     )
     direction = fields.Selection(
-        [('incoming', 'Від клієнта'), ('outgoing', 'Від оператора')],
-        string='Напрямок',
-        default='incoming',
+        [("incoming", "Від клієнта"), ("outgoing", "Від оператора")],
+        string="Напрямок",
+        default="incoming",
     )
     state = fields.Selection(
         [
-            ('received', 'Отримано'),
-            ('sent', 'Надіслано'),
-            ('failed', 'Помилка'),
+            ("received", "Отримано"),
+            ("sent", "Надіслано"),
+            ("failed", "Помилка"),
         ],
-        string='Стан',
-        default='received',
+        string="Стан",
+        default="received",
     )
     provider_message_id = fields.Char(
-        string='Provider Message ID',
+        string="Provider Message ID",
         index=True,
-        help='ID повідомлення у провайдера (Telegram update_id / message_id)',
+        help="ID повідомлення у провайдера (Telegram update_id / message_id)",
     )
     provider_user_id = fields.Char(
-        string='Provider User ID',
-        help='ID користувача у провайдера (chat_id для Telegram)',
+        string="Provider User ID",
+        help="ID користувача у провайдера (chat_id для Telegram)",
     )
-    text_message = fields.Text(string='Повідомлення')
-    attachment_url = fields.Char(string='URL вкладення')
-    raw_json = fields.Text(string='Raw JSON')
-    retry_count = fields.Integer(string='Спроби повтору', default=0)
-    last_error = fields.Char(string='Остання помилка')
+    text_message = fields.Text(string="Повідомлення")
+    attachment_url = fields.Char(string="URL вкладення")
+    raw_json = fields.Text(string="Raw JSON")
+    retry_count = fields.Integer(string="Спроби повтору", default=0)
+    last_error = fields.Char(string="Остання помилка")
