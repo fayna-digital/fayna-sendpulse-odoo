@@ -100,9 +100,41 @@ def _run(env):
         for src in sources:
             service = src.service or ""
             sp_id = (src.sendpulse_contact_id or "").strip()
-            provider_user_id = f"{SP_ID_PREFIX}{sp_id}" if sp_id else ""
+            channel_id = src.channel_id.id if src.channel_id else False
 
-            # Ідемпотентність: пропускаємо, якщо розмова вже мігрована.
+            # Базовий provider_user_id з sendpulse_contact_id.
+            # Це НЕ нативний ID провайдера, а внутрішній ID SendPulse.
+            base_provider_user_id = f"{SP_ID_PREFIX}{sp_id}" if sp_id else ""
+
+            # Один і той самий контакт (sendpulse_contact_id) може мати КІЛЬКА
+            # розмов у різних discuss.channel (channel_id). Щоб не втратити
+            # історію жодної з них, створюємо окрему channel.conversation на
+            # кожен унікальний (contact, service, channel_id).
+            #
+            # Унікальний індекс channel_conversation_active_provider_uniq
+            # обмежує (provider_user_id, service) для активних записів, тому
+            # для повторних (contact, service) з іншим channel_id додаємо
+            # суфікс ":<channel_id>" до provider_user_id.
+            provider_user_id = base_provider_user_id
+            if base_provider_user_id:
+                existing_same = Conversation.search(
+                    [
+                        ("provider_user_id", "=", base_provider_user_id),
+                        ("service", "=", service),
+                    ],
+                    limit=1,
+                )
+                if existing_same:
+                    # Цей (contact, service) вже має розмову. Якщо це той самий
+                    # channel_id — це повторний запуск, пропускаємо.
+                    if existing_same.channel_id.id == channel_id:
+                        stats["skipped"] += 1
+                        continue
+                    # Інший channel_id — унікалізуємо provider_user_id суфіксом.
+                    provider_user_id = f"{base_provider_user_id}:{channel_id}"
+
+            # Ідемпотентність: пропускаємо, якщо саме ця розмова вже мігрована
+            # (перевірка за унікалізованим provider_user_id + service).
             if provider_user_id:
                 existing = Conversation.search(
                     [
