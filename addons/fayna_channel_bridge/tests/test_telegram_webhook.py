@@ -20,11 +20,6 @@ class ChannelBridgeTestCase(TransactionCase):
         super().setUp()
         ICP = self.env["ir.config_parameter"].sudo()
         self.ICP = ICP
-        # Вимикаємо мережеві side-effects
-        ICP.set_param("odoo_chatwoot_connector.greeting_enabled", "False")
-        ICP.set_param("odoo_chatwoot_connector.bot_identification_enabled", "False")
-        ICP.set_param("odoo_chatwoot_connector.rag_auto_answer_enabled", "False")
-        ICP.set_param("odoo_chatwoot_connector.auto_create_lead_enabled", "False")
 
         # Створюємо тестовий backend
         Backend = self.env["channel.backend"]

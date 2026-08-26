@@ -53,10 +53,9 @@ docker compose -f docker-compose.test.yml exec web pytest
 docker compose -f docker-compose.test.yml down
 ```
 
-> **Важливо:** `docker-compose.test.yml` монтує `../` як `extra-addons`, тобто
-> очікує, що `odoo_chatwoot_connector` (базовий модуль, `depends`) лежить
-> сусідно в тому ж каталогу. В реальному деплою CampScout він уже присутній
-> в `addons_path`.
+> **Важливо:** `fayna_channel_bridge` — повністю автономний модуль (без
+> зовнішнього базового модуля). `docker-compose.test.yml` монтує лише цей
+> каталог як `extra-addons`; залежності — штатні `mail` та `web`.
 
 ## Локальний lint (ruff)
 

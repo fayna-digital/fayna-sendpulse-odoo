@@ -7,7 +7,3 @@ RUN pip3 install -q pytest pytest-cov
 
 # Копируемо модуль у extra-addons
 COPY . /mnt/extra-addons/fayna_channel_bridge
-
-# Копируемо базовий модуль odoo_chatwoot_connector (depends)
-# NOTE: в реальному деплою odoo_chatwoot_connector уже присутній в addons_path.
-# Тут для ізольованого тестування — очікуємо, що він доступний через volume.

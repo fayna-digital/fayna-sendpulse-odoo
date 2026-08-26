@@ -18,7 +18,6 @@
     "license": "OPL-1",
     "category": "Discuss",
     "depends": [
-        "odoo_chatwoot_connector",
         "mail",
         "web",
     ],

@@ -20,13 +20,6 @@ class ArchiveFeatureTestCase(TransactionCase):
     def setUp(self):
         super().setUp()
         self.ICP = self.env["ir.config_parameter"].sudo()
-        # Вимикаємо мережеві side-effects
-        self.ICP.set_param("odoo_chatwoot_connector.greeting_enabled", "False")
-        self.ICP.set_param(
-            "odoo_chatwoot_connector.bot_identification_enabled", "False"
-        )
-        self.ICP.set_param("odoo_chatwoot_connector.rag_auto_answer_enabled", "False")
-        self.ICP.set_param("odoo_chatwoot_connector.auto_create_lead_enabled", "False")
         # Скидаємо конфіг архівації до дефолту
         self.ICP.set_param("fayna_channel_bridge.archive_inactive_days", "30")
 

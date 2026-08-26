@@ -1,6 +1,7 @@
 import logging
 
 from odoo import models
+from odoo.tools.mail import html2plaintext
 
 _logger = logging.getLogger(__name__)
 
@@ -65,7 +66,5 @@ class DiscussChannelBridge(models.Model):
         return msg
 
     def _html_to_text(self, html_body):
-        """Конвертує HTML в plain text (аналог mail_channel.py)."""
-        from odoo_chatwoot_connector.models.mail_channel import _html_to_text
-
-        return _html_to_text(html_body)
+        """Конвертує HTML в plain text (локальна реалізація)."""
+        return html2plaintext(html_body or "")
