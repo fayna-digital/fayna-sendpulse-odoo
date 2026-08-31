@@ -1,3 +1,10 @@
+> ## ⛔ ЗАСТАРІЛО
+>
+> Цей документ описує **знятий SendPulse-модуль** `odoo_chatwoot_connector` (v17.0.1.15.13)
+> і **не стосується** модуля `fayna_channel_bridge`. Чинне ТЗ для `fayna_channel_bridge` →
+> **[`TZ_FAYNA_CHANNEL_BRIDGE.md`](./TZ_FAYNA_CHANNEL_BRIDGE.md)** (з колонкою `Verify: T-xx`
+> за ISO 29148). Цей файл лишається лише як історичний архів SendPulse-модуля.
+
 # TZ — sendpulse-odoo
 
 > Специфікація за [[REPO_STANDARD]] (6 областей spec-driven). Як працювати → CLAUDE.md.
