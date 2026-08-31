@@ -6,7 +6,7 @@
         <field name="name">channel.conversation.list</field>
         <field name="model">channel.conversation</field>
         <field name="arch" type="xml">
-            <tree string="Conversations" create="false"
+            <tree create="false"
                 decoration-muted="stage == 'close'"
                 decoration-info="stage == 'new'"
                 decoration-warning="stage == 'new_message'">

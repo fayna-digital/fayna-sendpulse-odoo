@@ -25,40 +25,38 @@ from odoo.tools.translate import _lt
 # Ж-4: константи рівня модуля використовують ліниву трансляцію `_lt`, бо
 # звичайний `_()` обчислюється на імпорті, коли контексту користувача ще немає.
 ERROR_REASON_MAP = [
-    ("unauthorized", _lt("Invalid token. Check the key in the provider panel.")),
-    ("forbidden", _lt("Access denied. Check the bot permissions at the provider.")),
-    ("not found", _lt("A bot with this token was not found. Check the key.")),
-    ("bad request", _lt("The provider rejected the request. Check the key format.")),
-    ("timeout", _lt("Could not reach the provider server. Please try again.")),
-    ("connection", _lt("Network problem. Check the connection and try again.")),
+    ('unauthorized', _lt('Invalid token. Check the key in the provider panel.')),
+    ('forbidden', _lt('Access denied. Check the bot permissions at the provider.')),
+    ('not found', _lt('A bot with this token was not found. Check the key.')),
+    ('bad request', _lt('The provider rejected the request. Check the key format.')),
+    ('timeout', _lt('Could not reach the provider server. Please try again.')),
+    ('connection', _lt('Network problem. Check the connection and try again.')),
 ]
 
 # Повідомлення-заглушка, якщо причина не збіглася з жодним відомим шаблоном.
-_UNKNOWN_REASON = _lt(
-    "Could not connect the channel. Contact the administrator for diagnostics."
-)
+_UNKNOWN_REASON = _lt('Could not connect the channel. Contact the administrator for diagnostics.')
 
 
 class ChannelConnectWizard(models.TransientModel):
     """Wizard введення ключа для підключення token-каналу."""
 
-    _name = "channel.connect.wizard"
-    _description = "Token channel connection"
+    _name = 'channel.connect.wizard'
+    _description = 'Token channel connection'
 
     provider_id = fields.Many2one(
-        "channel.provider",
-        string="Channel",
+        'channel.provider',
+        string='Channel',
         required=True,
-        ondelete="cascade",
+        ondelete='cascade',
     )
     token = fields.Char(
-        string="Access key",
+        string='Access key',
         required=True,
-        help="Access key to the channel. The format is suggested by the placeholder.",
+        help='Access key to the channel. The format is suggested by the placeholder.',
     )
     backend_id = fields.Many2one(
-        "channel.backend",
-        string="Connected backend",
+        'channel.backend',
+        string='Connected backend',
         readonly=True,
     )
 
@@ -81,17 +79,17 @@ class ChannelConnectWizard(models.TransientModel):
         """Знаходить активний `channel.backend` для service або створює його."""
         self.ensure_one()
         service = self.provider_id.service
-        backend = self.env["channel.backend"].search(
-            [("service", "=", service), ("active", "=", True)], limit=1
+        backend = self.env['channel.backend'].search(
+            [('service', '=', service), ('active', '=', True)], limit=1
         )
         if backend:
             return backend
-        return self.env["channel.backend"].create(
+        return self.env['channel.backend'].create(
             {
-                "name": self.provider_id.name,
-                "service": service,
-                "provider": "direct",
-                "transport_priority": "own",
+                'name': self.provider_id.name,
+                'service': service,
+                'provider': 'direct',
+                'transport_priority': 'own',
             }
         )
 
@@ -99,15 +97,15 @@ class ChannelConnectWizard(models.TransientModel):
         """Записує ключ у відповідне поле backend залежно від каналу."""
         self.ensure_one()
         service = self.provider_id.service
-        if service == "telegram":
-            backend.write({"bot_token": self.token})
-        elif service == "viber":
+        if service == 'telegram':
+            backend.write({'bot_token': self.token})
+        elif service == 'viber':
             creds = backend._get_credentials()
-            creds["auth_token"] = self.token
+            creds['auth_token'] = self.token
             backend._set_credentials(creds)
         else:
             raise UserError(
-                _("Channel %s does not support connecting via an access key.")
+                _('Channel %s does not support connecting via an access key.')
                 % self.provider_id.name
             )
 
@@ -121,18 +119,16 @@ class ChannelConnectWizard(models.TransientModel):
         """
         self.ensure_one()
         service = self.provider_id.service
-        if service == "telegram":
+        if service == 'telegram':
             ok, raw_error = backend.register_telegram_webhook()
             if ok:
-                return True, _(
-                    "Channel connected. The webhook was registered automatically."
-                )
+                return True, _('Channel connected. The webhook was registered automatically.')
             return False, self._humanize_error(raw_error)
-        if service == "viber":
+        if service == 'viber':
             return True, _(
-                "Channel connected. The Viber webhook subscription must be activated separately in the Viber panel."
+                'Channel connected. The Viber webhook subscription must be activated separately in the Viber panel.'
             )
-        return True, _("Channel connected.")
+        return True, _('Channel connected.')
 
     def action_connect(self):
         """Головна дія wizard: зберегти ключ і підключити канал.
@@ -141,11 +137,11 @@ class ChannelConnectWizard(models.TransientModel):
         Жоден секрет чи URL вебхука користувачеві не повертається (T-119).
         """
         self.ensure_one()
-        if self.provider_id.connect_method != "token":
+        if self.provider_id.connect_method != 'token':
             raise UserError(
                 _(
-                    "Connecting %s is done manually by the administrator. "
-                    "OAuth authorization is not implemented yet."
+                    'Connecting %s is done manually by the administrator. '
+                    'OAuth authorization is not implemented yet.'
                 )
                 % self.provider_id.name
             )
@@ -159,6 +155,6 @@ class ChannelConnectWizard(models.TransientModel):
             raise UserError(message)
 
         return {
-            "type": "ir.actions.act_window_close",
-            "context": {"message": message},
+            'type': 'ir.actions.act_window_close',
+            'context': {'message': message},
         }

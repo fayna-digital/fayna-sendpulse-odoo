@@ -6,7 +6,7 @@
         <field name="name">channel.message.list</field>
         <field name="model">channel.message</field>
         <field name="arch" type="xml">
-            <tree string="Message journal" create="false"
+            <tree create="false"
                 decoration-danger="state in ('failed', 'failed_permanent')">
                 <field name="date" string="Date" />
                 <field name="service" string="Channel" />

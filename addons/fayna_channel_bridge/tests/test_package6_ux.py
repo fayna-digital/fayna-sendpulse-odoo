@@ -14,35 +14,33 @@ from odoo.exceptions import UserError
 from odoo.tests import TransactionCase, tagged
 
 
-@tagged("post_install", "-at_install")
+@tagged('post_install', '-at_install')
 class TestPackage6PreconditionGate(TransactionCase):
     """Серверний захист `action_connect` від непідтверджених передумов."""
 
     def setUp(self):
         super().setUp()
-        self.tiktok = self.env.ref("fayna_channel_bridge.provider_tiktok")
-        self.whatsapp = self.env.ref("fayna_channel_bridge.provider_whatsapp")
+        self.tiktok = self.env.ref('fayna_channel_bridge.provider_tiktok')
+        self.whatsapp = self.env.ref('fayna_channel_bridge.provider_whatsapp')
 
     def _backend_exists(self, service):
         return bool(
-            self.env["channel.backend"].search(
-                [("service", "=", service), ("active", "=", True)], limit=1
+            self.env['channel.backend'].search(
+                [('service', '=', service), ('active', '=', True)], limit=1
             )
         )
 
     def test_region_blocklist_without_confirmation_is_blocked(self):
         """TikTok (region_blocklist) без підтвердження → UserError, backend не створено."""
-        self.assertTrue(
-            self.tiktok.region_blocklist, "TikTok має мати region_blocklist"
-        )
+        self.assertTrue(self.tiktok.region_blocklist, 'TikTok має мати region_blocklist')
         self.assertTrue(self.tiktok.has_unconfirmed_preconditions)
         with self.assertRaises(UserError) as ctx:
             self.tiktok.action_connect()
         message = str(ctx.exception)
-        self.assertIn("regions", message, "помилка має бути людською мовою (UX-16)")
+        self.assertIn('regions', message, 'помилка має бути людською мовою (UX-16)')
         self.assertFalse(
-            self._backend_exists("tiktok"),
-            "backend не має створюватись, поки передумови не підтверджені",
+            self._backend_exists('tiktok'),
+            'backend не має створюватись, поки передумови не підтверджені',
         )
 
     def test_region_blocklist_after_confirmation_passes_gate(self):
@@ -54,20 +52,18 @@ class TestPackage6PreconditionGate(TransactionCase):
         with self.assertRaises(UserError) as ctx:
             self.tiktok.action_connect()
         message = str(ctx.exception)
-        self.assertIn(
-            "manually", message, "має бути oauth-помилка, а не помилка передумов"
-        )
-        self.assertNotIn("regions", message)
+        self.assertIn('manually', message, 'має бути oauth-помилка, а не помилка передумов')
+        self.assertNotIn('regions', message)
 
     def test_consent_required_without_confirmation_is_blocked(self):
         """WhatsApp (consent_required) без підтвердження → UserError, backend не створено."""
-        self.assertTrue(self.whatsapp.consent_required, "WhatsApp має вимагати згоду")
+        self.assertTrue(self.whatsapp.consent_required, 'WhatsApp має вимагати згоду')
         self.assertTrue(self.whatsapp.has_unconfirmed_preconditions)
         with self.assertRaises(UserError) as ctx:
             self.whatsapp.action_connect()
         message = str(ctx.exception)
-        self.assertIn("consent", message, "помилка має бути людською мовою (UX-16)")
+        self.assertIn('consent', message, 'помилка має бути людською мовою (UX-16)')
         self.assertFalse(
-            self._backend_exists("whatsapp"),
-            "backend не має створюватись, поки згоду не підтверджено",
+            self._backend_exists('whatsapp'),
+            'backend не має створюватись, поки згоду не підтверджено',
         )
