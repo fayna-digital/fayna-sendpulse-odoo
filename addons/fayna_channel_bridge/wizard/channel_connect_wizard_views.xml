@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Wizard підключення token-каналів (В-4). Одне поле ключа з плейсхолдером
+         (T-94); жодного секрету/URL вебхука користувачеві (UX-14, T-119). -->
+    <record id="view_channel_connect_wizard_form" model="ir.ui.view">
+        <field name="name">channel.connect.wizard.form</field>
+        <field name="model">channel.connect.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Connect channel">
+                <group>
+                    <group>
+                        <field name="provider_id" readonly="1" />
+                        <field name="token"
+                            placeholder="Paste the access key"
+                            password="True" />
+                    </group>
+                </group>
+                <footer>
+                    <!-- UX-аудит (Н1/Ш3/Нор2): підтвердження перед мережевим
+                         викликом — користувач розуміє, що система звернеться до
+                         провайдера. Під час RPC Odoo показує спінер на кнопці. -->
+                    <button name="action_connect"
+                        type="object"
+                        string="Connect"
+                        class="btn-primary"
+                        confirm="Connect this channel now? The system will contact the provider to register the webhook." />
+                    <button string="Cancel" class="btn-secondary" special="cancel" />
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import json
 import logging
 
@@ -18,8 +20,49 @@ class ChannelBridgeController(http.Controller):
     def _json(self, data, status=200):
         return Response(json.dumps(data), content_type='application/json', status=status)
 
+    def _verify_hmac(self, raw, secret, signature):
+        """Перевіряє HMAC-SHA256 підпис сирого тіла запиту.
+
+        Приймає як голий hex-дайджест, так і форму ``sha256=<hex>``, яку
+        використовує Meta у заголовку ``X-Hub-Signature-256``. Порівняння —
+        константне (``hmac.compare_digest``), щоб не відкривати timing-атаку.
+        Порожній секрет або підпис завжди дає False.
+        """
+        if not secret or not signature:
+            return False
+        if signature.startswith('sha256='):
+            signature = signature[len('sha256=') :]
+        expected = hmac.new(secret.encode('utf-8'), raw, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, signature)
+
+    def _is_valid_meta_signature(self, signature):
+        """Перевіряє формат підпису Meta (X-Hub-Signature-256) до обчислення HMAC.
+
+        Meta підпис має вигляд ``sha256=<64 hex-символи>`` — рівно 71 символ.
+        Свідомо невалідний підпис відкидаємо одразу, не обчислюючи HMAC
+        (економія CPU і захист від мусорних запитів). Ця перевірка формату
+        застосовується ЛИШЕ до Meta-гілки (messenger/whatsapp): у Viber,
+        TikTok і LiveChat формат заголовка інший, тому там вона не викликається.
+        """
+        if not signature or not signature.startswith('sha256='):
+            return False
+        return len(signature) == 71
+
+    def _reject_unauthorized(self, backend, channel_name):
+        """Логує відхилення неавтентифікованого запиту і повертає 401.
+
+        Логує лише remote_addr і назву каналу — без підпису й без тіла запиту.
+        """
+        _logger.warning(
+            'Channel Bridge: invalid webhook signature from %s on %s',
+            request.httprequest.remote_addr,
+            channel_name,
+        )
+        return self._json({'status': 'error', 'message': 'Unauthorized'}, status=401)
+
     def _find_backend_by_token(self, token):
         """Знаходить активний channel.backend за Telegram bot token."""
+        # Публічний webhook: анонімний запит не має прав на channel.backend.
         Backend = request.env['channel.backend'].sudo()
         # Токен може бути в полі bot_token або в credentials JSON
         backend = Backend.search(
@@ -35,24 +78,42 @@ class ChannelBridgeController(http.Controller):
         return None
 
     @http.route(
-        '/bridge/telegram/webhook/<token>',
+        '/bridge/telegram/webhook/<webhook_id>',
         type='http',
         auth='public',
         methods=['POST'],
         csrf=False,
     )
-    def telegram_webhook(self, token):
+    def telegram_webhook(self, webhook_id):
         """
-        Telegram webhook. Токен у URL — аутентифікація (capable).
+        Telegram webhook. Аутентифікація — заголовок
+        X-Telegram-Bot-Api-Secret-Token (secret_token з setWebhook).
         Payload: {"update_id": ..., "message": {"message_id": ..., "chat": {...}, "text": ...}}
         """
-        backend = self._find_backend_by_token(token)
+        # Публічний webhook: анонімний запит не має прав на channel.backend.
+        Backend = request.env['channel.backend'].sudo()
+        backend = Backend.search(
+            [
+                ('service', '=', 'telegram'),
+                ('provider', '=', 'direct'),
+                ('active', '=', True),
+                ('webhook_path_id', '=', webhook_id),
+            ],
+            limit=1,
+        )
         if not backend:
             _logger.warning(
-                'Channel Bridge: unknown Telegram token from %s',
+                'Channel Bridge: unknown Telegram webhook path from %s',
                 request.httprequest.remote_addr,
             )
             return self._json({'status': 'error', 'message': 'Unauthorized'}, status=401)
+
+        # ── Автентифікація: X-Telegram-Bot-Api-Secret-Token (secret_token) ──
+        secret_token = request.httprequest.headers.get('X-Telegram-Bot-Api-Secret-Token', '')
+        if not backend.webhook_secret or not hmac.compare_digest(
+            backend.webhook_secret, secret_token
+        ):
+            return self._reject_unauthorized(backend, backend.name)
 
         raw = request.httprequest.data
         if not raw:
@@ -79,21 +140,29 @@ class ChannelBridgeController(http.Controller):
         username = user.get('username', '') or ''
 
         # ── Ідемпотентність: дедуплікація за (provider_message_id, service) ──
+        # Б-6: дедуп лише якщо провайдер дав ідентифікатор; інакше — як нове.
+        # Публічний webhook: анонімний запит не має прав на channel.message.
         Message = request.env['channel.message'].sudo()
-        existing = Message.search(
-            [
-                ('provider_message_id', '=', provider_message_id),
-                ('service', '=', 'telegram'),
-                ('direction', '=', 'incoming'),
-            ],
-            limit=1,
-        )
-        if existing:
-            _logger.info(
-                'Channel Bridge: duplicate Telegram update %s, skipping',
-                provider_message_id,
+        if provider_message_id:
+            existing = Message.search(
+                [
+                    ('provider_message_id', '=', provider_message_id),
+                    ('service', '=', 'telegram'),
+                    ('direction', '=', 'incoming'),
+                ],
+                limit=1,
             )
-            return self._json({'status': 'ok'})
+            if existing:
+                _logger.info(
+                    'Channel Bridge: duplicate Telegram update %s, skipping',
+                    provider_message_id,
+                )
+                return self._json({'status': 'ok'})
+        else:
+            _logger.warning(
+                'Channel Bridge: Telegram provider did not send message_id, '
+                'processing as new message'
+            )
 
         # ── Нормалізуємо payload до загальної структури (див. ТЗ §8) ──
         # Формат own:telegram:{bot_id}:{user_id} — bot_id дозволяє розрізняти
@@ -140,6 +209,7 @@ class ChannelBridgeController(http.Controller):
         # ── Обробник вхідних подій власного транспорту ──
         try:
             with request.env.cr.savepoint():
+                # Публічний webhook: анонімний запит не має прав на channel.conversation.
                 request.env['channel.conversation'].sudo()._process_incoming_event(
                     data=normalized,
                     contact=normalized['contact'],
@@ -156,6 +226,7 @@ class ChannelBridgeController(http.Controller):
 
     def _find_backend_by_service(self, service):
         """Знаходить активний channel.backend за service (для Meta)."""
+        # Публічний webhook: анонімний запит не має прав на channel.backend.
         Backend = request.env['channel.backend'].sudo()
         return Backend.search(
             [
@@ -219,6 +290,14 @@ class ChannelBridgeController(http.Controller):
         if not backend:
             return self._json({'status': 'error', 'message': 'Not configured'}, status=404)
 
+        # ── Автентифікація: X-Hub-Signature-256 (HMAC-SHA256 сирого тіла) ──
+        signature = request.httprequest.headers.get('X-Hub-Signature-256', '')
+        # Б-1.1: спершу формат (sha256= + 64 hex), потім HMAC — лише для Meta
+        if not self._is_valid_meta_signature(signature):
+            return self._reject_unauthorized(backend, backend.name)
+        if not self._verify_hmac(raw, backend.webhook_secret, signature):
+            return self._reject_unauthorized(backend, backend.name)
+
         # Meta надсилає масив entry; кожен entry має messaging[]
         entries = data.get('entry') or []
         for entry in entries:
@@ -232,17 +311,26 @@ class ChannelBridgeController(http.Controller):
                 text = message.get('text') or ''
 
                 # Ідемпотентність
+                # Б-6: дедуп лише якщо провайдер дав ідентифікатор; інакше — як нове.
+                # Публічний webhook: анонімний запит не має прав на channel.message.
                 Message = request.env['channel.message'].sudo()
-                existing = Message.search(
-                    [
-                        ('provider_message_id', '=', provider_message_id),
-                        ('service', '=', service),
-                        ('direction', '=', 'incoming'),
-                    ],
-                    limit=1,
-                )
-                if existing:
-                    continue
+                if provider_message_id:
+                    existing = Message.search(
+                        [
+                            ('provider_message_id', '=', provider_message_id),
+                            ('service', '=', service),
+                            ('direction', '=', 'incoming'),
+                        ],
+                        limit=1,
+                    )
+                    if existing:
+                        continue
+                else:
+                    _logger.warning(
+                        'Channel Bridge: %s provider did not send message id, '
+                        'processing as new message',
+                        service,
+                    )
 
                 own_contact_id = f'own:{service}:{provider_user_id}'
                 normalized = {
@@ -276,6 +364,7 @@ class ChannelBridgeController(http.Controller):
 
                 try:
                     with request.env.cr.savepoint():
+                        # Публічний webhook: анонімний запит не має прав на channel.conversation.
                         request.env['channel.conversation'].sudo()._process_incoming_event(
                             data=normalized,
                             contact=normalized['contact'],
@@ -311,22 +400,30 @@ class ChannelBridgeController(http.Controller):
         Спільний helper: ідемпотентність + журнал + виклик _process_incoming_event.
         Повертає (ok: bool, error: str|None).
         """
+        # Б-6: дедуп лише якщо провайдер дав ідентифікатор; інакше — як нове.
+        # Публічний webhook: анонімний запит не має прав на channel.message.
         Message = request.env['channel.message'].sudo()
-        existing = Message.search(
-            [
-                ('provider_message_id', '=', provider_message_id),
-                ('service', '=', service),
-                ('direction', '=', 'incoming'),
-            ],
-            limit=1,
-        )
-        if existing:
-            _logger.info(
-                'Channel Bridge: duplicate %s update %s, skipping',
-                service,
-                provider_message_id,
+        if provider_message_id:
+            existing = Message.search(
+                [
+                    ('provider_message_id', '=', provider_message_id),
+                    ('service', '=', service),
+                    ('direction', '=', 'incoming'),
+                ],
+                limit=1,
             )
-            return True, None
+            if existing:
+                _logger.info(
+                    'Channel Bridge: duplicate %s update %s, skipping',
+                    service,
+                    provider_message_id,
+                )
+                return True, None
+        else:
+            _logger.warning(
+                'Channel Bridge: %s provider did not send message id, processing as new message',
+                service,
+            )
 
         own_contact_id = f'own:{service}:{provider_user_id}'
         normalized = {
@@ -360,6 +457,7 @@ class ChannelBridgeController(http.Controller):
 
         try:
             with request.env.cr.savepoint():
+                # Публічний webhook: анонімний запит не має прав на channel.conversation.
                 request.env['channel.conversation'].sudo()._process_incoming_event(
                     data=normalized,
                     contact=normalized['contact'],
@@ -392,6 +490,11 @@ class ChannelBridgeController(http.Controller):
             data = json.loads(raw)
         except ValueError:
             return self._json({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+
+        # ── Автентифікація: X-Viber-Content-Signature (HMAC-SHA256 на auth-токені) ──
+        signature = request.httprequest.headers.get('X-Viber-Content-Signature', '')
+        if not self._verify_hmac(raw, backend._get_viber_token(), signature):
+            return self._reject_unauthorized(backend, backend.name)
 
         event = data.get('event', '')
         if event != 'message':
@@ -448,6 +551,14 @@ class ChannelBridgeController(http.Controller):
         except ValueError:
             return self._json({'status': 'error', 'message': 'Invalid JSON'}, status=400)
 
+        # ── Автентифікація: X-Hub-Signature-256 (HMAC-SHA256 сирого тіла) ──
+        signature = request.httprequest.headers.get('X-Hub-Signature-256', '')
+        # Б-1.1: спершу формат (sha256= + 64 hex), потім HMAC — лише для Meta
+        if not self._is_valid_meta_signature(signature):
+            return self._reject_unauthorized(backend, backend.name)
+        if not self._verify_hmac(raw, backend.webhook_secret, signature):
+            return self._reject_unauthorized(backend, backend.name)
+
         for entry in data.get('entry') or []:
             for change in entry.get('changes') or []:
                 value = change.get('value') or {}
@@ -489,6 +600,11 @@ class ChannelBridgeController(http.Controller):
         except ValueError:
             return self._json({'status': 'error', 'message': 'Invalid JSON'}, status=400)
 
+        # ── Автентифікація: X-Bridge-Secret (спільний секрет) ──
+        signature = request.httprequest.headers.get('X-Bridge-Secret', '')
+        if not self._verify_hmac(raw, backend.webhook_secret, signature):
+            return self._reject_unauthorized(backend, backend.name)
+
         event = data.get('event', '')
         if event != 'im.message.receive':
             return self._json({'status': 'ok'})
@@ -523,6 +639,11 @@ class ChannelBridgeController(http.Controller):
             data = json.loads(raw)
         except ValueError:
             return self._json({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+
+        # ── Автентифікація: X-Bridge-Secret (спільний секрет) ──
+        signature = request.httprequest.headers.get('X-Bridge-Secret', '')
+        if not self._verify_hmac(raw, backend.webhook_secret, signature):
+            return self._reject_unauthorized(backend, backend.name)
 
         event = data.get('event', '')
         if event != 'incoming_event':

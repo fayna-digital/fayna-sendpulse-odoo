@@ -7,12 +7,15 @@
         <field name="model">channel.backend</field>
         <field name="arch" type="xml">
             <tree>
-                <field name="name" string="Назва" />
-                <field name="service" string="Канал" />
-                <field name="provider" string="Провайдер" />
-                <field name="transport_priority" string="Пріоритет" />
-                <field name="active" string="Увімкнено" />
-                <field name="last_healthcheck_ok" string="Healthcheck OK" />
+                <field name="name" string="Name" />
+                <field name="service" string="Channel" />
+                <!-- Е-1: замість двох булевих колонок (active, last_healthcheck_ok) —
+                     одна текстова колонка стану. Текстова колонка бере ширину від
+                     вмісту, тож заголовок «Стан» не обрізається. -->
+                <field name="state" string="Status" />
+                <!-- UX-аудит (Н9): причина помилки видима прямо в списку, щоб
+                     користувач розумів, чому канал у стані Error. -->
+                <field name="last_error" string="Last error" optional="show" />
             </tree>
         </field>
     </record>
@@ -22,19 +25,25 @@
         <field name="name">channel.backend.form</field>
         <field name="model">channel.backend</field>
         <field name="arch" type="xml">
-            <form string="Канал власного транспорту">
+            <form string="Own transport channel">
                 <header>
                     <button name="register_telegram_webhook" type="object"
-                        string="Реєструвати Telegram webhook"
+                        string="Register Telegram webhook"
+                        groups="fayna_channel_bridge.group_channel_bridge_admin"
                         invisible="service != 'telegram'" />
+                    <!-- UX-аудит (Н9): ручний повтор перевірки доступності каналу. -->
+                    <button name="action_retry_check" type="object"
+                        string="Retry check"
+                        groups="fayna_channel_bridge.group_channel_bridge_admin"
+                        invisible="not active" />
                     <button name="action_switch_all_to_own" type="object"
-                        string="M4: Перемкнути всі на own"
-                        confirm="Перемкнути ВСІ канали на власний транспорт?" />
+                        string="M4: Switch all to own"
+                        confirm="Switch ALL channels to own transport?" />
                     <field name="active" widget="boolean_toggle" />
                 </header>
                 <sheet>
                     <group>
-                        <group string="Основна інформація">
+                        <group string="Main information">
                             <field name="name" />
                             <field name="service" />
                             <field name="provider" />
@@ -47,15 +56,15 @@
                         </group>
                     </group>
                     <group>
-                        <group string="Оператори">
+                        <group string="Operators">
                             <field name="user_ids" widget="many2many_tags"
                                 domain="[('share', '=', False), ('active', '=', True)]" />
                         </group>
-                        <group string="Обмеження">
+                        <group string="Restrictions">
                             <field name="partner_domain" />
                         </group>
                     </group>
-                    <group string="Метрики">
+                    <group string="Metrics">
                         <group>
                             <field name="last_healthcheck_at" />
                             <field name="last_healthcheck_ok" />
@@ -64,7 +73,9 @@
                             <field name="last_error" readonly="1" />
                         </group>
                     </group>
-                    <group string="Credentials (JSON)" invisible="not credentials">
+                    <group string="Credentials (JSON)"
+                        groups="fayna_channel_bridge.group_channel_bridge_admin"
+                        invisible="not credentials">
                         <field name="credentials" nolabel="1" />
                     </group>
                 </sheet>
@@ -77,17 +88,17 @@
         <field name="name">channel.backend.search</field>
         <field name="model">channel.backend</field>
         <field name="arch" type="xml">
-            <search string="Пошук каналів">
+            <search string="Search channels">
                 <field name="name" />
                 <field name="service" />
                 <field name="provider" />
                 <separator />
-                <filter name="filter_active" string="Активні" domain="[('active','=',True)]" />
+                <filter name="filter_active" string="Active" domain="[('active','=',True)]" />
                 <filter name="filter_telegram" string="Telegram"
                     domain="[('service','=','telegram')]" />
-                <group string="Згрупувати за">
-                    <filter name="group_service" string="Канал" context="{'group_by':'service'}" />
-                    <filter name="group_provider" string="Провайдер"
+                <group string="Group by">
+                    <filter name="group_service" string="Channel" context="{'group_by':'service'}" />
+                    <filter name="group_provider" string="Provider"
                         context="{'group_by':'provider'}" />
                 </group>
             </search>
@@ -96,23 +107,47 @@
 
     <!-- Actions -->
     <record id="action_channel_backend" model="ir.actions.act_window">
-        <field name="name">Канали власного транспорту</field>
+        <field name="name">Own transport channels</field>
         <field name="res_model">channel.backend</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_channel_backend_search" />
         <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                There are no own transport channels yet.
+            </p>
+            <p>
+                Channels appear after connecting via the "Connect channels" menu.
+                Here you can see the status of each channel, the transport priority
+                and the result of the last availability check.
+            </p>
+        </field>
     </record>
 
     <!-- Menu -->
     <menuitem id="menu_channel_bridge_root"
         name="Channel Bridge"
         sequence="95"
+        web_icon="fayna_channel_bridge,static/description/icon.png"
         groups="fayna_channel_bridge.group_channel_bridge_officer" />
 
+    <menuitem id="menu_channel_bridge_conversations"
+        name="Conversations"
+        parent="menu_channel_bridge_root"
+        action="action_channel_conversation"
+        sequence="10" />
+
+    <menuitem id="menu_channel_bridge_messages"
+        name="Journal"
+        parent="menu_channel_bridge_root"
+        action="action_channel_message"
+        sequence="20" />
+
     <menuitem id="menu_channel_bridge_backends"
-        name="Канали"
+        name="Channels"
         parent="menu_channel_bridge_root"
         action="action_channel_backend"
-        sequence="10" />
+        sequence="30"
+        groups="fayna_channel_bridge.group_channel_bridge_admin" />
 
 </odoo>

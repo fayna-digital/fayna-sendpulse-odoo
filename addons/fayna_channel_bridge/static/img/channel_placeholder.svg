@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img"
+    aria-label="Канал">
+    <rect width="64" height="64" rx="14" fill="#eef2f7" />
+    <path
+        d="M32 14c-11 0-20 7.6-20 17 0 5.4 3 10.2 7.7 13.3L18 50l6.6-3.3c2.4.7 4.9 1 7.4 1 11 0 20-7.6 20-17S43 14 32 14z"
+        fill="#7a8ba3" />
+    <circle cx="24" cy="31" r="2.6" fill="#ffffff" />
+    <circle cx="32" cy="31" r="2.6" fill="#ffffff" />
+    <circle cx="40" cy="31" r="2.6" fill="#ffffff" />
+</svg>

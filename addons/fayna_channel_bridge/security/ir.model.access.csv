@@ -5,3 +5,6 @@ access_channel_message_officer,channel.message officer,model_channel_message,gro
 access_channel_message_admin,channel.message admin,model_channel_message,group_channel_bridge_admin,1,1,1,1
 access_channel_conversation_officer,channel.conversation officer,model_channel_conversation,group_channel_bridge_officer,1,0,0,0
 access_channel_conversation_admin,channel.conversation admin,model_channel_conversation,group_channel_bridge_admin,1,1,1,1
+access_channel_provider_officer,channel.provider officer,model_channel_provider,group_channel_bridge_officer,1,0,0,0
+access_channel_provider_admin,channel.provider admin,model_channel_provider,group_channel_bridge_admin,1,1,1,1
+access_channel_connect_wizard_admin,channel.connect.wizard admin,model_channel_connect_wizard,group_channel_bridge_admin,1,1,1,1

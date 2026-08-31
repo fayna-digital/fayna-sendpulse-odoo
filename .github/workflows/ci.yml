@@ -34,3 +34,51 @@ jobs:
 
       - name: Run pre-commit hooks
         uses: pre-commit/action@v3.0.1
+
+  # Ж-7: тестовий job — ставить модуль на чисту базу і валить збірку,
+  # якщо тести падають (код виходу != 0 або у виводі є ненульове `failed`).
+  test:
+    name: Test (Odoo 17 + PostgreSQL)
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: odoo
+          POSTGRES_PASSWORD: odoo
+          POSTGRES_DB: fayna_bridge_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U odoo"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Odoo tests on clean DB
+        run: |
+          set +e
+          output=$(docker run --rm --network host \
+            -v "$PWD/addons/fayna_channel_bridge:/mnt/extra-addons/fayna_channel_bridge" \
+            -e HOST=localhost -e PORT=5432 -e USER=odoo -e PASSWORD=odoo \
+            odoo:17.0 \
+            odoo --db_host=localhost --db_port=5432 --db_user=odoo --db_password=odoo \
+            -d fayna_bridge_test --stop-after-init -i fayna_channel_bridge \
+            --test-enable --test-tags /fayna_channel_bridge --http-port=8071 2>&1)
+          exit_code=$?
+          set -e
+          echo "$output"
+          if [ $exit_code -ne 0 ]; then
+            echo "::error::Odoo tests exited with code $exit_code"
+            exit 1
+          fi
+          failed_count=$(echo "$output" | grep -oE '[0-9]+ failed' | grep -oE '[0-9]+' | head -1)
+          if [ -n "$failed_count" ] && [ "$failed_count" -ne 0 ]; then
+            echo "::error::Odoo tests reported $failed_count failure(s)"
+            exit 1
+          fi
+          echo "::notice::Odoo tests passed (0 failed)"

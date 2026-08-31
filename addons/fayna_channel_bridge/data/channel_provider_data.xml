@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Telegram: токен видає BotFather, OAuth не існує -->
+        <record id="provider_telegram" model="channel.provider">
+            <field name="name">Telegram</field>
+            <field name="service">telegram</field>
+            <field name="sequence">10</field>
+            <field name="connect_method">token</field>
+            <field name="token_placeholder">123456789:AA... (token from BotFather)</field>
+            <field name="help_url">https://core.telegram.org/bots#6-botfather</field>
+            <field name="description">Official Telegram messenger. Connection via a bot token
+                created in BotFather.</field>
+            <field name="precondition_ids">Create a bot in BotFather and get a token.</field>
+        </record>
+
+        <!-- Messenger: OAuth (у цьому пакеті не реалізується) -->
+        <record id="provider_messenger" model="channel.provider">
+            <field name="name">Messenger</field>
+            <field name="service">messenger</field>
+            <field name="sequence">20</field>
+            <field name="connect_method">oauth</field>
+            <field name="help_url">https://developers.facebook.com/docs/messenger-platform</field>
+            <field name="description">Facebook Messenger messages. Connection via
+                Facebook OAuth authorization.</field>
+            <field name="precondition_ids">A Facebook page and a Meta developer app.</field>
+        </record>
+
+        <!-- Instagram: OAuth -->
+        <record id="provider_instagram" model="channel.provider">
+            <field name="name">Instagram</field>
+            <field name="service">instagram</field>
+            <field name="sequence">30</field>
+            <field name="connect_method">oauth</field>
+            <field name="help_url">https://developers.facebook.com/docs/instagram-platform</field>
+            <field name="description">Instagram direct messages. Connection via
+                Meta OAuth authorization.</field>
+            <field name="precondition_ids">An Instagram business account linked to a
+                Facebook page.</field>
+        </record>
+
+        <!-- WhatsApp: OAuth, платний, втрата керування з мобільного -->
+        <record id="provider_whatsapp" model="channel.provider">
+            <field name="name">WhatsApp</field>
+            <field name="service">whatsapp</field>
+            <field name="sequence">40</field>
+            <field name="connect_method">oauth</field>
+            <field name="help_url">https://business.whatsapp.com/</field>
+            <field name="description">WhatsApp Business Platform. Connection via
+                Meta OAuth authorization.</field>
+            <field name="consent_required">True</field>
+            <field name="cost_warning">Paid plan: a fee is charged per message.</field>
+            <field name="side_effect_warning">After connecting you lose control over conversations
+                from the WhatsApp mobile app.</field>
+            <field name="precondition_ids">A WhatsApp Business Account verified by Meta.</field>
+        </record>
+
+        <!-- Viber: токен -->
+        <record id="provider_viber" model="channel.provider">
+            <field name="name">Viber</field>
+            <field name="service">viber</field>
+            <field name="sequence">50</field>
+            <field name="connect_method">token</field>
+            <field name="token_placeholder">Token from Viber Admin Panel</field>
+            <field name="help_url">https://partners.viber.com/</field>
+            <field name="description">Viber messenger. Connection via a bot token from the Viber
+                Admin Panel.</field>
+            <field name="precondition_ids">Create a bot in the Viber Admin Panel and get a token.</field>
+        </record>
+
+        <!-- TikTok: OAuth, недоступний у ЄЕЗ/ЄС і США, потрібен бізнес-акаунт -->
+        <record id="provider_tiktok" model="channel.provider">
+            <field name="name">TikTok</field>
+            <field name="service">tiktok</field>
+            <field name="sequence">60</field>
+            <field name="connect_method">oauth</field>
+            <field name="help_url">https://developers.tiktok.com/</field>
+            <field name="description">TikTok direct messages. Connection via TikTok
+                OAuth authorization.</field>
+            <field name="region_blocklist">EEA/EU, USA</field>
+            <field name="precondition_ids">A TikTok business account.</field>
+        </record>
+
+        <!-- LiveChat: widget, авторизація не потрібна -->
+        <record id="provider_livechat" model="channel.provider">
+            <field name="name">LiveChat</field>
+            <field name="service">livechat</field>
+            <field name="sequence">70</field>
+            <field name="connect_method">widget</field>
+            <field name="description">Embedded chat on the website. No authorization needed — just
+                embed the widget.</field>
+        </record>
+
+    </data>
+</odoo>

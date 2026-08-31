@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- List View (журнал) -->
+    <record id="view_channel_message_list" model="ir.ui.view">
+        <field name="name">channel.message.list</field>
+        <field name="model">channel.message</field>
+        <field name="arch" type="xml">
+            <tree string="Message journal" create="false"
+                decoration-danger="state in ('failed', 'failed_permanent')">
+                <field name="date" string="Date" />
+                <field name="service" string="Channel" />
+                <field name="direction" string="Direction" />
+                <field name="state" string="Status" />
+                <field name="provider_user_id" string="Contact in channel" />
+                <field name="text_message" string="Message" />
+                <field name="last_error" string="Last error" />
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form View (тільки читання) -->
+    <record id="view_channel_message_form" model="ir.ui.view">
+        <field name="name">channel.message.form</field>
+        <field name="model">channel.message</field>
+        <field name="arch" type="xml">
+            <form string="Message">
+                <sheet>
+                    <group>
+                        <group string="Main information">
+                            <field name="date" readonly="1" />
+                            <field name="service" readonly="1" />
+                            <field name="direction" readonly="1" />
+                            <field name="state" readonly="1" />
+                            <field name="backend_id" readonly="1" />
+                        </group>
+                        <group string="Provider">
+                            <field name="provider_message_id" readonly="1" />
+                            <field name="provider_user_id" readonly="1" />
+                            <field name="retry_count" readonly="1" />
+                            <field name="last_error" readonly="1" />
+                        </group>
+                    </group>
+                    <group string="Message">
+                        <field name="text_message" readonly="1" />
+                        <field name="attachment_url" readonly="1" widget="url" />
+                    </group>
+                    <group string="Raw JSON" invisible="not raw_json">
+                        <field name="raw_json" readonly="1" nolabel="1"
+                            class="o_preview" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_channel_message_search" model="ir.ui.view">
+        <field name="name">channel.message.search</field>
+        <field name="model">channel.message</field>
+        <field name="arch" type="xml">
+            <search string="Search messages">
+                <field name="text_message" />
+                <field name="service" />
+                <field name="direction" />
+                <field name="state" />
+                <field name="provider_user_id" />
+                <separator />
+                <filter name="filter_incoming" string="From customer"
+                    domain="[('direction', '=', 'incoming')]" />
+                <filter name="filter_outgoing" string="From operator"
+                    domain="[('direction', '=', 'outgoing')]" />
+                <filter name="filter_failed" string="Only errors"
+                    domain="[('state', 'in', ('failed', 'failed_permanent'))]" />
+                <group string="Group by">
+                    <filter name="group_service" string="Channel"
+                        context="{'group_by': 'service'}" />
+                    <filter name="group_state" string="Status"
+                        context="{'group_by': 'state'}" />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action: журнал -->
+    <record id="action_channel_message" model="ir.actions.act_window">
+        <field name="name">Message journal</field>
+        <field name="res_model">channel.message</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_channel_message_search" />
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                There are no messages yet.
+            </p>
+            <p>
+                The journal records messages that pass through the own transport
+                of the channels. Here you can see the direction, delivery status
+                and errors. The "Only errors" filter shows messages with the
+                "Error" status.
+            </p>
+        </field>
+    </record>
+
+    <!-- Action: історія повідомлень конкретної розмови (з форми розмови) -->
+    <record id="action_channel_message_history" model="ir.actions.act_window">
+        <field name="name">Message history</field>
+        <field name="res_model">channel.message</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_channel_message_search" />
+        <field name="context">{'search_default_group_service': 1}</field>
+    </record>
+
+</odoo>

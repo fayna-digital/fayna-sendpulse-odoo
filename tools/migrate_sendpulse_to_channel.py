@@ -3,9 +3,12 @@
 """
 Міграція даних: sendpulse_connect → channel.conversation / channel.backend / channel.message.
 
-Цей скрипт виконується через `odoo shell` на staging/prod ПІСЛЯ встановлення
-модуля fayna_channel_bridge. Він переносить історію розмов зі старої моделі
-SendPulse (sendpulse_connect) у нову автономну модель власного транспорту.
+УВАГА: це РУЧНИЙ одноразовий скрипт (не автоматична Odoo-міграція). Він лежить
+у tools/ поза каталогом модуля, бо не відповідає схемі migrations/<version>/ і
+Odoo його ніколи не виконає сам. Запускається вручну через `odoo shell` на
+staging/prod ПІСЛЯ встановлення модуля fayna_channel_bridge. Він переносить
+історію розмов зі старої моделі SendPulse (sendpulse_connect) у нову автономну
+модель власного транспорту.
 
 Що робить:
   1. Створює channel.backend на кожен service (без credentials — токени

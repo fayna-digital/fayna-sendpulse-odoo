@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- List View -->
+    <record id="view_channel_conversation_list" model="ir.ui.view">
+        <field name="name">channel.conversation.list</field>
+        <field name="model">channel.conversation</field>
+        <field name="arch" type="xml">
+            <tree string="Conversations" create="false"
+                decoration-muted="stage == 'close'"
+                decoration-info="stage == 'new'"
+                decoration-warning="stage == 'new_message'">
+                <field name="service" string="Channel" />
+                <field name="name" string="Contact" />
+                <field name="partner_id" string="Partner" />
+                <field name="last_message_preview" string="Last message" />
+                <field name="last_message_date" string="Date" />
+                <field name="stage" string="Stage" widget="badge" />
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_channel_conversation_form" model="ir.ui.view">
+        <field name="name">channel.conversation.form</field>
+        <field name="model">channel.conversation</field>
+        <field name="arch" type="xml">
+            <form string="Conversation">
+                <header>
+                    <field name="channel_id" invisible="1" />
+                    <button name="action_open_discuss" type="object"
+                        string="Open in Discuss"
+                        invisible="not channel_id" />
+                    <button name="action_close" type="object"
+                        string="Close conversation"
+                        invisible="stage == 'close'" />
+                    <button name="action_reopen" type="object"
+                        string="Reopen"
+                        invisible="stage != 'close'" />
+                    <field name="active" widget="boolean_toggle" />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" />
+                        </h1>
+                        <field name="stage" widget="statusbar"
+                            options="{'clickable': True}" />
+                    </div>
+                    <group>
+                        <group string="Main information">
+                            <field name="service" />
+                            <field name="backend_id" />
+                            <field name="partner_id" />
+                            <field name="provider_user_id" />
+                            <field name="provider_bot_id" />
+                            <field name="bot_name" />
+                        </group>
+                        <group string="Contact">
+                            <field name="social_username" />
+                            <field name="social_profile_url" widget="url" />
+                            <field name="last_message_preview" />
+                            <field name="last_message_date" />
+                        </group>
+                    </group>
+                    <group string="Operators">
+                        <field name="user_ids" widget="many2many_tags"
+                            domain="[('share', '=', False), ('active', '=', True)]" />
+                    </group>
+                    <notebook>
+                        <page string="Message history">
+                            <button name="%(action_channel_message_history)d"
+                                type="action" string="Show message journal"
+                                class="btn-link" />
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_channel_conversation_search" model="ir.ui.view">
+        <field name="name">channel.conversation.search</field>
+        <field name="model">channel.conversation</field>
+        <field name="arch" type="xml">
+            <search string="Search conversations">
+                <field name="name" />
+                <field name="service" />
+                <field name="stage" />
+                <field name="partner_id" />
+                <separator />
+                <filter name="filter_new" string="New"
+                    domain="[('stage', 'in', ('new', 'new_message'))]" />
+                <filter name="filter_in_progress" string="In progress"
+                    domain="[('stage', '=', 'in_progress')]" />
+                <filter name="filter_closed" string="Closed"
+                    domain="[('stage', '=', 'close')]" />
+                <filter name="filter_has_partner" string="Has partner"
+                    domain="[('partner_id', '!=', False)]" />
+                <filter name="filter_no_partner" string="No partner"
+                    domain="[('partner_id', '=', False)]" />
+                <group string="Group by">
+                    <filter name="group_service" string="Channel"
+                        context="{'group_by': 'service'}" />
+                    <filter name="group_stage" string="Stage"
+                        context="{'group_by': 'stage'}" />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_channel_conversation" model="ir.actions.act_window">
+        <field name="name">Conversations</field>
+        <field name="res_model">channel.conversation</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_channel_conversation_search" />
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                There are no conversations yet.
+            </p>
+            <p>
+                Conversations appear automatically when a customer writes to a
+                connected channel (Telegram, Messenger, Viber, etc.). To start
+                replying — open the conversation and click "Open in Discuss".
+            </p>
+        </field>
+    </record>
+
+</odoo>
