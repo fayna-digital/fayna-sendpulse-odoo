@@ -1,6 +1,6 @@
 {
     'name': 'Fayna Channel Bridge',
-    'version': '17.0.1.5.0',
+    'version': '17.0.1.6.0',
     'summary': 'Fayna Digital — own direct transport for Odoo chat channels',
     'description': """
         Own transport layer for DM channels on Odoo 17. Messages flow directly
