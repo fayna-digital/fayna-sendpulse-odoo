@@ -121,6 +121,12 @@ class ChannelBackend(models.Model):
         string='Bot ID',
         help='Telegram bot username (e.g. @CampScoutBot)',
     )
+    ig_account_id = fields.Char(
+        string='Instagram Account ID',
+        index=True,
+        help='Instagram Business Account ID linked to the parent Facebook page '
+        '(used by the Instagram channel, which reuses the parent page token).',
+    )
     heal_url = fields.Char(
         string='Webhook URL',
         help='URL for setWebhook (Telegram) / subscribe (Meta)',

@@ -29,6 +29,10 @@ class TestWebhookAuth(HttpCase):
 
     def setUp(self):
         super().setUp()
+        # Встановлюємо сесію з правильною тестовою БД (session_id cookie).
+        # Без цього публічний вебхук-роут не може визначити БД через
+        # dbfilter (^campscout$) і повертає 404.
+        self.authenticate('', '')
         self.backend = self.env['channel.backend'].create(
             {
                 'name': 'MSG Auth Page',

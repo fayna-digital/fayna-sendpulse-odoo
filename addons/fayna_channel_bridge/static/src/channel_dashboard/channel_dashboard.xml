@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+    <t t-name="fayna_channel_bridge.ChannelDashboard">
+        <div class="o-fcb-dashboard d-flex h-100">
+            <!-- Ліва панель, 300px (ТЗ §2.2) -->
+            <div class="o-fcb-sidebar d-flex flex-column flex-shrink-0 h-100 border-end bg-view">
+                <div class="o-fcb-sidebar-header px-3 py-3">
+                    <h5 class="mb-0 fw-bold">Connect channels</h5>
+                </div>
+                <div class="o-fcb-sidebar-body flex-grow-1 overflow-auto">
+                    <t t-if="state.loading">
+                        <div class="p-3 text-muted">Loading…</div>
+                    </t>
+                    <t t-else="">
+                        <t t-foreach="categoryOrder" t-as="category" t-key="category">
+                            <div t-if="groupedProviders[category] and groupedProviders[category].length"
+                                class="o-fcb-group">
+                                <div class="o-fcb-group-title px-3 py-2 text-uppercase text-muted small fw-bold">
+                                    <t t-esc="categoryLabels[category]"/>
+                                </div>
+                                <t t-foreach="groupedProviders[category]" t-as="provider" t-key="provider.id">
+                                    <div t-attf-class="o-fcb-item d-flex align-items-center px-3 py-2 #{provider.id === state.activeId ? 'o-fcb-item-active' : ''}"
+                                        t-on-click="() => this.state.activeId = provider.id"
+                                        role="button">
+                                        <span class="o-fcb-item-bar" t-if="provider.id === state.activeId"/>
+                                        <img t-att-src="'/fayna_channel_bridge/static/img/channel_placeholder.svg'"
+                                            class="o-fcb-item-icon me-2"
+                                            alt="Channel icon"/>
+                                        <span class="o-fcb-item-name flex-grow-1 text-truncate">
+                                            <t t-esc="provider.name"/>
+                                        </span>
+                                        <span t-if="provider.state"
+                                            t-attf-class="o-fcb-state-dot #{_stateBadge(provider.state).class}"
+                                            t-att-title="_stateBadge(provider.state).label"/>
+                                    </div>
+                                </t>
+                            </div>
+                        </t>
+                    </t>
+                </div>
+                <!-- Блок-посилання на штатний Odoo Live Chat (ТЗ §2.2) -->
+                <div class="o-fcb-livechat px-3 py-3 border-top">
+                    <button class="btn btn-outline-secondary btn-sm w-100"
+                        t-on-click="onClickLiveChat">
+                        <i class="fa fa-comments me-1"/> Live Chat (Odoo)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Права панель — контент обраного каналу (ТЗ §2.2) -->
+            <div class="o-fcb-content flex-grow-1 overflow-auto">
+                <t t-if="state.loading">
+                    <div class="p-5 text-muted">Loading…</div>
+                </t>
+                <t t-elif="activeProvider">
+                    <div class="o-fcb-channel p-5">
+                        <div class="d-flex align-items-start mb-3">
+                            <img t-att-src="'/fayna_channel_bridge/static/img/channel_placeholder.svg'"
+                                class="o-fcb-channel-icon me-3"
+                                alt="Channel icon"/>
+                            <div>
+                                <h2 class="mb-1 fw-bold">
+                                    <t t-esc="activeProvider.name"/>
+                                </h2>
+                                <span t-if="activeProvider.state"
+                                    t-attf-class="o-fcb-state-badge badge #{_stateBadge(activeProvider.state).class}">
+                                    <t t-esc="_stateBadge(activeProvider.state).label"/>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Рядок вигоди («що я отримаю») -->
+                        <p t-if="activeProvider.value_line" class="o-fcb-value-line lead mb-2">
+                            <t t-esc="activeProvider.value_line"/>
+                        </p>
+                        <!-- Рядок дозволу («що я віддаю») -->
+                        <p t-if="activeProvider.permission_line" class="o-fcb-permission-line text-muted mb-4">
+                            <i class="fa fa-shield me-1"/>
+                            <t t-esc="activeProvider.permission_line"/>
+                        </p>
+
+                        <!-- Опис -->
+                        <p t-if="activeProvider.description" class="o-fcb-description mb-4">
+                            <t t-esc="activeProvider.description"/>
+                        </p>
+
+                        <!-- Умовні блоки (ТЗ §2.2): передумови, платність, регіон, згода -->
+                        <div t-if="activeProvider.precondition_ids" class="o-fcb-block alert alert-info mb-3">
+                            <i class="fa fa-list-check me-1"/>
+                            <t t-esc="activeProvider.precondition_ids"/>
+                        </div>
+                        <div t-if="activeProvider.cost_warning" class="o-fcb-block alert alert-danger mb-3">
+                            <i class="fa fa-exclamation-triangle me-1"/>
+                            <t t-esc="activeProvider.cost_warning"/>
+                        </div>
+                        <div t-if="activeProvider.side_effect_warning" class="o-fcb-block alert alert-warning mb-3">
+                            <i class="fa fa-exclamation-circle me-1"/>
+                            <t t-esc="activeProvider.side_effect_warning"/>
+                        </div>
+                        <div t-if="activeProvider.region_blocklist" class="o-fcb-block alert alert-danger mb-3">
+                            <i class="fa fa-ban me-1"/>
+                            <t t-esc="activeProvider.region_blocklist"/>
+                        </div>
+                        <div t-if="activeProvider.consent_required" class="o-fcb-block alert alert-info mb-3">
+                            <i class="fa fa-check-square-o me-1"/>
+                            User consent required
+                        </div>
+                        <div t-if="activeProvider.has_unconfirmed_preconditions" class="o-fcb-block alert alert-danger mb-3">
+                            <i class="fa fa-lock me-1"/>
+                            <t t-esc="activeProvider.blocking_reason"/>
+                        </div>
+
+                        <!-- Одна головна кнопка (ТЗ §2.2, §2.5) -->
+                        <div class="o-fcb-actions d-flex align-items-center gap-2 mt-4">
+                            <button t-if="not activeProvider.is_connected"
+                                class="btn btn-primary"
+                                t-on-click="onClickConnect">
+                                <t t-esc="activeProvider.connect_label"/>
+                            </button>
+                            <!-- Руйнівна дія окремо, з підтвердженням (ТЗ §2.5) -->
+                            <button t-if="activeProvider.is_connected"
+                                class="btn btn-outline-danger"
+                                t-on-click="onClickDisconnect">
+                                Disconnect
+                            </button>
+                            <!-- Запасний шлях посиланням (ТЗ §2.2) -->
+                            <a t-if="activeProvider.fallback_url"
+                                t-att-href="activeProvider.fallback_url"
+                                target="_blank"
+                                class="btn btn-link">
+                                <t t-esc="activeProvider.fallback_label"/>
+                            </a>
+                            <a t-if="activeProvider.help_url"
+                                t-att-href="activeProvider.help_url"
+                                target="_blank"
+                                class="btn btn-link">
+                                Learn more
+                            </a>
+                        </div>
+                    </div>
+                </t>
+            </div>
+        </div>
+    </t>
+</templates>

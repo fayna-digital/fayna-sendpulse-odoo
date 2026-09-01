@@ -1,0 +1,71 @@
+// OWL-SPA «Підключити канали» — мінімальний власний CSS (ТЗ §5: без великого CSS).
+// Більшість стилів — штатні Bootstrap/Odoo класи в шаблоні.
+
+.o-fcb-dashboard {
+    min-height: 0;
+}
+
+// Ліва панель, 300px (ТЗ §2.2) — як у Discuss (.o-mail-DiscussSidebar { width: 300px; }).
+.o-fcb-sidebar {
+    width: 300px;
+}
+
+.o-fcb-item {
+    position: relative;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+
+    &:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+    }
+
+    &.o-fcb-item-active {
+        background-color: rgba(0, 0, 0, 0.05);
+        border-left-color: var(--o-enterprise-color, #017e84);
+    }
+}
+
+.o-fcb-item-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background-color: var(--o-enterprise-color, #017e84);
+}
+
+.o-fcb-item-icon,
+.o-fcb-channel-icon {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+.o-fcb-channel-icon {
+    width: 56px;
+    height: 56px;
+}
+
+// Позначки стану (ТЗ §0.1): три чесні стани.
+.o-fcb-state-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+.o-fcb-state-not-configured {
+    background-color: #adb5bd; // сірий — не налаштовано
+}
+
+.o-fcb-state-needs-attention {
+    background-color: #f0ad4e; // жовтий — потребує уваги
+}
+
+.o-fcb-state-working {
+    background-color: #28a745; // зелений — працює
+}
+
+.o-fcb-state-badge {
+    font-size: 0.75rem;
+}

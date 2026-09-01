@@ -1,51 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
-<odoo noupdate="1">
+<odoo noupdate="0">
+
+    <!-- ============================================================
+         Категорія «Основні» (ТЗ §2.2, §2.3-bis). Склад — тут (поле
+         `category`), порядок категорій — у JS (CATEGORY_ORDER).
+         ============================================================ -->
 
     <!-- Telegram: токен видає BotFather, OAuth не існує -->
     <record id="provider_telegram" model="channel.provider">
         <field name="name">Telegram</field>
         <field name="service">telegram</field>
         <field name="sequence">10</field>
+        <field name="category">main</field>
         <field name="connect_method">token</field>
         <field name="token_placeholder">123456789:AA... (token from BotFather)</field>
         <field name="help_url">https://core.telegram.org/bots#6-botfather</field>
+        <field name="value_line">Receive and reply to customer messages right in Odoo.</field>
+        <field name="permission_line">You give access to the bot you create in BotFather.</field>
+        <field name="connect_label">Connect Telegram</field>
+        <field name="fallback_label">How to get a token</field>
+        <field name="fallback_url">https://core.telegram.org/bots#6-botfather</field>
         <field name="description">Official Telegram messenger. Connection via a bot token
             created in BotFather.</field>
         <field name="precondition_ids">Create a bot in BotFather and get a token.</field>
     </record>
 
-    <!-- Messenger: OAuth (у цьому пакеті не реалізується) -->
+    <!-- Messenger: OAuth (Фаза 2) -->
     <record id="provider_messenger" model="channel.provider">
-        <field name="name">Messenger</field>
+        <field name="name">Facebook Messenger</field>
         <field name="service">messenger</field>
         <field name="sequence">20</field>
+        <field name="category">main</field>
         <field name="connect_method">oauth</field>
         <field name="help_url">https://developers.facebook.com/docs/messenger-platform</field>
+        <field name="value_line">Answer Messenger conversations without leaving Odoo.</field>
+        <field name="permission_line">You give access to your Facebook page and its messages.</field>
+        <field name="connect_label">Connect Messenger</field>
+        <field name="fallback_label">Messenger Platform docs</field>
+        <field name="fallback_url">https://developers.facebook.com/docs/messenger-platform</field>
         <field name="description">Facebook Messenger messages. Connection via
             Facebook OAuth authorization.</field>
         <field name="precondition_ids">A Facebook page and a Meta developer app.</field>
-    </record>
-
-    <!-- Instagram: OAuth -->
-    <record id="provider_instagram" model="channel.provider">
-        <field name="name">Instagram</field>
-        <field name="service">instagram</field>
-        <field name="sequence">30</field>
-        <field name="connect_method">oauth</field>
-        <field name="help_url">https://developers.facebook.com/docs/instagram-platform</field>
-        <field name="description">Instagram direct messages. Connection via
-            Meta OAuth authorization.</field>
-        <field name="precondition_ids">An Instagram business account linked to a
-            Facebook page.</field>
     </record>
 
     <!-- WhatsApp: OAuth, платний, втрата керування з мобільного -->
     <record id="provider_whatsapp" model="channel.provider">
         <field name="name">WhatsApp</field>
         <field name="service">whatsapp</field>
-        <field name="sequence">40</field>
+        <field name="sequence">30</field>
+        <field name="category">main</field>
         <field name="connect_method">oauth</field>
         <field name="help_url">https://business.whatsapp.com/</field>
+        <field name="value_line">Handle WhatsApp Business messages from one inbox.</field>
+        <field name="permission_line">You give access to your WhatsApp Business account.</field>
+        <field name="connect_label">Connect WhatsApp</field>
+        <field name="fallback_label">WhatsApp Business</field>
+        <field name="fallback_url">https://business.whatsapp.com/</field>
         <field name="description">WhatsApp Business Platform. Connection via
             Meta OAuth authorization.</field>
         <field name="consent_required">True</field>
@@ -55,40 +65,156 @@
         <field name="precondition_ids">A WhatsApp Business Account verified by Meta.</field>
     </record>
 
-    <!-- Viber: токен -->
-    <record id="provider_viber" model="channel.provider">
-        <field name="name">Viber</field>
-        <field name="service">viber</field>
-        <field name="sequence">50</field>
-        <field name="connect_method">token</field>
-        <field name="token_placeholder">Token from Viber Admin Panel</field>
-        <field name="help_url">https://partners.viber.com/</field>
-        <field name="description">Viber messenger. Connection via a bot token from the Viber
-            Admin Panel.</field>
-        <field name="precondition_ids">Create a bot in the Viber Admin Panel and get a token.</field>
+    <!-- Instagram: OAuth -->
+    <record id="provider_instagram" model="channel.provider">
+        <field name="name">Instagram</field>
+        <field name="service">instagram</field>
+        <field name="sequence">40</field>
+        <field name="category">main</field>
+        <field name="connect_method">oauth</field>
+        <field name="help_url">https://developers.facebook.com/docs/instagram-platform</field>
+        <field name="value_line">Reply to Instagram direct messages from Odoo.</field>
+        <field name="permission_line">You give access to your Instagram business account.</field>
+        <field name="connect_label">Connect Instagram</field>
+        <field name="fallback_label">Instagram Platform docs</field>
+        <field name="fallback_url">https://developers.facebook.com/docs/instagram-platform</field>
+        <field name="description">Instagram direct messages. Connection via
+            Meta OAuth authorization.</field>
+        <field name="precondition_ids">An Instagram business account linked to a
+            Facebook page.</field>
     </record>
 
     <!-- TikTok: OAuth, недоступний у ЄЕЗ/ЄС і США, потрібен бізнес-акаунт -->
     <record id="provider_tiktok" model="channel.provider">
         <field name="name">TikTok</field>
         <field name="service">tiktok</field>
-        <field name="sequence">60</field>
+        <field name="sequence">50</field>
+        <field name="category">main</field>
         <field name="connect_method">oauth</field>
         <field name="help_url">https://developers.tiktok.com/</field>
+        <field name="value_line">Manage TikTok direct messages from Odoo.</field>
+        <field name="permission_line">You give access to your TikTok business account.</field>
+        <field name="connect_label">Connect TikTok</field>
+        <field name="fallback_label">TikTok for Developers</field>
+        <field name="fallback_url">https://developers.tiktok.com/</field>
         <field name="description">TikTok direct messages. Connection via TikTok
             OAuth authorization.</field>
         <field name="region_blocklist">EEA/EU, USA</field>
         <field name="precondition_ids">A TikTok business account.</field>
     </record>
 
-    <!-- LiveChat: widget, авторизація не потрібна -->
-    <record id="provider_livechat" model="channel.provider">
-        <field name="name">LiveChat</field>
-        <field name="service">livechat</field>
+    <!-- Viber: токен -->
+    <record id="provider_viber" model="channel.provider">
+        <field name="name">Viber</field>
+        <field name="service">viber</field>
+        <field name="sequence">60</field>
+        <field name="category">main</field>
+        <field name="connect_method">token</field>
+        <field name="token_placeholder">Token from Viber Admin Panel</field>
+        <field name="help_url">https://partners.viber.com/</field>
+        <field name="value_line">Answer Viber messages from the same inbox.</field>
+        <field name="permission_line">You give access to the bot you create in the Viber Admin
+            Panel.</field>
+        <field name="connect_label">Connect Viber</field>
+        <field name="fallback_label">Viber Admin Panel</field>
+        <field name="fallback_url">https://partners.viber.com/</field>
+        <field name="description">Viber messenger. Connection via a bot token from the Viber
+            Admin Panel.</field>
+        <field name="precondition_ids">Create a bot in the Viber Admin Panel and get a token.</field>
+    </record>
+
+    <!-- Email: штатний Odoo (native) — вхідні/вихідні поштові сервери -->
+    <record id="provider_email" model="channel.provider">
+        <field name="name">Email</field>
+        <field name="service">email</field>
         <field name="sequence">70</field>
-        <field name="connect_method">widget</field>
-        <field name="description">Embedded chat on the website. No authorization needed — just
-            embed the widget.</field>
+        <field name="category">main</field>
+        <field name="connect_method">native</field>
+        <field name="help_url">
+            https://www.odoo.com/documentation/17.0/applications/general/email_communication.html</field>
+        <field name="value_line">Turn customer emails into conversations in Odoo.</field>
+        <field name="permission_line">You give access to the mailbox used for incoming mail.</field>
+        <field name="connect_label">Open Email settings</field>
+        <field name="fallback_label">Email docs</field>
+        <field name="fallback_url">
+            https://www.odoo.com/documentation/17.0/applications/general/email_communication.html</field>
+        <field name="description">Email is handled natively by Odoo: configure the incoming
+            and outgoing mail servers in the Odoo settings.</field>
+        <field name="precondition_ids">A mailbox and its IMAP/SMTP credentials.</field>
+    </record>
+
+    <!-- SMS: штатні модулі fayna_sms_base / fayna_sms_turbosms (native) -->
+    <!-- xmlid збережено від попередньої «SMS Chatbots», щоб не лишити сироту. -->
+    <record id="provider_sms_chatbots" model="channel.provider">
+        <field name="name">SMS</field>
+        <field name="service">sms</field>
+        <field name="sequence">75</field>
+        <field name="category">main</field>
+        <field name="connect_method">native</field>
+        <field name="help_url">https://apps.odoo.com/</field>
+        <field name="value_line">Send and receive SMS through your existing SMS gateway.</field>
+        <field name="permission_line">You give access to your SMS gateway account.</field>
+        <field name="connect_label">Open SMS settings</field>
+        <field name="fallback_label">SMS docs</field>
+        <field name="fallback_url">https://apps.odoo.com/</field>
+        <field name="description">SMS is handled by the fayna_sms_base and fayna_sms_turbosms
+            modules. Configure the gateway in the Odoo settings.</field>
+        <field name="precondition_ids">An SMS gateway account (e.g. TurboSMS).</field>
+    </record>
+
+    <!-- ============================================================
+         Категорія «Інтеграції з маркетплейсу» (ТЗ §2.2, §2.3-bis).
+         Усі — connect_method 'external': картка веде посиланням назовні,
+         кнопка «Перейти», статусу підключення немає.
+         ============================================================ -->
+
+    <!-- Telegram особистий: маркетплейс-інтеграція -->
+    <record id="provider_telegram_personal" model="channel.provider">
+        <field name="name">Telegram особистий</field>
+        <field name="service">telegram_personal</field>
+        <field name="sequence">80</field>
+        <field name="category">marketplace</field>
+        <field name="connect_method">external</field>
+        <field name="help_url">https://apps.odoo.com/</field>
+        <field name="value_line">Connect your personal Telegram account via a marketplace app.</field>
+        <field name="permission_line">You give access to your personal Telegram account.</field>
+        <field name="connect_label">Go to marketplace</field>
+        <field name="fallback_label">Marketplace</field>
+        <field name="fallback_url">https://apps.odoo.com/</field>
+        <field name="description">Personal Telegram integration available from the Odoo
+            marketplace.</field>
+    </record>
+
+    <!-- Viber особистий: маркетплейс-інтеграція -->
+    <record id="provider_viber_personal" model="channel.provider">
+        <field name="name">Viber особистий</field>
+        <field name="service">viber_personal</field>
+        <field name="sequence">90</field>
+        <field name="category">marketplace</field>
+        <field name="connect_method">external</field>
+        <field name="help_url">https://apps.odoo.com/</field>
+        <field name="value_line">Connect your personal Viber via a marketplace app.</field>
+        <field name="permission_line">You give access to your personal Viber account.</field>
+        <field name="connect_label">Go to marketplace</field>
+        <field name="fallback_label">Marketplace</field>
+        <field name="fallback_url">https://apps.odoo.com/</field>
+        <field name="description">Personal Viber integration available from the Odoo marketplace.</field>
+    </record>
+
+    <!-- LinkedIn Chatbots: маркетплейс-інтеграція -->
+    <record id="provider_linkedin_chatbots" model="channel.provider">
+        <field name="name">LinkedIn Chatbots</field>
+        <field name="service">linkedin</field>
+        <field name="sequence">100</field>
+        <field name="category">marketplace</field>
+        <field name="connect_method">external</field>
+        <field name="help_url">https://apps.odoo.com/</field>
+        <field name="value_line">Automate LinkedIn conversations with chatbot flows.</field>
+        <field name="permission_line">You give access to your LinkedIn company page.</field>
+        <field name="connect_label">Go to marketplace</field>
+        <field name="fallback_label">Marketplace</field>
+        <field name="fallback_url">https://apps.odoo.com/</field>
+        <field name="description">LinkedIn chatbot integration available from the Odoo marketplace.</field>
     </record>
 
 </odoo>

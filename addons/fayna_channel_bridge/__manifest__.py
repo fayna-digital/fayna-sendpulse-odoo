@@ -1,6 +1,6 @@
 {
     'name': 'Fayna Channel Bridge',
-    'version': '17.0.1.4.0',
+    'version': '17.0.1.5.0',
     'summary': 'Fayna Digital — own direct transport for Odoo chat channels',
     'description': """
         Own transport layer for DM channels on Odoo 17. Messages flow directly
@@ -10,9 +10,9 @@
         Fully working today — Telegram:
         - Connect wizard: enter the bot token from BotFather, the webhook is
           registered automatically (secret_token auth, route
-          /bridge/telegram/webhook/<webhook_id> — no bot token in the URL)
+          /bridge/telegram/webhook/<webhook_id> — no bot token in the URL).
         - Inbound messages, replies, retries and healthcheck — verified by a
-          live end-to-end test
+          live end-to-end test.
 
         Webhook handlers (inbound + HMAC signature check) also exist for
         Messenger, Instagram, WhatsApp, Viber, TikTok and LiveChat. These are
@@ -36,11 +36,21 @@
     'images': ['static/description/banner.png'],
     'price': 49,
     'currency': 'EUR',
-    # `web` прибрано: модуль не має ключа `assets` і жодних прямих посилань на
-    # web-моделі; `mail` сам залежить від `web`, тому він підтягується транзитивно.
+    # `web` додано явно: OWL-SPA «Підключити канали» (Фаза 1) реєструє client
+    # action у `registry.category("actions")` і залежить від web-сервісів
+    # (orm, action, dialog, notification). `mail` сам залежить від `web`, але
+    # явна залежність робить намір видимим і захищає від рефакторингу mail.
     'depends': [
         'mail',
+        'web',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'fayna_channel_bridge/static/src/channel_dashboard/channel_dashboard.js',
+            'fayna_channel_bridge/static/src/channel_dashboard/channel_dashboard.xml',
+            'fayna_channel_bridge/static/src/channel_dashboard/channel_dashboard.scss',
+        ],
+    },
     'external_dependencies': {
         'python': ['requests'],
     },
