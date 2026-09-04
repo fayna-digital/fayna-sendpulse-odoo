@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import json
 import logging
 
@@ -5,6 +7,27 @@ from odoo import http
 from odoo.http import Response, request
 
 _logger = logging.getLogger(__name__)
+
+
+def _verify_sendpulse_signature(raw_body, signature_header, webhook_secret):
+    """
+    Constant-time HMAC SHA256 verification of X-SendPulse-Signature header.
+    Signature format: sha256=<hexdigest>
+    """
+    if not signature_header or not webhook_secret or not raw_body:
+        return False
+    if not signature_header.startswith('sha256='):
+        return False
+    expected = (
+        'sha256='
+        + hmac.new(
+            webhook_secret.encode('utf-8'),
+            raw_body if isinstance(raw_body, bytes) else raw_body.encode('utf-8'),
+            hashlib.sha256,
+        ).hexdigest()
+    )
+    return hmac.compare_digest(expected, signature_header)
+
 
 # Типи подій SendPulse webhook
 EVENT_NEW_SUBSCRIBER = 'new_subscriber'
@@ -60,23 +83,22 @@ class SendpulseWebhookController(http.Controller):
             return Response(json.dumps(data), content_type='application/json', status=status)
 
         try:
-            # Token auth: налаштовується у ir.config_parameter → odoo_chatwoot_connector.webhook_token
-            # Додай ?token=SECRET до webhook URL в SendPulse
-            expected_token = (
+            # HMAC-SHA256 header-based auth: налаштовується у ir.config_parameter → odoo_chatwoot_connector.webhook_secret
+            webhook_secret = (
                 request.env['ir.config_parameter']
                 .sudo()
-                .get_param('odoo_chatwoot_connector.webhook_token', '')
+                .get_param('odoo_chatwoot_connector.webhook_secret', '')
             )
-            if expected_token:
-                provided_token = request.params.get('token', '')
-                if provided_token != expected_token:
+            raw = request.httprequest.data
+            if webhook_secret:
+                signature_header = request.httprequest.headers.get('X-SendPulse-Signature', '')
+                if not _verify_sendpulse_signature(raw, signature_header, webhook_secret):
                     _logger.warning(
-                        'SendPulse Odoo: невірний webhook token від %s',
+                        'SendPulse Odoo: невірна HMAC署名 від %s',
                         request.httprequest.remote_addr,
                     )
-                    return _json({'status': 'error', 'message': 'Unauthorized'})
+                    return _json({'status': 'error', 'message': 'Unauthorized'}, status=401)
 
-            raw = request.httprequest.data
             if not raw:
                 return _json({'status': 'error', 'message': 'Empty payload'})
             data = json.loads(raw)
