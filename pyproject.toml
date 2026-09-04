@@ -11,6 +11,8 @@ extend-exclude = [
     "*.po",
     "migrations",
     "static/lib",
+    # одноразові Playwright-зонди UX-аудиту: артефакти розслідування, не код модуля
+    "docs/ux_audit_p7",
 ]
 
 [tool.ruff.lint]

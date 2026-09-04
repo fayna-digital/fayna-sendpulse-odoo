@@ -169,25 +169,42 @@ grep '"version"' /opt/campscout/custom-addons/_src/fayna-sendpulse-odoo/addons/f
    ```
 5. Перевірка: `SELECT latest_version FROM ir_module_module WHERE name='fayna_channel_bridge';` → `17.0.1.6.0`.
 
-### Крок 4.4a — `-u` на копії прод-бази ПЕРЕД продом (вимога рев'ю)
-> Перед тим як чіпати прод, прогнати міграцію translate=True → jsonb на **копії**
-> прод-бази, щоб переконатись, що міграція проходить чисто на реальних даних.
+### Крок 4.4a — приймальний прогін `-u` НА STAGING (не на проді)
 
-1. Створити копію прод-бази:
-   ```bash
-   docker exec campscout_db pg_dump -U odoo campscout | docker exec -i campscout_db psql -U odoo -d campscout_mig_test
-   ```
-   (попередньо створити порожню `campscout_mig_test` через `createdb -U odoo campscout_mig_test`).
-2. Прогнати `-u` на копії (з `--db-filter=.*`, на запущеному контейнері):
-   ```bash
-   docker exec campscout_web odoo -c /etc/odoo/odoo.conf -d campscout_mig_test --db-filter=.* -u fayna_channel_bridge --stop-after-init
-   ```
-3. Перевірка: міграція пройшла без помилок, поля jsonb заповнені:
-   ```sql
-   SELECT name, latest_version, state FROM ir_module_module WHERE name='fayna_channel_bridge';
-   ```
-   → `installed`, `17.0.1.6.0`.
-4. Після успіху — видалити тестову копію: `docker exec campscout_db dropdb -U odoo campscout_mig_test`.
+> 🚫 **Виправлено 01.09.2026.** Попередня редакція цього кроку веліла робити
+> `pg_dump` копії прод-бази і прогін `-u` через `docker exec` **на прод-хості**.
+> Це прямо суперечить першому рядку `CLAUDE.md` цього репо:
+> «#4ZONES — НІКОЛИ не працювати напряму на сервері. Локально -> GitHub ->
+> staging -> prod. Жодних правок файлів/скриптів на сервері.»
+> Закон власника: **на прод іде лише готовий відтестований модуль**; тестових
+> прогонів на проді не буває — ні на прод-базі, ні на її копії, ні на прод-хості.
+
+**Де тестувати.** `staging-campscout`, БД `campscout`. Вона відтворює дефект
+точно: модуль там `17.0.1.4.0`, а xmlid `fayna_channel_bridge.action_channel_provider`
+лежить як `ir.actions.act_window` — рівно та колізія, що й на проді.
+
+**Чому саме staging, а не локальний docker і не CI.** Обидва ставлять модуль на
+ЧИСТУ базу (`-i`): xmlid створюється вперше, конфлікту немає, дефект класу
+«зміна моделі наявного xmlid» вони пропускають. Ловить лише **оновлення** бази,
+де старий запис уже існує.
+
+**Порядок:**
+1. Локально: `docker compose -f ci/docker-compose.test.yml up` — установка не зламалась.
+2. Push у git; CI (`.github/workflows/ci.yml`) зелений.
+3. Staging: `git pull` + `sudo chmod -R o+rX .`, далі
+   `docker exec campscout_web odoo -c <config> -d campscout -u fayna_channel_bridge --stop-after-init`
+   і рестарт.
+4. Перевірка на staging: у логах немає `ParseError` і `Failed to load registry`;
+   `SELECT latest_version FROM ir_module_module WHERE name='fayna_channel_bridge';`
+   -> `17.0.1.6.0`; екран «Connect channels» відкривається.
+5. Лише після зеленого staging — Кроки 4.3+4.4 на проді.
+
+🔴 **Відкрите питання, без якого крок не виконується:** staging тягне модуль з
+репо `VladSh77/fayna-channel-bridge` (гілка `main`, HEAD `da0379b`, версія
+`17.0.1.4.0`), а робота йде в `VladSh77/fayna-sendpulse-odoo` (гілка
+`feature/direct-transport`, HEAD `9d1e172`, версія `17.0.1.6.0`). Поки не
+вирішено, який репо канонічний, невідомо, куди пушити, щоб staging побачив код.
+Рішення власника не отримано.
 
 ### Крок 4.5 — Прибрати стару теку (після підтвердження)
 - **Виконувати того ж дня, що й Крок 4.4** — тримати вікно з двома однойменними
