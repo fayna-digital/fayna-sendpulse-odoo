@@ -303,9 +303,9 @@ Ten moduł jest częścią stosu Odoo Fayna Digital:
 |----------------|--------------|
 | [fayna-omnichannel-bridge](https://github.com/fayna-digital/fayna-omnichannel-bridge) | Abstrakcyjny agregator komunikatorów — sendpulse-odoo jest jednym z adapterów |
 | [fayna-zadarma-odoo](https://github.com/fayna-digital/fayna-zadarma-odoo) | Kanał głosowy (uzupełnia komunikatory) |
-| [campscout-management](https://github.com/VladSh77/campscout-management) | Warstwa pionowa CampScout — używa sendpulse-odoo dla wszystkich chat flow |
+| [fayna-campscout](https://github.com/fayna-digital/fayna-campscout) | Warstwa pionowa CampScout — używa sendpulse-odoo dla wszystkich chat flow |
 
-Dokumentacja architektury: [fayna-digital-docs](https://github.com/VladSh77/fayna-digital-docs) (prywatne).
+Dokumentacja architektury: `fayna-digital-docs` (repozytorium prywatne, dostęp wewnętrzny).
 
 ---
 
