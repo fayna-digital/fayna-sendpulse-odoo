@@ -112,7 +112,7 @@
 
                         <!-- Одна головна кнопка (ТЗ §2.2, §2.5) -->
                         <div class="o-fcb-actions d-flex align-items-center gap-2 mt-4">
-                            <button t-if="not activeProvider.is_connected"
+                            <button t-if="!activeProvider.is_connected"
                                 class="btn btn-primary"
                                 t-on-click="onClickConnect">
                                 <t t-esc="activeProvider.connect_label"/>
