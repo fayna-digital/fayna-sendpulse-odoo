@@ -351,6 +351,7 @@ class ChannelProvider(models.Model):
         }
 
     # ── RPC для OWL-SPA (ТЗ §2.3) ───────────────────────────────────────
+    @api.model
     def get_dashboard_data(self):
         """Повертає всі активні канали для лівої панелі і правої панелі SPA.
 
